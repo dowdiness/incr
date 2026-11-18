@@ -13,7 +13,7 @@ fn static_probe_subscriber_contains(
 }
 
 ///|
-fn static_probe_subscriber_count(rt : Runtime, dep : CellId) -> Int {
+fn static_probe_subscriber_count(rt : Runtime, dep : CellId) -> Int32 {
   match rt.core.cell_index[dep.id] {
     PullInput(idx) => rt.pull.inputs[idx].meta.subscribers.length()
     PullMemo(idx) | HybridMemo(idx) =>
@@ -104,7 +104,7 @@ test "panic static derived: rejects tracked reads during static recompute" {
 test "static derived: establishes computing runtime during recompute" {
   @kernel.set_current_computing_runtime_id(None)
   let rt = Runtime()
-  let seen_runtime : Ref[@incr_types.RuntimeId?] = { val: None }
+  let seen_runtime : Ref[@incr_types.RuntimeId?] = { val: None, }
   let static_derived = static_derived(
     rt,
     [],
@@ -212,9 +212,9 @@ test "static derived: compute failure clears in-progress and hooks" {
   let rt = Runtime()
   rt.on_derived_event(_evt => ())
   // Seeds accumulator hook state so the active-entry cleanup assertion is meaningful.
-  let _acc : Accumulator[Int] = Accumulator(rt)
-  let should_fail : Ref[Bool] = { val: true }
-  let derived : Derived[Int] = static_derived(
+  let _acc : Accumulator[Int32] = Accumulator(rt)
+  let should_fail : Ref[Bool] = { val: true, }
+  let derived : Derived[Int32] = static_derived(
     rt,
     [],
     () => {
@@ -251,7 +251,7 @@ test "static derived: compute failure clears in-progress and hooks" {
 ///|
 test "static derived: listener mutation is blocked during recompute" {
   let rt = Runtime()
-  let derived : Derived[Int] = static_derived(
+  let derived : Derived[Int32] = static_derived(
     rt,
     [],
     () => {
@@ -301,7 +301,7 @@ test "static derived: cycle reporting follows fixed deps" {
 ///|
 test "static derived: accumulator use fails explicitly" {
   let rt = Runtime()
-  let pushed : Accumulator[Int] = Accumulator(rt)
+  let pushed : Accumulator[Int32] = Accumulator(rt)
   let push_probe = static_derived(
     rt,
     [],
@@ -322,7 +322,7 @@ test "static derived: accumulator use fails explicitly" {
   inspect(push_failed, content="true")
   inspect(rt.static_recompute_depth, content="0")
 
-  let read_acc : Accumulator[Int] = Accumulator(rt)
+  let read_acc : Accumulator[Int32] = Accumulator(rt)
   let producer = Derived(rt, () => {
     read_acc.push(7)
     7
@@ -371,7 +371,7 @@ test "static derived: event hook pairs enter and completed" {
 ///|
 test "static derived: nested events drain after outer recompute" {
   let rt = Runtime()
-  let depths : Array[Int] = []
+  let depths : Array[Int32] = []
   rt.on_derived_event(_evt => depths.push(rt.static_recompute_depth))
   let input = Input(rt, 1)
   let child = static_derived_map1(input, x => x + 1)

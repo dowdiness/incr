@@ -34,7 +34,7 @@ test "restoration does not replay Action invocations" {
 test "semantic restoration rejection allocates no graph identity" {
   let before = Nodeflow::empty()
   let invalid : GraphDocument = {
-    wire: { version: 2, graph: before.state.graph, next_node: 0, nodes: [] },
+    wire: { version: 2, graph: before.state.graph, next_node: 0, nodes: [], },
   }
   match Nodeflow::restore(invalid, ObservationDemand::empty()) {
     Err(GraphRestorationRejection::UnsupportedVersion) => ()
@@ -48,16 +48,16 @@ test "semantic restoration rejection allocates no graph identity" {
 
 ///|
 fn wb_restoration_node(
-  id : Int,
+  id : Int32,
   descriptor : @application.NodeDescriptor,
-  bindings : Array[(Int, BindingTarget)],
+  bindings : Array[(Int32, BindingTarget)],
 ) -> DocumentNode {
-  { id, descriptor, bindings }
+  { id, descriptor, bindings, }
 }
 
 ///|
-fn wb_bound(graph : Int, node : Int, port : Int) -> BindingTarget {
-  BindingTarget::Bound({ graph, node, port })
+fn wb_bound(graph : Int32, node : Int32, port : Int32) -> BindingTarget {
+  BindingTarget::Bound({ graph, node, port, })
 }
 
 ///|
@@ -159,7 +159,7 @@ test "restoration accepts sparse non-monotonic provider identities" {
     (0, wb_bound(graph, 7, 2)),
   ])
   let document : GraphDocument = {
-    wire: { version: 1, graph, next_node: 1000001, nodes: [low, high, middle] },
+    wire: { version: 1, graph, next_node: 1000001, nodes: [low, high, middle], },
   }
   assert_eq(validate_document(document), Ok(()))
 }
@@ -186,7 +186,7 @@ test "restoration preserves semantic rejection order across document nodes" {
     [],
   )
   let validate = nodes => {
-    validate_document({ wire: { version: 1, graph, next_node: 901, nodes } })
+    validate_document({ wire: { version: 1, graph, next_node: 901, nodes, }, })
   }
   assert_eq(
     validate([wrong_type, missing_endpoint, number, boolean]),
@@ -216,7 +216,7 @@ test "late-invalid restoration fixture has a valid prefix" {
     (0, wb_bound(graph, 4, 2)),
   ])
   let document = nodes => GraphDocument::{
-    wire: { version: 1, graph, next_node: 4, nodes },
+    wire: { version: 1, graph, next_node: 4, nodes, },
   }
   assert_eq(validate_document(document([source, first, second])), Ok(()))
   assert_eq(

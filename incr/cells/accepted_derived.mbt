@@ -38,6 +38,7 @@
 ///|
 /// Status of a single committed-revision transition through the accept gate.
 /// Mirrors the spec's state-machine `Status` column.
+#derive(Eq)
 pub(all) enum AcceptStatus {
   /// No prior accepted value, candidate `Err` — nothing accepted yet.
   NoAccept
@@ -47,8 +48,12 @@ pub(all) enum AcceptStatus {
   AcceptedUnchanged
   /// Candidate `Err` while a prior accepted value exists — value retained.
   RetainedDueToError
-} derive(Eq)
+}
+
+///|
 pub extend AcceptStatus with Eq::{not_equal, equal}
+
+///|
 pub extend AcceptStatus with Show::{output, to_string}
 
 ///|
@@ -68,11 +73,14 @@ pub impl Show for AcceptStatus with fn output(self, logger) {
 /// retained accepted value, and the transition status. `current` carries the
 /// domain `Result[V, E]` (the read-error channel lives on the accessor return
 /// type, not here).
+#derive(Eq)
 pub struct AcceptedSnapshot[V, E] {
   current : Result[V, E]
   accepted : V?
   status : AcceptStatus
-} derive(Eq)
+}
+
+///|
 pub extend AcceptedSnapshot with Eq::{not_equal, equal}
 
 ///|
@@ -144,10 +152,10 @@ fn[V, E] AcceptedDerived::assemble(
   scope : Scope,
   candidate : Derived[Result[V, E]],
   same : (V, V) -> Bool,
-  label? : String = "accepted_derived",
+  label~ : String = "accepted_derived",
 ) -> AcceptedDerived[V, E] {
-  let accepted_slot : Ref[V?] = { val: None }
-  let last_status : Ref[AcceptStatus] = { val: NoAccept }
+  let accepted_slot : Ref[V?] = { val: None, }
+  let last_status : Ref[AcceptStatus] = { val: NoAccept, }
   // Eager accept fold: runs at construction and once per committed revision.
   // A graceful `candidate.get()` lets a Disposed read skip advancing without
   // aborting; a successful read (including a domain `Err(e)`) drives the state
@@ -157,7 +165,7 @@ fn[V, E] AcceptedDerived::assemble(
   // backdates the fold, not invalidating `accepted_cell`. The fold still RUNS
   // every committed revision, so the slot/status advance even with no accepted
   // read between a transient success and a later error.
-  let accept_input : Ref[Bool] = { val: false }
+  let accept_input : Ref[Bool] = { val: false, }
   let fold = scope.eager_derived(() => {
     match candidate.get() {
       Ok(domain) => {
@@ -203,7 +211,7 @@ fn[V, E] AcceptedDerived::assemble(
   // gc anchor: `watch()` primes `accepted_cell`, recording its upstream
   // dependencies (fold -> candidate) before any `Runtime::gc()`.
   let anchor = scope.add_watch(accepted_cell.watch())
-  { candidate, accepted_cell, fold, accepted_slot, last_status, scope, anchor }
+  { candidate, accepted_cell, fold, accepted_slot, last_status, scope, anchor, }
 }
 
 ///|

@@ -1,51 +1,72 @@
 ///|
 /// Serializable, UI-friendly representation of the fixed typed spreadsheet demo.
+#derive(ToJson, Debug)
 pub struct FixedScenarioViewModel {
-  schema_version : Int
+  schema_version : Int32
   title : String
   summary : String
   cells : Array[String]
   steps : Array[WorksheetStepViewModel]
   extensions : Map[String, String]
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend FixedScenarioViewModel with ToJson::{to_json}
+
+///|
 pub extend FixedScenarioViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable representation of one demo step.
+#derive(ToJson, Debug)
 pub struct WorksheetStepViewModel {
-  index : Int
+  index : Int32
   operation : String
   outcome : String
   trace : TraceViewModel
   snapshots : Array[CellSnapshotChangeViewModel]
   extensions : Map[String, String]
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend WorksheetStepViewModel with ToJson::{to_json}
+
+///|
 pub extend WorksheetStepViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable trace buckets for formula cells affected by a step.
+#derive(ToJson, Debug)
 pub struct TraceViewModel {
   recomputed : Array[String]
   changed : Array[String]
   unchanged : Array[String]
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend TraceViewModel with ToJson::{to_json}
+
+///|
 pub extend TraceViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable before/after snapshot for one visible cell.
+#derive(ToJson, Debug)
 pub struct CellSnapshotChangeViewModel {
   cell : String
   before : CellSnapshotViewModel
   after : CellSnapshotViewModel
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend CellSnapshotChangeViewModel with ToJson::{to_json}
+
+///|
 pub extend CellSnapshotChangeViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable snapshot of one cell at one side of a step.
+#derive(ToJson, Debug)
 pub struct CellSnapshotViewModel {
   cell : String
   present : Bool
@@ -56,8 +77,12 @@ pub struct CellSnapshotViewModel {
   installed_dependencies : Array[String]
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend CellSnapshotViewModel with ToJson::{to_json}
+
+///|
 pub extend CellSnapshotViewModel with Debug::{to_repr}
 
 ///|
@@ -88,7 +113,7 @@ pub fn fixed_scenario_json() -> String {
 /// Converts a raw operation-runner result to the serializable UI view model.
 fn WorksheetStepResult::to_view_model(
   self : WorksheetStepResult,
-  index : Int,
+  index : Int32,
 ) -> WorksheetStepViewModel {
   {
     index,

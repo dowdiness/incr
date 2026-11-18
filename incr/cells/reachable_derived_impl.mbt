@@ -62,7 +62,9 @@ fn[T : Eq] ReachableDerived::read_honest(
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     return Err(ReadError::disposed(self.cell_id))
   }
-  let result = self.read_result_inner() catch {
+  let result : Result[T, ReadError] = Ok(self.read_result_inner()) catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
+      Err(ReadError::cycle(e))
     e => {
       self.rt.drain_pending_events_direct()
       abort("ReachableDerived compute raised: " + e.to_string())
@@ -71,17 +73,14 @@ fn[T : Eq] ReachableDerived::read_honest(
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
-  match result {
-    Ok(v) => Ok(v)
-    Err(e) => Err(ReadError::cycle(e))
-  }
+  result
 }
 
 ///|
 /// Internal: ReachableDerived verification logic shared by Result and aborting reads.
 fn[T : Eq] ReachableDerived::read_result_inner(
   self : ReachableDerived[T],
-) -> Result[T, CycleError] raise Failure {
+) -> T raise Error {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("ReachableDerived::get called on a disposed reachable derived cell")
   }
@@ -95,54 +94,41 @@ fn[T : Eq] ReachableDerived::read_result_inner(
       "ReachableDerived::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
   }
-  let result = match self.value {
+  match self.value {
     None => {
-      let r = self.force_recompute()
-      match r {
-        Ok(value) => {
-          Tracker::record_dependency(self.rt, self.cell_id)
-          Ok(value)
-        }
-        Err(e) => Err(e)
-      }
+      let value = self.force_recompute()
+      Tracker::record_dependency(self.rt, self.cell_id)
+      value
     }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
         Tracker::record_dependency(self.rt, self.cell_id)
-        Ok(cached)
+        cached
       } else {
-        let vr = self.rt.pull_verify(self.cell_id)
-        match vr {
-          Ok(_) => {
-            Tracker::record_dependency(self.rt, self.cell_id)
-            match self.value {
-              Some(v) => Ok(v)
-              None =>
-                abort(
-                  "unreachable: value is always Some after successful verification",
-                )
-            }
-          }
-          Err(e) => Err(e)
+        self.rt.pull_verify(self.cell_id)
+        Tracker::record_dependency(self.rt, self.cell_id)
+        match self.value {
+          Some(v) => v
+          None =>
+            abort(
+              "unreachable: value is always Some after successful verification",
+            )
         }
       }
     }
   }
-  result
 }
 
 ///|
 fn[T : Eq] ReachableDerived::read_permissive(self : ReachableDerived[T]) -> T {
-  let r = self.read_result_inner() catch {
+  self.read_result_inner() catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
+      abort(e.format_path())
     e => {
       self.rt.drain_pending_events_direct()
       abort("ReachableDerived compute raised: " + e.to_string())
     }
-  }
-  match r {
-    Ok(value) => value
-    Err(e) => abort(e.format_path())
   }
 }
 
@@ -150,20 +136,15 @@ fn[T : Eq] ReachableDerived::read_permissive(self : ReachableDerived[T]) -> T {
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 fn[T : Eq] ReachableDerived::force_recompute(
   self : ReachableDerived[T],
-) -> Result[T, CycleError] raise Failure {
-  match
-    self.rt.memo_force_recompute(self.cell_id, self.compute, self.value, fn(
-      a,
-      b,
-    ) {
-      a == b
-    }) {
-    Ok(new_value) => {
-      self.value = Some(new_value)
-      Ok(new_value)
-    }
-    Err(e) => Err(e)
-  }
+) -> T raise Error {
+  let new_value = self.rt.memo_force_recompute(
+    self.cell_id,
+    self.compute,
+    self.value,
+    (a, b) => a == b,
+  )
+  self.value = Some(new_value)
+  new_value
 }
 
 ///|
@@ -171,22 +152,18 @@ fn[T : Eq] ReachableDerived::force_recompute(
 /// Stored as the type-erased `compute` closure in `MemoData`.
 fn[T : Eq] ReachableDerived::recompute_inner(
   self : ReachableDerived[T],
-) -> Result[Bool, CycleError] raise Failure {
+) -> Bool raise Error {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
-  match self.force_recompute() {
-    Ok(_) => {
-      let changed = cell.meta.changed_at != old_changed_at
-      if changed {
-        match cell.on_change {
-          Some(f) => @kernel.run_callback(self.rt.core, f)
-          None => ()
-        }
-      }
-      Ok(changed)
+  ignore(self.force_recompute())
+  let changed = cell.meta.changed_at != old_changed_at
+  if changed {
+    match cell.on_change {
+      Some(f) => @kernel.run_callback(self.rt.core, f)
+      None => ()
     }
-    Err(e) => Err(e)
   }
+  changed
 }
 
 ///|
@@ -201,35 +178,6 @@ fn[T : Eq] ReachableDerived::get_strict_honest(
     )
   }
   self.read_honest()
-}
-
-///|
-/// Package-private strict Result read. Requires an active tracked context.
-/// Compatibility projection of `get_strict_honest` onto `CycleError`.
-fn[T : Eq] ReachableDerived::get_strict_result(
-  self : ReachableDerived[T],
-) -> Result[T, CycleError] {
-  guard self.rt.core.tracking.stack.length() > 0 else {
-    abort(
-      "ReachableDerived::get() called outside tracked context. Use ReachableDerived::read(), ReachableDerived::read_or_abort(), or ReachableDerived::watch() to read from outside the graph.",
-    )
-  }
-  self.read_result()
-}
-
-///|
-/// Package-private permissive Result read. Records a dependency when tracked.
-/// Compatibility projection of `read_honest` onto `CycleError`: a disposed read
-/// aborts (legacy contract), a cycle is `Err(CycleError)`.
-fn[T : Eq] ReachableDerived::read_result(
-  self : ReachableDerived[T],
-) -> Result[T, CycleError] {
-  match self.read_honest() {
-    Ok(v) => Ok(v)
-    Err(ReadError::Cycle(e)) => Err(e)
-    Err(ReadError::Disposed(_)) =>
-      abort("ReachableDerived::get called on a disposed reachable derived cell")
-  }
 }
 
 ///|

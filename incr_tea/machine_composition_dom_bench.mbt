@@ -3,9 +3,9 @@
 priv struct MachineTiming {
   mut started_ms : Double
   mut transition_ms : Double
-  mut transition_calls : Int
+  mut transition_calls : Int32
   mut view_ms : Double
-  mut view_calls : Int
+  mut view_calls : Int32
 }
 
 ///|
@@ -108,15 +108,15 @@ fn machine_mutation_begin(probe : MachineMutationProbe) -> Unit {
 #cfg(target="js")
 extern "js" fn machine_mutation_finish(
   probe : MachineMutationProbe,
-  iteration : Int,
-  child_count : Int,
+  iteration : Int32,
+  child_count : Int32,
   transition_ms : Double,
   view_ms : Double,
   patch_ms : Double,
   flush_total_ms : Double,
-  transition_calls : Int,
-  view_calls : Int,
-  patch_calls : Int,
+  transition_calls : Int32,
+  view_calls : Int32,
+  patch_calls : Int32,
 ) -> String =
   #| (probe, iteration, childCount, transitionMs, viewMs, patchMs, flushTotalMs, transitionCalls, viewCalls, patchCalls) => {
   #|   const records = probe.observer.takeRecords();
@@ -179,7 +179,7 @@ extern "js" fn machine_mutation_finish(
 
 ///|
 #cfg(target="js")
-extern "js" fn machine_dom_row(host : DomElement, id : Int) -> DomElement =
+extern "js" fn machine_dom_row(host : DomElement, id : Int32) -> DomElement =
   #| (host, id) => {
   #|   const row = host.querySelector(`.machine-row[data-semantic-id="${CSS.escape(String(id))}"]`);
   #|   if (!row) throw new Error(`missing machine row ${id}`);
@@ -221,8 +221,8 @@ extern "js" fn machine_dom_structural_json(
 ///|
 #cfg(target="js")
 extern "js" fn machine_dom_install_api(
-  structural : (Int) -> String,
-  benchmark : (Int, Int, Int) -> String,
+  structural : (Int32) -> String,
+  benchmark : (Int32, Int32, Int32) -> String,
 ) -> Unit =
   #| (structural, benchmark) => {
   #|   globalThis.__incrTeaMachineComposition = {
@@ -241,7 +241,7 @@ extern "js" fn machine_dom_install_api(
 
 ///|
 #cfg(target="js")
-fn machine_dom_initial_model(child_count : Int) -> MachineParentModel {
+fn machine_dom_initial_model(child_count : Int32) -> MachineParentModel {
   let model = Ref(machine_initial_model())
   for id in 0..<child_count {
     model.val = machine_transition(model.val, MachineAdd(id, "row \{id}")).model
@@ -314,7 +314,9 @@ priv struct MachineDomHarness {
 
 ///|
 #cfg(target="js")
-fn MachineDomHarness::MachineDomHarness(child_count : Int) -> MachineDomHarness {
+fn MachineDomHarness::MachineDomHarness(
+  child_count : Int32,
+) -> MachineDomHarness {
   let host = dom_bench_create_host()
   let observer = MachineProgramObserver()
   let timing = MachineTiming()
@@ -352,8 +354,8 @@ fn MachineDomHarness::reset_timing(self : MachineDomHarness) -> Unit {
 #cfg(target="js")
 fn MachineDomHarness::record(
   self : MachineDomHarness,
-  iteration : Int,
-  child_count : Int,
+  iteration : Int32,
+  child_count : Int32,
   action : MachineAction,
 ) -> String {
   self.reset_timing()
@@ -386,7 +388,7 @@ fn MachineDomHarness::dispose(self : MachineDomHarness) -> Unit {
 
 ///|
 #cfg(target="js")
-fn machine_dom_run_structural(child_count : Int) -> String {
+fn machine_dom_run_structural(child_count : Int32) -> String {
   let harness = MachineDomHarness(child_count)
   let before = [
     for id in 0..<child_count => machine_dom_row(harness.host, id)
@@ -442,9 +444,9 @@ fn machine_dom_run_structural(child_count : Int) -> String {
 ///|
 #cfg(target="js")
 fn machine_dom_run_benchmark(
-  child_count : Int,
-  warmup : Int,
-  iterations : Int,
+  child_count : Int32,
+  warmup : Int32,
+  iterations : Int32,
 ) -> String {
   let harness = MachineDomHarness(child_count)
   harness.observer.set_enabled(false)

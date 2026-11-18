@@ -1,6 +1,6 @@
 ///|
-fn bench_output(graph : Int, node : Int, port : Int) -> PortReference {
-  { graph, node, port }
+fn bench_output(graph : Int32, node : Int32, port : Int32) -> PortReference {
+  { graph, node, port, }
 }
 
 ///|
@@ -19,7 +19,7 @@ priv enum RestorationBenchmarkShape {
 
 ///|
 fn restoration_document_fixture(
-  size : Int,
+  size : Int32,
   shape : RestorationBenchmarkShape,
 ) -> GraphDocument {
   let graph = 784
@@ -31,7 +31,7 @@ fn restoration_document_fixture(
     },
   ]
   for id in 1..<size {
-    let bindings : Array[(Int, BindingTarget)] = match shape {
+    let bindings : Array[(Int32, BindingTarget)] = match shape {
       Independent => []
       Linear | LateInvalid =>
         [
@@ -52,7 +52,7 @@ fn restoration_document_fixture(
             }),
           ),
         ]
-      FanOut => [(0, BindingTarget::Bound({ graph, node: 0, port: 0 }))]
+      FanOut => [(0, BindingTarget::Bound({ graph, node: 0, port: 0, }))]
       Dense =>
         [
           (
@@ -67,7 +67,7 @@ fn restoration_document_fixture(
               },
             }),
           ),
-          (1, BindingTarget::Bound({ graph, node: 0, port: 0 })),
+          (1, BindingTarget::Bound({ graph, node: 0, port: 0, })),
         ]
     }
     nodes.push({
@@ -80,7 +80,7 @@ fn restoration_document_fixture(
       bindings,
     })
   }
-  { wire: { version: 1, graph, next_node: size, nodes } }
+  { wire: { version: 1, graph, next_node: size, nodes, }, }
 }
 
 ///|
@@ -104,7 +104,7 @@ fn preflight_late_invalid_fixture(document : GraphDocument) -> Unit {
     abort("late-invalid restoration benchmark has no invalid tail")
   }
   let prefix : GraphDocument = {
-    wire: { ..document.wire, nodes: prefix_nodes },
+    wire: { ..document.wire, nodes: prefix_nodes, },
   }
   guard validate_document(prefix) is Ok(_) else {
     abort("late-invalid restoration benchmark has an invalid prefix")
@@ -126,14 +126,14 @@ fn bench_full_restoration(b : @bench.T, document : GraphDocument) -> Unit {
 }
 
 ///|
-fn independent_number_fixture(size : Int) -> Nodeflow raise {
+fn independent_number_fixture(size : Int32) -> Nodeflow raise {
   let graph = next_graph_id()
   let nodes = Array::makei(size, id => {
     id,
     descriptor: @application.NodeDescriptor::Number(value=id),
     bindings: [],
   })
-  bench_restore({ wire: { version: 1, graph, next_node: size, nodes } })
+  bench_restore({ wire: { version: 1, graph, next_node: size, nodes, }, })
 }
 
 ///|
@@ -145,7 +145,7 @@ struct RebindFixture {
 }
 
 ///|
-fn rebind_fixture(size : Int) -> RebindFixture raise {
+fn rebind_fixture(size : Int32) -> RebindFixture raise {
   let graph_id = next_graph_id()
   let first_node = size - 3
   let second_node = size - 2
@@ -170,7 +170,7 @@ fn rebind_fixture(size : Int) -> RebindFixture raise {
   })
   {
     graph: bench_restore({
-      wire: { version: 1, graph: graph_id, next_node: size, nodes },
+      wire: { version: 1, graph: graph_id, next_node: size, nodes, },
     }),
     input: bench_output(graph_id, target_node, 0),
     first,
@@ -186,7 +186,10 @@ struct ChainFixture {
 }
 
 ///|
-fn chain_fixture(total_size : Int, active_depth : Int) -> ChainFixture raise {
+fn chain_fixture(
+  total_size : Int32,
+  active_depth : Int32,
+) -> ChainFixture raise {
   let graph_id = next_graph_id()
   let nodes : Array[DocumentNode] = [
     {
@@ -221,15 +224,15 @@ fn chain_fixture(total_size : Int, active_depth : Int) -> ChainFixture raise {
   }
   {
     graph: bench_restore({
-      wire: { version: 1, graph: graph_id, next_node: total_size, nodes },
+      wire: { version: 1, graph: graph_id, next_node: total_size, nodes, },
     }),
-    source: { graph: graph_id, node: 0, parameter: 0 },
+    source: { graph: graph_id, node: 0, parameter: 0, },
     output: previous,
   }
 }
 
 ///|
-fn bench_snapshot(b : @bench.T, size : Int) -> Unit raise {
+fn bench_snapshot(b : @bench.T, size : Int32) -> Unit raise {
   let graph = independent_number_fixture(size)
   b.bench(() => {
     let snapshot = graph.snapshot(ObservationDemand::empty()) catch {
@@ -241,7 +244,7 @@ fn bench_snapshot(b : @bench.T, size : Int) -> Unit raise {
 }
 
 ///|
-fn bench_rebind(b : @bench.T, size : Int) -> Unit raise {
+fn bench_rebind(b : @bench.T, size : Int32) -> Unit raise {
   let fixture = rebind_fixture(size)
   let mut use_second = false
   b.bench(() => {
@@ -249,7 +252,7 @@ fn bench_rebind(b : @bench.T, size : Int) -> Unit raise {
     let provider = if use_second { fixture.second } else { fixture.first }
     let result = fixture.graph.apply(
       GraphEdit::BindingChangeSet(changes=[
-        { target: fixture.input, binding: Bound(provider) },
+        { target: fixture.input, binding: Bound(provider), },
       ]),
       ObservationDemand::empty(),
     ) catch {
@@ -263,8 +266,8 @@ fn bench_rebind(b : @bench.T, size : Int) -> Unit raise {
 ///|
 fn bench_chain_edit(
   b : @bench.T,
-  total_size : Int,
-  active_depth : Int,
+  total_size : Int32,
+  active_depth : Int32,
 ) -> Unit raise {
   let fixture = chain_fixture(total_size, active_depth)
   let demand = ObservationDemand::empty().request(fixture.output)

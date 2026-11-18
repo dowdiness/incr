@@ -2,7 +2,7 @@
 test "input view: tracks source updates" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
-  let view : @incr.InputView[Int] = input[:]
+  let view : @incr.InputView[Int32] = input[:]
   let derived = @incr.Derived(rt, () => view.get() + 1)
 
   inspect(derived.read_or_abort(), content="11")
@@ -15,7 +15,7 @@ test "input view: tracks source updates" {
 test "input view: field view peek does not track" {
   let rt = @incr.Runtime()
   let field = @incr.InputField(rt, 3)
-  let view : @incr.InputView[Int] = field[:]
+  let view : @incr.InputView[Int32] = field[:]
   inspect(field.as_view().get(), content="3")
   let mut runs = 0
   let derived = @incr.Derived(rt, () => {

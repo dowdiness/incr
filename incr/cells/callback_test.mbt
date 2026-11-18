@@ -2,8 +2,8 @@
 test "Input callback fires on value change" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let called : Ref[Bool] = { val: false }
-  let received : Ref[Int] = { val: 0 }
+  let called : Ref[Bool] = { val: false, }
+  let received : Ref[Int32] = { val: 0, }
   s.on_change(v => {
     called.val = true
     received.val = v
@@ -17,7 +17,7 @@ test "Input callback fires on value change" {
 test "Input callback does not fire on same value" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 5)
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int32] = { val: 0, }
   s.on_change(_v => count.val = count.val + 1)
   s.set(5)
   inspect(count.val, content="0")
@@ -29,7 +29,7 @@ test "Derived callback fires on get() when value changed" {
   let s = Input::Input(rt, 1)
   let d = Derived::Derived(rt, () => s.get() * 10)
   let _ = d.read_or_abort()
-  let received : Ref[Int] = { val: 0 }
+  let received : Ref[Int32] = { val: 0, }
   d.on_change(v => received.val = v)
   s.set(2)
   let _ = d.read_or_abort()
@@ -42,7 +42,7 @@ test "Derived callback does not fire when value backdated" {
   let s = Input::Input(rt, 2)
   let d = Derived::Derived(rt, () => s.get() * 0 + 1)
   let _ = d.read_or_abort()
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int32] = { val: 0, }
   d.on_change(_v => count.val = count.val + 1)
   s.set(4)
   let _ = d.read_or_abort()
@@ -53,7 +53,7 @@ test "Derived callback does not fire when value backdated" {
 test "per-cell callback fires before global on_change" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let order : Ref[String] = { val: "" }
+  let order : Ref[String] = { val: "", }
   s.on_change(_v => order.val = order.val + "cell ")
   rt.set_on_change(() => order.val = order.val + "global")
   s.set(1)
@@ -67,7 +67,7 @@ test "input callback sees fresh push-reactive state before memo read" {
   let r = EagerDerived::EagerDerived(rt, () => s.get() * 10)
   let d = Derived::Derived(rt, () => r.get() + 1)
   inspect(d.read_or_abort(), content="11")
-  let seen_at_callback : Ref[Int] = { val: -1 }
+  let seen_at_callback : Ref[Int32] = { val: -1, }
   s.on_change(_v => seen_at_callback.val = d.read_or_abort())
   s.set(2)
   inspect(seen_at_callback.val, content="21")
@@ -78,7 +78,7 @@ test "input callback sees fresh push-reactive state before memo read" {
 test "clear_on_change removes Input callback" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int32] = { val: 0, }
   s.on_change(_v => count.val = count.val + 1)
   s.set(1)
   s.clear_on_change()
@@ -91,8 +91,8 @@ test "batch: per-cell callbacks fire once per changed input" {
   let rt = Runtime::Runtime()
   let s1 = Input::Input(rt, 0)
   let s2 = Input::Input(rt, 0)
-  let count1 : Ref[Int] = { val: 0 }
-  let count2 : Ref[Int] = { val: 0 }
+  let count1 : Ref[Int32] = { val: 0, }
+  let count2 : Ref[Int32] = { val: 0, }
   s1.on_change(_v => count1.val = count1.val + 1)
   s2.on_change(_v => count2.val = count2.val + 1)
   rt.batch(() => {
@@ -133,8 +133,8 @@ test "batch: callback re-entrancy — set inside on_change is handled correctly"
   let rt = Runtime::Runtime()
   let s1 = Input::Input(rt, 0)
   let s2 = Input::Input(rt, 0)
-  let count1 : Ref[Int] = { val: 0 }
-  let count2 : Ref[Int] = { val: 0 }
+  let count1 : Ref[Int32] = { val: 0, }
+  let count2 : Ref[Int32] = { val: 0, }
   s2.on_change(_v => count2.val = count2.val + 1)
   s1.on_change(_v => {
     count1.val = count1.val + 1
@@ -152,7 +152,7 @@ test "batch: callback sees fresh push-reactive state before memo read" {
   let r = EagerDerived::EagerDerived(rt, () => s.get() * 10)
   let d = Derived::Derived(rt, () => r.get() + 1)
   inspect(d.read_or_abort(), content="11")
-  let seen_at_callback : Ref[Int] = { val: -1 }
+  let seen_at_callback : Ref[Int32] = { val: -1, }
   s.on_change(_v => seen_at_callback.val = d.read_or_abort())
   rt.batch(() => s.set(2))
   inspect(seen_at_callback.val, content="21")
@@ -166,7 +166,7 @@ test "batch: global on_change fires exactly once when callback sets another inpu
   let rt = Runtime::Runtime()
   let s1 = Input::Input(rt, 0)
   let s2 = Input::Input(rt, 0)
-  let global_count : Ref[Int] = { val: 0 }
+  let global_count : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => global_count.val = global_count.val + 1)
   s1.on_change(_v => s2.set(1))
   rt.batch(() => s1.set(1))
@@ -181,7 +181,7 @@ test "clear_on_change removes Derived callback" {
   let s = Input::Input(rt, 0)
   let d = Derived::Derived(rt, () => s.get() * 2)
   let _ = d.read_or_abort()
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int32] = { val: 0, }
   d.on_change(_v => count.val = count.val + 1)
   s.set(1)
   let _ = d.read_or_abort()

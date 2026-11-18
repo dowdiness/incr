@@ -34,7 +34,7 @@ pub fn Effect::Effect(rt : Runtime, f : () -> Unit) -> Effect {
     },
   )
   rt.push.node_count = rt.push.node_count + 1
-  let effect : Effect = { cell_id, rt }
+  let effect : Effect = { cell_id, rt, }
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)
   f()
@@ -47,6 +47,8 @@ pub fn Effect::Effect(rt : Runtime, f : () -> Unit) -> Effect {
   }
   effect
 }
+
+///|
 pub extend Effect with InputFieldOwner::{cell_ids}
 
 ///|

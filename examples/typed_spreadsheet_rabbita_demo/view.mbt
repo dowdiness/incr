@@ -208,7 +208,6 @@ fn view_formula_bar(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
         attrs=@html.Attrs::build()
           .aria_label("Formula text for \{model.selected_cell}")
           .aria_keyshortcuts("Enter Escape"),
-        @html.nothing,
       ),
       @html.div(class="formula-actions", [
         @html.button(
@@ -367,8 +366,8 @@ fn view_grid_cell(
   emit : @rabbita.Emit[Msg],
   model : Model,
   cell : String,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
 ) -> @rabbita.Html {
   let snapshot = grid_snapshot_for(model, cell)
   let selected = selected_cell_is(model, cell)
@@ -417,7 +416,6 @@ fn view_cell_content(
         .aria_label("Edit \{cell} directly")
         .on_keydown(event => inline_edit_key_cmd(emit, cell, event))
         .on_blur(_ => emit(ApplyInlineEdit(cell))),
-      @html.nothing,
     )
   } else {
     @html.span(class="cell-value", grid_cell_display_value(snapshot))

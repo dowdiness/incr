@@ -5,12 +5,14 @@ version = "0.1.0"
 preferred_target = "js"
 
 import {
+  "moonbitlang/regexp@0.3.6",
+  "moonbit-community/prettyprinter@0.4.11",
   "dowdiness/incr@0.15.1",
   "dowdiness/incr_tea@0.1.0",
-  "moonbit-community/rabbita@0.12.3",
+  "moonbit-community/rabbita@0.17.0",
   "mizchi/luna@0.25.1",
   "mizchi/js@0.13.0",
   "mizchi/signals@0.6.4",
-  "moonbitlang/async@0.21.0",
+  "moonbitlang/async@0.22.9",
   "mizchi/js_browser@0.13.0",
 }

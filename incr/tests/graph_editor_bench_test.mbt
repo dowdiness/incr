@@ -4,8 +4,8 @@
 ///|
 fn[T] bench_graph_parameter_edit(
   b : @bench.T,
-  node_count : Int,
-  make_pipeline : (Int) -> GraphEditorPipeline[T],
+  node_count : Int32,
+  make_pipeline : (Int32) -> GraphEditorPipeline[T],
 ) -> Unit {
   let pipeline = make_pipeline(node_count)
   let mut step = 0
@@ -20,8 +20,8 @@ fn[T] bench_graph_parameter_edit(
 ///|
 fn bench_graph_viewport_pan_zoom(
   b : @bench.T,
-  node_count : Int,
-  make_pipeline : (Int) -> GraphEditorPipeline[GraphRender],
+  node_count : Int32,
+  make_pipeline : (Int32) -> GraphEditorPipeline[GraphRender],
 ) -> Unit {
   let pipeline = make_pipeline(node_count)
   let mut step = 0
@@ -34,7 +34,7 @@ fn bench_graph_viewport_pan_zoom(
 }
 
 ///|
-fn bench_graph_hover_inspector(b : @bench.T, node_count : Int) -> Unit {
+fn bench_graph_hover_inspector(b : @bench.T, node_count : Int32) -> Unit {
   let pipeline = graph_editor_sparse_inspector_pipeline(node_count)
   let mut step = 0
   b.bench(fn() {
@@ -48,8 +48,8 @@ fn bench_graph_hover_inspector(b : @bench.T, node_count : Int) -> Unit {
 ///|
 fn bench_graph_live_drag(
   b : @bench.T,
-  node_count : Int,
-  make_pipeline : (Int) -> GraphEditorPipeline[GraphRender],
+  node_count : Int32,
+  make_pipeline : (Int32) -> GraphEditorPipeline[GraphRender],
 ) -> Unit {
   let pipeline = make_pipeline(node_count)
   let mut frame = 0
@@ -66,8 +66,8 @@ fn bench_graph_live_drag(
 ///|
 fn bench_graph_move_commit(
   b : @bench.T,
-  node_count : Int,
-  make_pipeline : (Int) -> GraphEditorPipeline[GraphRender],
+  node_count : Int32,
+  make_pipeline : (Int32) -> GraphEditorPipeline[GraphRender],
 ) -> Unit {
   let pipeline = make_pipeline(node_count)
   let mut frame = 0

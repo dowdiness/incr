@@ -28,7 +28,7 @@
 ///|
 /// Builds N (id, label) item pairs. `id` is the keyed-child key.
 #cfg(target="js")
-fn bench_make_items(n : Int, tag : String) -> Array[(String, String)] {
+fn bench_make_items(n : Int32, tag : String) -> Array[(String, String)] {
   [
     for i in 0..<n => ("item-\{i}", "\{tag} \{i}")
   ]
@@ -63,13 +63,13 @@ fn bench_list_html(items : Array[(String, String)]) -> Html[RendererMsg] {
 priv struct IncrListHarness {
   runtime : @incr.Runtime
   items : @incr.InputField[Array[(String, String)]]
-  unrelated : @incr.InputField[Int]
+  unrelated : @incr.InputField[Int32]
   view_watch : @incr.Watch[Html[RendererMsg]]
 }
 
 ///|
 #cfg(target="js")
-fn IncrListHarness::new(n : Int) -> IncrListHarness {
+fn IncrListHarness::new(n : Int32) -> IncrListHarness {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)
   let items = scope.input_field(
@@ -83,7 +83,7 @@ fn IncrListHarness::new(n : Int) -> IncrListHarness {
   let view_root = scope.derived(view, label="bench.view")
   let view_watch = scope.add_watch(view_root.watch())
   ignore(view_watch.read_or_abort()) // prime
-  { runtime, items, unrelated, view_watch }
+  { runtime, items, unrelated, view_watch, }
 }
 
 ///|
@@ -92,7 +92,7 @@ fn IncrListHarness::new(n : Int) -> IncrListHarness {
 #cfg(target="js")
 fn IncrListHarness::touch_unread(
   self : IncrListHarness,
-  v : Int,
+  v : Int32,
 ) -> Html[RendererMsg] {
   self.runtime.batch(() => self.unrelated.set(v))
   self.view_watch.read_or_abort()
@@ -129,16 +129,16 @@ fn IncrListHarness::touch_read(
 #cfg(target="js")
 priv struct DirtyCell {
   arrs : Array[Array[(String, String)]]
-  mut parity : Int
+  mut parity : Int32
   mut prev : Html[RendererMsg]
 }
 
 ///|
 #cfg(target="js")
-fn DirtyCell::new(n : Int) -> DirtyCell {
+fn DirtyCell::new(n : Int32) -> DirtyCell {
   let a = bench_make_items(n, "Item")
   let b = bench_make_items(n, "Alt")
-  { arrs: [a, b], parity: 0, prev: bench_list_html(a) }
+  { arrs: [a, b], parity: 0, prev: bench_list_html(a), }
 }
 
 ///|
@@ -304,15 +304,15 @@ test "list N=256: dirty-cell read mutation (rebuild + early-exit diff)" (
 /// floor the keyed planner is measured against — its construction is O(new_len)
 /// with zero matching work, but it buys zero DOM reuse.
 #cfg(target="js")
-fn naive_positional_plan(old_len : Int, new_len : Int) -> KeyedPlan {
-  let steps : Array[Int?] = Array::make(new_len, None)
+fn naive_positional_plan(old_len : Int32, new_len : Int32) -> KeyedPlan {
+  let steps : Array[Int32?] = Array::make(new_len, None)
   let removals = [ for i in 0..<old_len => i ]
-  { steps, removals }
+  { steps, removals, }
 }
 
 ///|
 #cfg(target="js")
-fn bench_keys(n : Int) -> Array[String] {
+fn bench_keys(n : Int32) -> Array[String] {
   [
     for i in 0..<n => "item-\{i}"
   ]

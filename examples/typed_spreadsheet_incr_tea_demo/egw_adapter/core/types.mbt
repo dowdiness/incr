@@ -21,15 +21,21 @@ pub fn CollaborativeSheetId::value(self : CollaborativeSheetId) -> String {
 
 ///|
 /// The register value stored by the projection.
+#derive(Eq, Debug)
 pub(all) enum CellRegister {
   Source(String)
   Deleted
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellRegister with Eq::{not_equal, equal}
+
+///|
 pub extend CellRegister with Debug::{to_repr}
 
 ///|
 /// A diagnostic produced while decoding or parsing a register.
+#derive(Eq, Debug)
 pub(all) enum ProjectionDiagnostic {
   MalformedJson(String)
   NonObject(String)
@@ -40,18 +46,27 @@ pub(all) enum ProjectionDiagnostic {
   UnknownTag(String, String)
   ExtraFields(String, ReadOnlyArray[String])
   InvalidSource(String, String, @demo.FormulaTextParseError)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend ProjectionDiagnostic with Eq::{not_equal, equal}
+
+///|
 pub extend ProjectionDiagnostic with Debug::{to_repr}
 
 ///|
 /// The complete observation of one register payload.
+#derive(Eq, Debug)
 pub(all) enum RegisterObservation {
   Unset
   Decoded(CellRegister)
   Invalid(ProjectionDiagnostic)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend RegisterObservation with Eq::{not_equal, equal}
+
+///|
 pub extend RegisterObservation with Debug::{to_repr}
 
 ///|
@@ -67,7 +82,7 @@ pub fn RawRegisterEntry::RawRegisterEntry(
   address : String,
   payload : String?,
 ) -> RawRegisterEntry {
-  { address, payload }
+  { address, payload, }
 }
 
 ///|
@@ -157,7 +172,7 @@ pub fn DraftObservation::DraftObservation(
   address : String,
   text : String,
 ) -> DraftObservation {
-  { address, text }
+  { address, text, }
 }
 
 ///|
@@ -174,13 +189,18 @@ pub fn DraftObservation::text(self : DraftObservation) -> String {
 
 ///|
 /// State retained for one canonical cell.
+#derive(Eq, Debug)
 pub struct CellProjectionState {
   address : String
   last_seen_register : RegisterObservation
   last_good_source : String?
   diagnostic : ProjectionDiagnostic?
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellProjectionState with Eq::{not_equal, equal}
+
+///|
 pub extend CellProjectionState with Debug::{to_repr}
 
 ///|
@@ -215,10 +235,15 @@ pub fn CellProjectionState::diagnostic(
 
 ///|
 /// Immutable projection state.
+#derive(Eq, Debug)
 pub struct ProjectionState {
   cells : ReadOnlyArray[CellProjectionState]
-} derive(Eq, Debug)
+}
+
+///|
 pub extend ProjectionState with Eq::{not_equal, equal}
+
+///|
 pub extend ProjectionState with Debug::{to_repr}
 
 ///|
@@ -262,7 +287,7 @@ fn ProjectionState::canonical(
         })
     }
   }
-  ProjectionState::{ cells: ReadOnlyArray::from_array(cells) }
+  ProjectionState::{ cells: ReadOnlyArray::from_array(cells), }
 }
 
 ///|

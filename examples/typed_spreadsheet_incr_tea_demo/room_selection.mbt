@@ -14,10 +14,11 @@ enum RoomSelectionEvent {
 
 ///|
 /// Semantic room-selection failures formatted only by the browser shell.
+#derive(Eq, Debug)
 enum RoomSelectionRejection {
   SecureRoomCreationFailed
   InvalidWebSocketInvitation
-} derive(Eq, Debug)
+}
 
 ///|
 /// Shell work selected by the deterministic room chooser reducer.
@@ -39,7 +40,7 @@ fn reduce_room_selection(
       RoomSelectionEvent::CreateGenerated(
         capability,
         host_peer_text,
-        join_peer_text
+        join_peer_text,
       ),
     ) => {
       let capability = match @collab_core.validate_room_capability(capability) {

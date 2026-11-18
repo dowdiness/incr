@@ -45,7 +45,7 @@ test "docs target api: direct runtime read and update" {
 test "docs target api: input views restrict authority at API boundaries" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10, label="input")
-  let view : @incr.InputView[Int] = input[:]
+  let view : @incr.InputView[Int32] = input[:]
   let doubled = @incr.Derived(rt, () => view.get() * 2, label="doubled")
 
   inspect(doubled.read_or_abort(), content="20")
@@ -70,7 +70,7 @@ test "docs target api: scope constructors own lifecycle" {
 test "docs target api: committed-change callback skips same-value input set" {
   let rt = @incr.Runtime()
   let quantity = @incr.Input(rt, 10, label="quantity")
-  let changes : Ref[Int] = { val: 0 }
+  let changes : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => changes.val = changes.val + 1)
 
   quantity.set(12)
@@ -81,13 +81,17 @@ test "docs target api: committed-change callback skips same-value input set" {
 }
 
 ///|
-test "docs target api: batch_result rolls back raised errors" {
+test "docs target api: batch rolls back raised errors" {
   let rt = @incr.Runtime()
   let amount = @incr.Input(rt, 100, label="amount")
-  let result = rt.batch_result(fn() raise {
-    amount.set(999)
-    raise TargetApiBatchStop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      amount.set(999)
+      raise TargetApiBatchStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(amount.get(), content="100")

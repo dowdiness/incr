@@ -32,16 +32,16 @@ extern "js" fn promise_response(response : Response) -> JsPromise[Response] =
   #| response => Promise.resolve(response)
 
 ///|
-const MAX_ROOM_CONNECTIONS : Int = 2
+const MAX_ROOM_CONNECTIONS : Int32 = 2
 
 ///|
-const MAX_MESSAGE_BYTES : Int = 256 * 1024
+const MAX_MESSAGE_BYTES : Int32 = 256 * 1024
 
 ///|
-const RATE_WINDOW_MS : Int = 10_000
+const RATE_WINDOW_MS : Int32 = 10_000
 
 ///|
-const MAX_MESSAGES_PER_WINDOW : Int = 60
+const MAX_MESSAGES_PER_WINDOW : Int32 = 60
 
 ///|
 fn room_fetch(state : DurableObjectState, request : Request) -> Response {

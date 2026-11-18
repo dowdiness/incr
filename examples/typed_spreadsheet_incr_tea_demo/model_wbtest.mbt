@@ -350,7 +350,7 @@ fn ModelContextFixture::dispatch(self : ModelContextFixture, msg : Msg) -> Unit 
 fn ModelContextFixture::snapshot(
   self : ModelContextFixture,
   region? : Array[String],
-  max_cells? : Int = 64,
+  max_cells~ : Int32 = 64,
 ) -> @demo.AiContextSnapshot {
   self.state.val.ai_context_snapshot(region?, max_cells~)
 }

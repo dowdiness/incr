@@ -24,7 +24,7 @@
 test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     reactives.push(
@@ -43,7 +43,7 @@ test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
 test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     reactives.push(
@@ -67,7 +67,7 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 0)
   let derived = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     reactives.push(
@@ -94,7 +94,7 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
   let rt = @incr.Runtime()
   let hot_sig = @incr.Input(rt, 0)
   let cold_sig = @incr.Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   // 10 reactives subscribed to the hot input
   for i = 0; i < 10; i = i + 1 {
     let idx = i
@@ -128,7 +128,7 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 0)
   // Build balanced binary tree of Memos, 1023 nodes total (depth 10)
-  let nodes : Array[@incr.Derived[Int]] = []
+  let nodes : Array[@incr.Derived[Int32]] = []
   nodes.push(@incr.Derived::Derived(rt, fn() { sig.get() })) // root @ idx 0
   for i = 0; i < 511; i = i + 1 {
     let parent = nodes[i]
@@ -138,7 +138,7 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
     nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + ri }))
   }
   // Attach a leaf EagerDerived to each of the 512 deepest nodes (indices 511..1022)
-  let leaves : Array[@incr.EagerDerived[Int]] = []
+  let leaves : Array[@incr.EagerDerived[Int32]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
     leaves.push(

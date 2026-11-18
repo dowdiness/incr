@@ -1,17 +1,19 @@
 ///|
 /// The closed set of executable application node declarations.
+#derive(Eq, Debug)
 pub(all) enum NodeDescriptor {
-  Number(value~ : Int)
+  Number(value~ : Int32)
   Boolean(value~ : Bool)
   Add
   Multiply
   SafeDivide
   Display
-  OptionalOffset(value~ : Int)
-} derive(Eq, Debug)
+  OptionalOffset(value~ : Int32)
+}
 
 ///|
 /// The semantic kind of a node descriptor.
+#derive(Eq, Debug)
 pub(all) enum NodeKind {
   Number
   Boolean
@@ -20,70 +22,79 @@ pub(all) enum NodeKind {
   SafeDivide
   Display
   OptionalOffset
-} derive(Eq, Debug)
+}
 
 ///|
 /// A value type carried by an application port.
+#derive(Eq, Debug)
 pub(all) enum PortValueType {
   Number
   Boolean
-} derive(Eq, Debug)
+}
 
 ///|
 /// A typed authored parameter value.
+#derive(Eq, Debug)
 pub(all) enum ParameterValue {
-  Number(Int)
+  Number(Int32)
   Boolean(Bool)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A typed failure produced by a number formula.
+#derive(Eq, Debug)
 pub(all) enum FormulaFailure {
   DivisionByZero
-} derive(Eq, Debug)
+}
 
 ///|
 /// The current result of a number formula.
+#derive(Eq, Debug)
 pub(all) enum NumberFormulaOutcome {
-  Success(Int)
+  Success(Int32)
   Failure(FormulaFailure)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Consumer data carried by a current output.
+#derive(Eq, Debug)
 pub(all) enum OutputData {
   Number(NumberFormulaOutcome)
   Boolean(Bool)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The command emitted by the Display action.
+#derive(Eq, Debug)
 pub(all) enum Command {
-  RecordNumber(Int)
-} derive(Eq, Debug)
+  RecordNumber(Int32)
+}
 
 ///|
 /// The closed application decision made by an action.
+#derive(Eq, Debug)
 pub(all) enum ApplicationDecision {
   Success(Command)
   ApplicationRefusal(FormulaFailure)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Metadata for one ordered input or output port.
+#derive(Eq, Debug)
 pub(all) struct PortSpecification {
   value_type : PortValueType
   required : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Immutable metadata needed to lower a descriptor into a graph.
+#derive(Eq, Debug)
 pub(all) struct NodeSpecification {
   inputs : ReadOnlyArray[PortSpecification]
   outputs : ReadOnlyArray[PortSpecification]
   parameters : ReadOnlyArray[ParameterValue]
-  action_count : Int
-} derive(Eq, Debug)
+  action_count : Int32
+}
 
 ///|
 /// Returns the descriptor's stable kind.
@@ -104,9 +115,9 @@ pub fn NodeDescriptor::kind(self : NodeDescriptor) -> NodeKind {
 pub fn NodeDescriptor::specification(
   self : NodeDescriptor,
 ) -> NodeSpecification {
-  let number = { value_type: PortValueType::Number, required: true }
-  let optional = { value_type: PortValueType::Number, required: false }
-  let output_number = { value_type: PortValueType::Number, required: false }
+  let number = { value_type: PortValueType::Number, required: true, }
+  let optional = { value_type: PortValueType::Number, required: false, }
+  let output_number = { value_type: PortValueType::Number, required: false, }
   match self {
     Number(value~) =>
       {
@@ -119,7 +130,7 @@ pub fn NodeDescriptor::specification(
       {
         inputs: ReadOnlyArray::from_array([]),
         outputs: ReadOnlyArray::from_array([
-          { value_type: PortValueType::Boolean, required: false },
+          { value_type: PortValueType::Boolean, required: false, },
         ]),
         parameters: ReadOnlyArray::from_array([ParameterValue::Boolean(value)]),
         action_count: 0,
@@ -160,7 +171,7 @@ pub fn NodeDescriptor::parameter_values(
 /// Returns a descriptor with one authored parameter replaced, when valid.
 pub fn NodeDescriptor::with_parameter(
   self : NodeDescriptor,
-  ordinal : Int,
+  ordinal : Int32,
   value : ParameterValue,
 ) -> NodeDescriptor? {
   if ordinal != 0 {
@@ -220,7 +231,7 @@ pub fn evaluate_safe_divide(
 pub fn evaluate_optional_offset(
   required : NumberFormulaOutcome,
   optional : NumberFormulaOutcome?,
-  offset : Int,
+  offset : Int32,
 ) -> NumberFormulaOutcome {
   match required {
     Failure(error) => Failure(error)
@@ -271,13 +282,14 @@ pub fn encode_descriptor_json(descriptor : NodeDescriptor) -> String {
 
 ///|
 /// Errors returned by descriptor JSON decoding.
+#derive(Eq, Debug)
 pub(all) enum DescriptorDecodeError {
   MalformedJson
   WrongShape
-} derive(Eq, Debug)
+}
 
 ///|
-fn json_int(value : Json) -> Int? {
+fn json_int(value : Json) -> Int32? {
   match value {
     Json::Number(value, ..) if value == value.to_int().to_double() =>
       Some(value.to_int())

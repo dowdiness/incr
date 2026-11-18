@@ -1,9 +1,10 @@
 ///|
 /// Human-facing context with no equality or stable formatting contract.
+#derive(Debug)
 pub struct Diagnostic {
   priv message_text : String
   priv help_text : String?
-} derive(Debug)
+}
 
 ///|
 /// Returns the actionable failure description.
@@ -24,6 +25,7 @@ fn diagnostic(message : String, help? : String) -> Diagnostic {
 
 ///|
 /// Structural failures reported by Store and QueryContext gets.
+#derive(Debug)
 pub suberror ReadError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
@@ -32,25 +34,27 @@ pub suberror ReadError {
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
-} derive(Debug)
+}
 
 ///|
 /// Structural failures while creating or closing a Region.
+#derive(Debug)
 pub suberror RegionError {
   ClosedRegion(Diagnostic)
   MutationDuringEvaluation(Diagnostic)
   MutationDuringTransaction(Diagnostic)
-} derive(Debug)
+}
 
 ///|
 /// Structural failures while staging or publishing a Transaction.
+#derive(Debug)
 pub suberror TransactionError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
   ExpiredTransaction(Diagnostic)
   TransactionDuringEvaluation(Diagnostic)
   NestedTransaction(Diagnostic)
-} derive(Debug)
+}
 
 ///|
 fn read_store_cross_store() -> ReadError {
@@ -93,7 +97,7 @@ fn read_cycle(definition_path : String) -> ReadError {
 }
 
 ///|
-fn read_evaluation_limit_exceeded(limit : UInt) -> ReadError {
+fn read_evaluation_limit_exceeded(limit : UInt32) -> ReadError {
   EvaluationLimitExceeded(
     diagnostic(
       "Evaluation reached this Store's active Query limit of \{limit}.",

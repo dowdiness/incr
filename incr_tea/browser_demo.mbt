@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 #cfg(target="js")
 enum DemoMsg {
   CounterIncrement
@@ -39,8 +40,12 @@ enum DemoMsg {
   TimerTouchUnrelated
   TimerTickFast
   TimerTickSlow
-} derive(Eq, Debug)
+}
+
+///|
 pub extend DemoMsg with Eq::{not_equal, equal}
+
+///|
 pub extend DemoMsg with Debug::{to_repr}
 
 ///|

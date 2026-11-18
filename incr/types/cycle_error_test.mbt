@@ -1,7 +1,7 @@
 ///|
 test "path returns a copy: mutation cannot desync format_path" {
-  let cell = CellId::{ runtime_id: RuntimeId(0), id: 1 }
-  let other = CellId::{ runtime_id: RuntimeId(0), id: 2 }
+  let cell = CellId::{ runtime_id: RuntimeId(0), id: 1, }
+  let other = CellId::{ runtime_id: RuntimeId(0), id: 2, }
   let e = CycleError::new(cell, [cell, other, cell], [
     Some("a"),
     None,

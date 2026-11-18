@@ -1,25 +1,35 @@
 ///|
 /// Messages understood by the Incremental TEA counter demo.
+#derive(Eq, Debug)
 pub(all) enum CounterMsg {
   Increment
   IncrementTwice
   Decrement
   Reset
   SetTitle(String)
-  SetCount(Int)
-  SetUnrelated(Int)
-  SetBoth(next_count~ : Int, next_title~ : String)
-} derive(Eq, Debug)
+  SetCount(Int32)
+  SetUnrelated(Int32)
+  SetBoth(next_count~ : Int32, next_title~ : String)
+}
+
+///|
 pub extend CounterMsg with Eq::{not_equal, equal}
+
+///|
 pub extend CounterMsg with Debug::{to_repr}
 
 ///|
 /// Pure view data produced by the counter's tracked view computation.
+#derive(Eq, Debug)
 pub(all) struct CounterView {
   title : String
-  count : Int
-} derive(Eq, Debug)
+  count : Int32
+}
+
+///|
 pub extend CounterView with Eq::{not_equal, equal}
+
+///|
 pub extend CounterView with Debug::{to_repr}
 
 ///|
@@ -30,9 +40,9 @@ pub extend CounterView with Debug::{to_repr}
 /// updating `unrelated` leaves the view root fresh.
 pub struct CounterApp {
   priv program : Program[CounterMsg, CounterView]
-  priv count : @incr.InputField[Int]
+  priv count : @incr.InputField[Int32]
   priv title : @incr.InputField[String]
-  priv unrelated : @incr.InputField[Int]
+  priv unrelated : @incr.InputField[Int32]
 }
 
 ///|
@@ -96,7 +106,7 @@ pub fn CounterApp::with_runtime(runtime : @incr.Runtime) -> CounterApp {
     view,
     label="counter.view",
   )
-  { program, count, title, unrelated }
+  { program, count, title, unrelated, }
 }
 
 ///|
@@ -120,7 +130,7 @@ pub fn CounterApp::view_or_abort(self : CounterApp) -> CounterView {
 ///|
 /// Returns the current committed count field without recording a dependency,
 /// or `None` after disposal.
-pub fn CounterApp::count(self : CounterApp) -> Int? {
+pub fn CounterApp::count(self : CounterApp) -> Int32? {
   if !self.is_disposed() {
     Some(self.count.peek())
   } else {
@@ -142,7 +152,7 @@ pub fn CounterApp::title(self : CounterApp) -> String? {
 ///|
 /// Returns the current committed unrelated field without recording a dependency,
 /// or `None` after disposal.
-pub fn CounterApp::unrelated(self : CounterApp) -> Int? {
+pub fn CounterApp::unrelated(self : CounterApp) -> Int32? {
   if !self.is_disposed() {
     Some(self.unrelated.peek())
   } else {

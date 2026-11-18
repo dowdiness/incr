@@ -83,9 +83,10 @@ pub fn[Msg] ul(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Ar
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct Attribute {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Attribute::equal(Self, Self) -> Bool
 pub fn Attribute::not_equal(Self, Self) -> Bool
 pub fn Attribute::to_repr(Self) -> @debug.Repr
@@ -135,9 +136,10 @@ pub fn[Msg] BrowserRootActivationController::hide(Self[Msg], BrowserRoot[Msg]) -
 pub fn[Msg : Eq] BrowserRootActivationController::prewarm(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRootActivationController::show(Self[Msg], BrowserRoot[Msg]) -> Unit
 
+#derive(Eq, @debug.Debug)
 pub struct CheckedInputId {
   name : String
-} derive(Eq, @debug.Debug)
+}
 pub fn CheckedInputId::CheckedInputId(String) -> Self
 pub fn CheckedInputId::equal(Self, Self) -> Bool
 pub fn CheckedInputId::not_equal(Self, Self) -> Bool
@@ -162,40 +164,43 @@ pub struct CounterApp {
   // private fields
 }
 pub fn CounterApp::CounterApp() -> Self
-pub fn CounterApp::count(Self) -> Int?
+pub fn CounterApp::count(Self) -> Int32?
 pub fn CounterApp::dispatch(Self, CounterMsg) -> Bool
 pub fn CounterApp::dispose(Self) -> Unit
 pub fn CounterApp::is_disposed(Self) -> Bool
 pub fn CounterApp::runtime(Self) -> @cells.Runtime
 pub fn CounterApp::title(Self) -> String?
-pub fn CounterApp::unrelated(Self) -> Int?
+pub fn CounterApp::unrelated(Self) -> Int32?
 pub fn CounterApp::view(Self) -> CounterView?
 pub fn CounterApp::view_or_abort(Self) -> CounterView
 pub fn CounterApp::with_runtime(@cells.Runtime) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CounterMsg {
   Increment
   IncrementTwice
   Decrement
   Reset
   SetTitle(String)
-  SetCount(Int)
-  SetUnrelated(Int)
-  SetBoth(next_count~ : Int, next_title~ : String)
-} derive(Eq, @debug.Debug)
+  SetCount(Int32)
+  SetUnrelated(Int32)
+  SetBoth(next_count~ : Int32, next_title~ : String)
+}
 pub fn CounterMsg::equal(Self, Self) -> Bool
 pub fn CounterMsg::not_equal(Self, Self) -> Bool
 pub fn CounterMsg::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CounterView {
   title : String
-  count : Int
-} derive(Eq, @debug.Debug)
+  count : Int32
+}
 pub fn CounterView::equal(Self, Self) -> Bool
 pub fn CounterView::not_equal(Self, Self) -> Bool
 pub fn CounterView::to_repr(Self) -> @debug.Repr
 
-type DemoMsg derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type DemoMsg
 pub fn DemoMsg::equal(Self, Self) -> Bool
 pub fn DemoMsg::not_equal(Self, Self) -> Bool
 pub fn DemoMsg::to_repr(Self) -> @debug.Repr
@@ -203,16 +208,18 @@ pub fn DemoMsg::to_repr(Self) -> @debug.Repr
 #external
 pub type DomElement
 
+#derive(Eq, @debug.Debug)
 pub struct EventBinding[Msg] {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn[Msg : Eq] EventBinding::equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : Eq] EventBinding::not_equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : @debug.Debug] EventBinding::to_repr(Self[Msg]) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Html[Msg] {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn[Msg : Eq] Html::equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : Eq] Html::not_equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : @debug.Debug] Html::to_repr(Self[Msg]) -> @debug.Repr
@@ -223,9 +230,10 @@ pub struct KeyEventDispatch[Msg] {
 pub fn[Msg] KeyEventDispatch::actions(prevent_default? : Bool, stop_propagation? : Bool) -> Self[Msg]
 pub fn[Msg] KeyEventDispatch::message(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> Self[Msg]
 
+#derive(Eq, @debug.Debug)
 pub struct KeyEventId {
   name : String
-} derive(Eq, @debug.Debug)
+}
 pub fn KeyEventId::KeyEventId(String) -> Self
 pub fn KeyEventId::equal(Self, Self) -> Bool
 pub fn KeyEventId::not_equal(Self, Self) -> Bool
@@ -242,29 +250,30 @@ pub struct KeyPayload {
 }
 pub fn KeyPayload::KeyPayload(String, String, Bool, Bool, Bool, Bool, Bool) -> Self
 
+#derive(Eq, @debug.Debug)
 pub struct PointerEventId {
   name : String
-} derive(Eq, @debug.Debug)
+}
 pub fn PointerEventId::PointerEventId(String) -> Self
 pub fn PointerEventId::equal(Self, Self) -> Bool
 pub fn PointerEventId::not_equal(Self, Self) -> Bool
 pub fn PointerEventId::to_repr(Self) -> @debug.Repr
 
 pub struct PointerPayload {
-  pointer_id : Int
+  pointer_id : Int32
   pointer_type : String
   client_x : Double
   client_y : Double
   offset_x : Double
   offset_y : Double
-  button : Int
-  buttons : Int
+  button : Int32
+  buttons : Int32
   alt_key : Bool
   ctrl_key : Bool
   meta_key : Bool
   shift_key : Bool
 }
-pub fn PointerPayload::PointerPayload(Int, String, Double, Double, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Self
+pub fn PointerPayload::PointerPayload(Int32, String, Double, Double, Double, Double, Int32, Int32, Bool, Bool, Bool, Bool) -> Self
 
 pub struct Program[Msg, View] {
   // private fields
@@ -284,44 +293,47 @@ pub struct RenderStats {
   // private fields
 }
 pub fn RenderStats::RenderStats() -> Self
-pub fn RenderStats::activation_flushes(Self) -> Int
+pub fn RenderStats::activation_flushes(Self) -> Int32
 pub fn RenderStats::add(Self, Self) -> Self
-pub fn RenderStats::frame_flushes(Self) -> Int
-pub fn RenderStats::inactive_skipped_flushes(Self) -> Int
-pub fn RenderStats::patch_attempts(Self) -> Int
-pub fn RenderStats::skipped_patches(Self) -> Int
-pub fn RenderStats::view_recomputes(Self) -> Int
+pub fn RenderStats::frame_flushes(Self) -> Int32
+pub fn RenderStats::inactive_skipped_flushes(Self) -> Int32
+pub fn RenderStats::patch_attempts(Self) -> Int32
+pub fn RenderStats::skipped_patches(Self) -> Int32
+pub fn RenderStats::view_recomputes(Self) -> Int32
 
 pub(all) struct RootStats {
   label : String
-  view_recomputes : Int
-  patch_attempts : Int
-  skipped_patches : Int
+  view_recomputes : Int32
+  patch_attempts : Int32
+  skipped_patches : Int32
 }
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct SubKey {
   namespace_id : String
   identity : String
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn SubKey::SubKey(String, String) -> Self
 pub fn SubKey::equal(Self, Self) -> Bool
-pub fn SubKey::hash(Self) -> Int
+pub fn SubKey::hash(Self) -> Int32
 pub fn SubKey::hash_combine(Self, Hasher) -> Unit
 pub fn SubKey::not_equal(Self, Self) -> Bool
 pub fn SubKey::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SubSpec[Msg] {
-  Timer(Int, Msg)
+  Timer(Int32, Msg)
   WindowKeydown(String, Msg)
   AnimationFrame(Msg)
-} derive(Eq, @debug.Debug)
+}
 pub fn[Msg : Eq] SubSpec::equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : Eq] SubSpec::not_equal(Self[Msg], Self[Msg]) -> Bool
 pub fn[Msg : @debug.Debug] SubSpec::to_repr(Self[Msg]) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ValueEventId {
   name : String
-} derive(Eq, @debug.Debug)
+}
 pub fn ValueEventId::ValueEventId(String) -> Self
 pub fn ValueEventId::equal(Self, Self) -> Bool
 pub fn ValueEventId::not_equal(Self, Self) -> Bool

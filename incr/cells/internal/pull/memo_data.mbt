@@ -6,7 +6,7 @@
 /// memo and returns whether the value changed.
 pub(all) struct MemoData {
   meta : CellMeta
-  compute : () -> Result[Bool, CycleError] raise Failure
+  compute : () -> Bool raise Error
   mut verified_at : Revision
   mut dependencies : Array[CellId]
   mut in_progress : Bool
@@ -26,10 +26,23 @@ pub(all) struct MemoData {
     @incr_types.Revision,
   ]
 }
+
+///|
 pub extend MemoData with HasCellMeta::{meta}
+
+///|
 pub extend MemoData with CellOps::{
-  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
-  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+  cell_id,
+  changed_at,
+  set_changed_at,
+  subscribers,
+  label,
+  durability,
+  level,
+  dep_changed_since,
+  push_reachable_count,
+  gc_role,
+  gc_dependencies,
 }
 
 ///|

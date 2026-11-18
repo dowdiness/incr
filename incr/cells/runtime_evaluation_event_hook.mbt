@@ -1,6 +1,6 @@
 ///|
 priv struct DerivedRebuildStart {
-  dependency_count_before : Int
+  dependency_count_before : Int32
   changed_at_before : Revision
   verified_at_before : Revision
   had_been_computed_before : Bool

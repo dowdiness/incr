@@ -7,7 +7,7 @@ pub(all) enum SheetOp {
   SetFormulaAst(
     @typed_spreadsheet.CellId,
     @typed_spreadsheet.CellType,
-    @typed_spreadsheet.Formula
+    @typed_spreadsheet.Formula,
   )
   /// Delete one cell from the worksheet.
   Delete(@typed_spreadsheet.CellId)
@@ -56,8 +56,8 @@ pub struct WorksheetStepResult {
 pub fn run_op(
   sheet : @typed_spreadsheet.Worksheet,
   operation : SheetOp,
-  capture? : Array[@typed_spreadsheet.CellId] = [],
-  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
+  capture~ : Array[@typed_spreadsheet.CellId] = [],
+  trace_cells~ : Array[@typed_spreadsheet.CellId] = [],
 ) -> WorksheetStepResult {
   run_op_with_apply(sheet, operation, capture, trace_cells, fn() {
     operation.apply(sheet)
@@ -74,8 +74,8 @@ pub fn run_op(
 pub fn run_batched_op(
   sheet : @typed_spreadsheet.Worksheet,
   operation : SheetOp,
-  capture? : Array[@typed_spreadsheet.CellId] = [],
-  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
+  capture~ : Array[@typed_spreadsheet.CellId] = [],
+  trace_cells~ : Array[@typed_spreadsheet.CellId] = [],
 ) -> WorksheetStepResult {
   run_op_with_apply(sheet, operation, capture, trace_cells, fn() {
     let outcome = Ref(None)
@@ -152,7 +152,7 @@ fn build_snapshot_changes(
 ) -> Array[CellSnapshotChange] {
   let changes = []
   for index in 0..<ids.length() {
-    changes.push({ id: ids[index], before: before[index], after: after[index] })
+    changes.push({ id: ids[index], before: before[index], after: after[index], })
   }
   changes
 }

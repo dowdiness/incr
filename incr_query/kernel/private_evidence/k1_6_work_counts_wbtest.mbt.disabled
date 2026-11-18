@@ -88,7 +88,7 @@ test "K1.6b failures and cycles count work without installing failed memos" {
   assert_eq(failing.core.memo.get(()).unwrap().memo_id, memo_id)
 
   let cycle_trigger = region.source(1)
-  let self_view : Ref[View[Int]?] = Ref(None)
+  let self_view : Ref[View[Int32]?] = Ref(None)
   let cyclic = region.query((ctx, _unit : Unit) => {
     let trigger_value = ctx.get(cycle_trigger.view())
     if trigger_value == 0 {

@@ -1,16 +1,16 @@
 ///|
-priv struct ProgramMountHandle(Int)
+priv struct ProgramMountHandle(Int32)
 
 ///|
 priv struct ProgramMountRegistration {
-  id : Int
+  id : Int32
   schedule : () -> Unit
 }
 
 ///|
 fn release_program_mount(
   registrations : Array[ProgramMountRegistration],
-  id : Int,
+  id : Int32,
 ) -> (Array[ProgramMountRegistration], Bool, Bool) {
   let found = registrations.any(registration => registration.id == id)
   guard found else { return (registrations, false, false) }
@@ -32,7 +32,7 @@ pub struct Program[Msg, View] {
   priv messages : @queue.Queue[Msg]
   priv after_flush : @queue.Queue[((Cmd[Msg]) -> Unit) -> Unit]
   priv mut mount_registrations : Array[ProgramMountRegistration]
-  priv mut next_mount_id : Int
+  priv mut next_mount_id : Int32
   priv mut is_draining : Bool
   priv view_watch : @incr.Watch[View]
   priv subscriptions_watch : @incr.Watch[Subscriptions[Msg]]?
@@ -196,7 +196,7 @@ fn[Msg, View] Program::register_mount(
   }
   let handle = ProgramMountHandle(self.next_mount_id)
   self.next_mount_id = self.next_mount_id + 1
-  self.mount_registrations.push({ id: handle.0, schedule })
+  self.mount_registrations.push({ id: handle.0, schedule, })
   handle
 }
 

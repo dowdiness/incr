@@ -3,7 +3,7 @@
 fn SheetState::ai_context_snapshot(
   self : SheetState,
   region? : Array[String],
-  max_cells? : Int = 64,
+  max_cells~ : Int32 = 64,
 ) -> @demo.AiContextSnapshot {
   let selected_cell = self.selected_cell.peek()
   let source = match region {
@@ -56,7 +56,7 @@ fn SheetState::ai_context_cell(
 ///|
 fn SheetState::latest_ai_context_history(
   self : SheetState,
-  max_items : Int,
+  max_items : Int32,
 ) -> (@demo.AiContextTrace?, @demo.AiContextEvidence?) {
   match (self.trace.peek(), self.evidence.peek()) {
     (Some(trace), Some(evidence)) => {

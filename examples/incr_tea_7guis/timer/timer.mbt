@@ -1,19 +1,22 @@
 ///|
 priv struct Model {
-  elapsed : Int
-  duration : Int
+  elapsed : Int32
+  duration : Int32
   running : Bool
-  frames : Int
+  frames : Int32
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   Tick
   Frame
   Reset
   SetDuration(String)
   SetRunning(Bool)
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -25,7 +28,7 @@ priv struct App {
 ///|
 fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
-  let state = Ref({ elapsed: 0, duration: 10000, running: true, frames: 0 })
+  let state = Ref({ elapsed: 0, duration: 10000, running: true, frames: 0, })
   let version = scope.input_field(0, label="7guis.timer.version")
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
@@ -59,11 +62,11 @@ fn App::App(runtime : @incr.Runtime) -> App {
     subscriptions,
     label="7guis.timer.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
-fn parse_int_or_none(value : String) -> Int? {
+fn parse_int_or_none(value : String) -> Int32? {
   let trimmed = value.trim()
   try @string.parse_int(trimmed) catch {
     _ => None
@@ -80,10 +83,10 @@ fn update_model(msg : Msg, model : Model) -> Model {
         model
       } else {
         let elapsed = (model.elapsed + 100).clamp(min=0, max=model.duration)
-        { ..model, elapsed, running: elapsed < model.duration }
+        { ..model, elapsed, running: elapsed < model.duration, }
       }
-    Frame => { ..model, frames: model.frames + 1 }
-    Reset => { ..model, elapsed: 0, frames: 0, running: true }
+    Frame => { ..model, frames: model.frames + 1, }
+    Reset => { ..model, elapsed: 0, frames: 0, running: true, }
     SetDuration(value) =>
       match parse_int_or_none(value) {
         Some(duration) => {
@@ -99,7 +102,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
         None => model
       }
     SetRunning(value) =>
-      { ..model, running: value && model.elapsed < model.duration }
+      { ..model, running: value && model.elapsed < model.duration, }
   }
 }
 

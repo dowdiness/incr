@@ -1,14 +1,14 @@
 ///|
 /// Sentinel hook registered after the accumulator and event hooks.
 priv struct EventOrderSentinel {
-  before_log : Array[(CellId, Bool, Bool, Int)]
-  success_log : Array[(CellId, Bool, Bool, Int)]
-  abort_log : Array[(CellId, Bool, Bool, Int)]
+  before_log : Array[(CellId, Bool, Bool, Int32)]
+  success_log : Array[(CellId, Bool, Bool, Int32)]
+  abort_log : Array[(CellId, Bool, Bool, Int32)]
 }
 
 ///|
 fn EventOrderSentinel::new() -> EventOrderSentinel {
-  { before_log: [], success_log: [], abort_log: [] }
+  { before_log: [], success_log: [], abort_log: [], }
 }
 
 ///|
@@ -97,7 +97,7 @@ test "derived_event: hook order follows accumulator then event hook" {
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
-  let acc : Accumulator[Int] = Accumulator(rt)
+  let acc : Accumulator[Int32] = Accumulator(rt)
   let derived = Derived(rt, () => {
     acc.push(1)
     42
@@ -123,8 +123,8 @@ test "derived_event: hook order on abort removes active entries before later hoo
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
-  let _acc : Accumulator[Int] = Accumulator(rt)
-  let derived : Derived[Int] = Derived(rt, () => raise Failure("boom"))
+  let _acc : Accumulator[Int32] = Accumulator(rt)
+  let derived : Derived[Int32] = Derived(rt, () => raise Failure("boom"))
   try derived.force_recompute() catch {
     _ => ()
   } noraise {
@@ -148,7 +148,7 @@ test "derived_event: hook order on abort removes active entries before later hoo
 test "derived_event: nested recomputes buffer until outermost frame exits" {
   let rt = Runtime()
   let events : Array[String] = []
-  let pending_seen_inside_outer : Array[Int] = []
+  let pending_seen_inside_outer : Array[Int32] = []
   let inner = Derived(rt, () => 2)
   let outer = Derived(rt, () => {
     let value = inner.get_or_abort()
@@ -174,7 +174,7 @@ test "derived_event: listener read does not pollute drained memo dependencies" {
   let probe_source = Input(rt, 10)
   let probe = Derived(rt, () => probe_source.get())
   let did_read = Ref(false)
-  let probe_reads : Array[Int] = []
+  let probe_reads : Array[Int32] = []
   let events : Array[String] = []
   rt.on_derived_event(evt => {
     push_event_kind(events, evt)
@@ -207,7 +207,7 @@ test "derived_event: listener set can enqueue recursive memo events" {
   let source = Input(rt, 0)
   let trigger = Input(rt, 0)
   let reentered = Derived(rt, () => trigger.get() + 10)
-  let observed : Array[Int] = []
+  let observed : Array[Int32] = []
   let _effect = Effect::Effect(rt, () => {
     if trigger.get() > 0 {
       observed.push(reentered.get_or_abort())
@@ -379,7 +379,7 @@ test "derived_event: raising API defers drain until next operation" {
   let events : Array[String] = []
   rt.on_derived_event(evt => push_event_kind(events, evt))
   let inner = Derived(rt, () => 1)
-  let target : Derived[Int] = Derived(rt, () => {
+  let target : Derived[Int32] = Derived(rt, () => {
     ignore(inner.get_or_abort())
     raise Failure("target failed")
   })

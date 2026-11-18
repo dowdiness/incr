@@ -26,7 +26,7 @@ pub fn[T : Eq] EagerDerived::EagerDerived(
   rt : Runtime,
   compute_fn : () -> T,
 ) -> EagerDerived[T] {
-  let value : Ref[T?] = { val: None }
+  let value : Ref[T?] = { val: None, }
   // Type-erased compute: invoked by push_propagate_from after begin_tracking.
   let compute : () -> Bool = () => {
     let new_val = compute_fn()
@@ -58,7 +58,7 @@ pub fn[T : Eq] EagerDerived::EagerDerived(
   )
   rt.push.node_count = rt.push.node_count + 1
   let derived : EagerDerived[T] = {
-    cell_id: @incr_types.ReactiveId::{ id: cell_id },
+    cell_id: @incr_types.ReactiveId::{ id: cell_id, },
     value,
     rt,
   }

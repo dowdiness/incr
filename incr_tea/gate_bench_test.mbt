@@ -19,10 +19,10 @@
 /// `unrelated` is not. `recomputes` counts every view-closure invocation.
 priv struct GateHarness {
   runtime : @incr.Runtime
-  count : @incr.InputField[Int]
-  unrelated : @incr.InputField[Int]
+  count : @incr.InputField[Int32]
+  unrelated : @incr.InputField[Int32]
   view_watch : @incr.Watch[CounterView]
-  recomputes : Ref[Int]
+  recomputes : Ref[Int32]
 }
 
 ///|
@@ -35,25 +35,25 @@ fn GateHarness::GateHarness() -> GateHarness {
   let recomputes = Ref(0)
   let view : () -> CounterView raise Failure = () => {
     recomputes.val = recomputes.val + 1
-    { title: title.get(), count: count.get() }
+    { title: title.get(), count: count.get(), }
   }
   let view_root = scope.derived(view, label="gate.view")
   let view_watch = scope.add_watch(view_root.watch())
   ignore(view_watch.read_or_abort()) // prime
-  { runtime, count, unrelated, view_watch, recomputes }
+  { runtime, count, unrelated, view_watch, recomputes, }
 }
 
 ///|
 /// Mutates `unrelated` (NOT a view dependency) then reads the view. incr should
 /// skip the recompute: `recomputes` stays flat.
-fn GateHarness::touch_unread(self : GateHarness, v : Int) -> CounterView {
+fn GateHarness::touch_unread(self : GateHarness, v : Int32) -> CounterView {
   self.runtime.batch(() => self.unrelated.set(v))
   self.view_watch.read_or_abort()
 }
 
 ///|
 /// Mutates `count` (a view dependency) then reads the view. incr recomputes.
-fn GateHarness::touch_read(self : GateHarness, v : Int) -> CounterView {
+fn GateHarness::touch_read(self : GateHarness, v : Int32) -> CounterView {
   self.runtime.batch(() => self.count.set(v))
   self.view_watch.read_or_abort()
 }

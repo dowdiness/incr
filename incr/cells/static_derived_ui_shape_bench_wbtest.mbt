@@ -11,7 +11,7 @@ test "ui-static-probe: layered 1000 eager via dynamic Derived" (b : @bench.T) {
   let rt = Runtime()
   let input = Input(rt, 0)
   let derived = Derived(rt, () => input.get() * 2)
-  let leaves : Array[EagerDerived[Int]] = []
+  let leaves : Array[EagerDerived[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     leaves.push(EagerDerived(rt, () => derived.get_or_abort() + idx))
@@ -29,7 +29,7 @@ test "ui-static-probe: layered 1000 eager via static Derived" (b : @bench.T) {
   let rt = Runtime()
   let input = Input(rt, 0)
   let derived = static_derived_map1(input, x => x * 2)
-  let leaves : Array[EagerDerived[Int]] = []
+  let leaves : Array[EagerDerived[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     leaves.push(EagerDerived(rt, () => derived.get_or_abort() + idx))
@@ -48,7 +48,7 @@ test "ui-static-probe: tree 1023 dynamic Derived + 512 eager leaves" (
 ) {
   let rt = Runtime()
   let input = Input(rt, 0)
-  let nodes : Array[Derived[Int]] = []
+  let nodes : Array[Derived[Int32]] = []
   nodes.push(Derived(rt, () => input.get()))
   for i = 0; i < 511; i = i + 1 {
     let parent = nodes[i]
@@ -57,7 +57,7 @@ test "ui-static-probe: tree 1023 dynamic Derived + 512 eager leaves" (
     nodes.push(Derived(rt, () => parent.get_or_abort() + li))
     nodes.push(Derived(rt, () => parent.get_or_abort() + ri))
   }
-  let leaves : Array[EagerDerived[Int]] = []
+  let leaves : Array[EagerDerived[Int32]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
     leaves.push(EagerDerived(rt, () => node.get_or_abort()))
@@ -76,7 +76,7 @@ test "ui-static-probe: tree 1023 static Derived + 512 eager leaves" (
 ) {
   let rt = Runtime()
   let input = Input(rt, 0)
-  let nodes : Array[Derived[Int]] = []
+  let nodes : Array[Derived[Int32]] = []
   nodes.push(static_derived_map1(input, x => x))
   for i = 0; i < 511; i = i + 1 {
     let parent = nodes[i]
@@ -85,7 +85,7 @@ test "ui-static-probe: tree 1023 static Derived + 512 eager leaves" (
     nodes.push(static_derived_map_derived1(parent, x => x + li))
     nodes.push(static_derived_map_derived1(parent, x => x + ri))
   }
-  let leaves : Array[EagerDerived[Int]] = []
+  let leaves : Array[EagerDerived[Int32]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
     leaves.push(EagerDerived(rt, () => node.get_or_abort()))

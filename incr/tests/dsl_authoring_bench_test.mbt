@@ -7,14 +7,14 @@
 
 ///|
 struct DslSource {
-  node_count : Int
-  changed_node : Int
-  revision : Int
+  node_count : Int32
+  changed_node : Int32
+  revision : Int32
 }
 
 ///|
-fn DslSource::DslSource(node_count~ : Int, revision~ : Int) -> DslSource {
-  { node_count, changed_node: 0, revision }
+fn DslSource::DslSource(node_count~ : Int32, revision~ : Int32) -> DslSource {
+  { node_count, changed_node: 0, revision, }
 }
 
 ///|
@@ -26,9 +26,9 @@ impl Eq for DslSource with fn equal(self, other) -> Bool {
 
 ///|
 struct DslStage {
-  count : Int
-  values : Array[Int]
-  checksum : Int
+  count : Int32
+  values : Array[Int32]
+  checksum : Int32
 }
 
 ///|
@@ -38,8 +38,8 @@ impl Eq for DslStage with fn equal(self, other) -> Bool {
 
 ///|
 struct DslTerminal {
-  node_count : Int
-  checksum : Int
+  node_count : Int32
+  checksum : Int32
 }
 
 ///|
@@ -48,24 +48,24 @@ impl Eq for DslTerminal with fn equal(self, other) -> Bool {
 }
 
 ///|
-fn dsl_mix(acc : Int, value : Int, index : Int) -> Int {
+fn dsl_mix(acc : Int32, value : Int32, index : Int32) -> Int32 {
   (acc * 33 + value * (index + 1) + 17) % 1000003
 }
 
 ///|
-fn dsl_build_stage(count : Int, value_at : (Int) -> Int) -> DslStage {
-  let values : Array[Int] = []
+fn dsl_build_stage(count : Int32, value_at : (Int32) -> Int32) -> DslStage {
+  let values : Array[Int32] = []
   let mut checksum = 0
   for i in 0..<count {
     let value = value_at(i)
     values.push(value)
     checksum = dsl_mix(checksum, value, i)
   }
-  { count, values, checksum }
+  { count, values, checksum, }
 }
 
 ///|
-fn dsl_source_literal(source : DslSource, index : Int) -> Int {
+fn dsl_source_literal(source : DslSource, index : Int32) -> Int32 {
   let edit_delta = if index == source.changed_node {
     source.revision
   } else {
@@ -87,7 +87,7 @@ fn dsl_project(parsed : DslStage) -> DslStage {
 }
 
 ///|
-fn dsl_semantic_value(projected : DslStage, index : Int) -> Int {
+fn dsl_semantic_value(projected : DslStage, index : Int32) -> Int32 {
   let left = if index == 0 { 0 } else { projected.values[index - 1] }
   let right = if index + 1 == projected.count {
     0
@@ -103,7 +103,7 @@ fn dsl_semantic(projected : DslStage) -> DslStage {
 }
 
 ///|
-fn dsl_normalized_value(value : Int, index : Int) -> Int {
+fn dsl_normalized_value(value : Int32, index : Int32) -> Int32 {
   (value % 251 * (index % 13 + 1) + index) % 32749
 }
 
@@ -115,7 +115,7 @@ fn dsl_normalize(semantic : DslStage) -> DslStage {
 }
 
 ///|
-fn dsl_lowered_value(value : Int, index : Int) -> Int {
+fn dsl_lowered_value(value : Int32, index : Int32) -> Int32 {
   (value * 5 + index * 19 + 23) % 65521
 }
 
@@ -127,7 +127,7 @@ fn dsl_lower(normalized : DslStage) -> DslStage {
 }
 
 ///|
-fn dsl_lower_node_from_projection(projected : DslStage, index : Int) -> Int {
+fn dsl_lower_node_from_projection(projected : DslStage, index : Int32) -> Int32 {
   dsl_lowered_value(
     dsl_normalized_value(dsl_semantic_value(projected, index), index),
     index,
@@ -140,24 +140,24 @@ fn dsl_terminal_from_stage(lowered : DslStage) -> DslTerminal {
   for i in 0..<lowered.count {
     checksum = dsl_mix(checksum, lowered.values[i], i)
   }
-  { node_count: lowered.count, checksum }
+  { node_count: lowered.count, checksum, }
 }
 
 ///|
 fn dsl_terminal_from_reader(
-  node_count : Int,
-  read_node : (Int) -> Int,
+  node_count : Int32,
+  read_node : (Int32) -> Int32,
 ) -> DslTerminal {
   let mut checksum = 0
   for i in 0..<node_count {
     checksum = dsl_mix(checksum, read_node(i), i)
   }
-  { node_count, checksum }
+  { node_count, checksum, }
 }
 
 ///|
 struct DslAuthoringPipeline {
-  node_count : Int
+  node_count : Int32
   scope : @incr.Scope
   source : @incr.Input[DslSource]
   watch : @incr.Watch[DslTerminal]
@@ -165,7 +165,7 @@ struct DslAuthoringPipeline {
 
 ///|
 fn dsl_pipeline_setup(
-  node_count : Int,
+  node_count : Int32,
   source_label : String,
 ) -> (@incr.Runtime, @incr.Scope, @incr.Input[DslSource]) {
   let rt = @incr.Runtime()
@@ -195,7 +195,7 @@ fn dsl_parse_projection(
 
 ///|
 fn dsl_finish_pipeline(
-  node_count : Int,
+  node_count : Int32,
   rt : @incr.Runtime,
   scope : @incr.Scope,
   source : @incr.Input[DslSource],
@@ -203,13 +203,13 @@ fn dsl_finish_pipeline(
 ) -> DslAuthoringPipeline {
   ignore(watch.read_or_abort())
   rt.gc()
-  { node_count, scope, source, watch }
+  { node_count, scope, source, watch, }
 }
 
 ///|
 fn DslAuthoringPipeline::edit(
   self : DslAuthoringPipeline,
-  revision : Int,
+  revision : Int32,
 ) -> Unit {
   self.source.set(DslSource(node_count=self.node_count, revision~))
 }
@@ -225,7 +225,7 @@ fn DslAuthoringPipeline::dispose(self : DslAuthoringPipeline) -> Unit {
 }
 
 ///|
-fn dsl_coarse_pipeline(node_count : Int) -> DslAuthoringPipeline {
+fn dsl_coarse_pipeline(node_count : Int32) -> DslAuthoringPipeline {
   let (rt, scope, source) = dsl_pipeline_setup(node_count, "dsl.coarse.source")
   let projected = dsl_parse_projection(scope, source, "dsl.coarse")
   let semantic = scope.derived(
@@ -253,9 +253,9 @@ fn dsl_lowered_by_node(
   scope : @incr.Scope,
   projected : @incr.Derived[DslStage],
   label : String,
-) -> @incr.DerivedMap[Int, Int] {
+) -> @incr.DerivedMap[Int32, Int32] {
   scope.derived_map(
-    (index : Int) => {
+    (index : Int32) => {
       dsl_lower_node_from_projection(projected.get_or_abort(), index)
     },
     label~,
@@ -263,7 +263,7 @@ fn dsl_lowered_by_node(
 }
 
 ///|
-fn dsl_per_node_full_pipeline(node_count : Int) -> DslAuthoringPipeline {
+fn dsl_per_node_full_pipeline(node_count : Int32) -> DslAuthoringPipeline {
   let (rt, scope, source) = dsl_pipeline_setup(
     node_count, "dsl.per_node.source",
   )
@@ -282,7 +282,7 @@ fn dsl_per_node_full_pipeline(node_count : Int) -> DslAuthoringPipeline {
 }
 
 ///|
-fn dsl_sparse_inspector_pipeline(node_count : Int) -> DslAuthoringPipeline {
+fn dsl_sparse_inspector_pipeline(node_count : Int32) -> DslAuthoringPipeline {
   let (rt, scope, source) = dsl_pipeline_setup(
     node_count, "dsl.inspector.source",
   )
@@ -296,7 +296,7 @@ fn dsl_sparse_inspector_pipeline(node_count : Int) -> DslAuthoringPipeline {
     () => {
       let index = selected.get()
       let lowered = lowered_by_node.get_or_abort(index)
-      { node_count: 1, checksum: dsl_mix(0, lowered, index) }
+      { node_count: 1, checksum: dsl_mix(0, lowered, index), }
     },
     label="dsl.inspector.panel",
   )
@@ -307,8 +307,8 @@ fn dsl_sparse_inspector_pipeline(node_count : Int) -> DslAuthoringPipeline {
 ///|
 fn bench_dsl_pipeline(
   b : @bench.T,
-  node_count : Int,
-  make_pipeline : (Int) -> DslAuthoringPipeline,
+  node_count : Int32,
+  make_pipeline : (Int32) -> DslAuthoringPipeline,
 ) -> Unit {
   let pipeline = make_pipeline(node_count)
   let mut revision = 0
@@ -321,17 +321,17 @@ fn bench_dsl_pipeline(
 }
 
 ///|
-fn bench_dsl_coarse(b : @bench.T, node_count : Int) -> Unit {
+fn bench_dsl_coarse(b : @bench.T, node_count : Int32) -> Unit {
   bench_dsl_pipeline(b, node_count, dsl_coarse_pipeline)
 }
 
 ///|
-fn bench_dsl_per_node_full(b : @bench.T, node_count : Int) -> Unit {
+fn bench_dsl_per_node_full(b : @bench.T, node_count : Int32) -> Unit {
   bench_dsl_pipeline(b, node_count, dsl_per_node_full_pipeline)
 }
 
 ///|
-fn bench_dsl_sparse_inspector(b : @bench.T, node_count : Int) -> Unit {
+fn bench_dsl_sparse_inspector(b : @bench.T, node_count : Int32) -> Unit {
   bench_dsl_pipeline(b, node_count, dsl_sparse_inspector_pipeline)
 }
 

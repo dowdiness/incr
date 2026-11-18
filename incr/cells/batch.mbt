@@ -66,23 +66,6 @@ pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
 }
 
 ///|
-/// Executes a batch and returns raised errors as `Result` instead of re-raising.
-///
-/// This is a convenience wrapper around `Runtime::batch` for callers that prefer
-/// explicit result handling. Like `Runtime::batch`, this captures raised errors
-/// only; `abort()` is not recoverable here and still escapes `Runtime::batch_result`.
-pub fn Runtime::batch_result(
-  self : Runtime,
-  f : () -> Unit raise,
-) -> Result[Unit, Error] {
-  try self.batch(f) catch {
-    error => Err(error)
-  } noraise {
-    _ => Ok(())
-  }
-}
-
-///|
 /// Rolls back only the currently failing batch frame.
 fn Runtime::rollback_current_batch_frame(self : Runtime) -> Unit {
   match self.core.batch.frames.pop() {
@@ -176,7 +159,7 @@ pub fn Runtime::record_batch_rollback(
   if frame.has_undo_for(cell_id) {
     return
   }
-  frame.undo_entries.push({ cell_id, rollback })
+  frame.undo_entries.push({ cell_id, rollback, })
   frame.undo_ids.add(cell_id)
 }
 

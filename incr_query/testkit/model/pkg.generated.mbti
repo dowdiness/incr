@@ -10,37 +10,42 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum CutoffKind {
   AlwaysChangedEquivalent
   EqEquivalent
   EqChanged
   DynamicEquivalent
-} derive(Eq, @debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub struct CutoffScript {
   // private fields
-} derive(@debug.Debug)
-pub fn CutoffScript::CutoffScript(CutoffKind, Array[Int]) -> Self
+}
+pub fn CutoffScript::CutoffScript(CutoffKind, Array[Int32]) -> Self
 pub fn CutoffScript::kind(Self) -> CutoffKind
-pub fn CutoffScript::steps(Self) -> Array[Int]
+pub fn CutoffScript::steps(Self) -> Array[Int32]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Observation {
-  Value(Int)
-  Marker(Int)
-  Missing(Int)
+  Value(Int32)
+  Marker(Int32)
+  Missing(Int32)
   Error(ScenarioError)
-  Counter(Int)
-} derive(Eq, @debug.Debug)
+  Counter(Int32)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Operation {
-  Set(Int, Int)
-  Read(Int)
-  ReadKey(Int, Int)
-  ReadQuery(Int, Int)
-  DomainFailure(Int)
-  StructuralFailure(Int)
-} derive(Eq, @debug.Debug)
+  Set(Int32, Int32)
+  Read(Int32)
+  ReadKey(Int32, Int32)
+  ReadQuery(Int32, Int32)
+  DomainFailure(Int32)
+  StructuralFailure(Int32)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Scenario {
   Source
   UnitQuery
@@ -62,31 +67,34 @@ pub(all) enum Scenario {
   CycleRecovery
   OldTraceCycle
   SequentialDuplicateRead
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ScenarioError {
-  DomainFailure(Int)
-  StructuralFailure(Int)
+  DomainFailure(Int32)
+  StructuralFailure(Int32)
   Cycle
-} derive(Eq, @debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub struct Script {
   // private fields
-} derive(@debug.Debug)
+}
 pub fn Script::Script(Array[SourceInit], Array[Operation]) -> Self
 pub fn Script::initial_sources(Self) -> Array[SourceInit]
 pub fn Script::operations(Self) -> Array[Operation]
 pub fn Script::scenario(Scenario, Array[SourceInit], Array[Operation]) -> Self
 pub fn Script::scenario_tag(Self) -> Scenario
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SourceInit {
-  id : Int
-  value : Int
-} derive(Eq, @debug.Debug)
+  id : Int32
+  value : Int32
+}
 
 // Type aliases
-pub type QueryId = Int
+pub type QueryId = Int32
 
-pub type SourceId = Int
+pub type SourceId = Int32
 
 // Traits

@@ -5,10 +5,13 @@ priv struct Model {
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   SetCelsius(String)
   SetFahrenheit(String)
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -20,7 +23,7 @@ priv struct App {
 ///|
 fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
-  let state = Ref({ celsius: "0", fahrenheit: "32" })
+  let state = Ref({ celsius: "0", fahrenheit: "32", })
   let version = scope.input_field(0, label="7guis.temperature.version")
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
@@ -38,7 +41,7 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view,
     label="7guis.temperature.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
@@ -61,7 +64,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
             celsius: value,
             fahrenheit: (celsius * 9.0 / 5.0 + 32.0).to_string(),
           }
-        None => { ..model, celsius: value }
+        None => { ..model, celsius: value, }
       }
     SetFahrenheit(value) =>
       match parse_double_or_none(value) {
@@ -70,7 +73,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
             celsius: ((fahrenheit - 32.0) * 5.0 / 9.0).to_string(),
             fahrenheit: value,
           }
-        None => { ..model, fahrenheit: value }
+        None => { ..model, fahrenheit: value, }
       }
   }
 }

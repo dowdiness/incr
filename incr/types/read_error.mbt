@@ -22,6 +22,8 @@ pub enum ReadError {
   Cycle(CycleError)
   Disposed(CellId)
 }
+
+///|
 pub extend ReadError with Show::{output, to_string}
 
 ///|

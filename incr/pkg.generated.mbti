@@ -7,15 +7,13 @@ import {
 }
 
 // Values
-pub const DURABILITY_COUNT : Int = 3
+pub const DURABILITY_COUNT : Int32 = 3
 
-pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
+pub const MAX_CYCLE_DISPLAY_STEPS : Int32 = 20
 
 pub fn[T : @cells.InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
 
 pub fn[Ctx : RuntimeContext] batch(Ctx, () -> Unit raise?) -> Unit raise?
-
-pub fn[Ctx : RuntimeContext] batch_result(Ctx, () -> Unit raise) -> Result[Unit, Error]
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(Ctx, label? : String) -> @cells.Accumulator[T]
 

@@ -40,12 +40,13 @@ pub fn AdapterCellSnapshotChange::after(Self) -> AdapterCellSnapshot
 pub fn AdapterCellSnapshotChange::before(Self) -> AdapterCellSnapshot
 pub fn AdapterCellSnapshotChange::id(Self) -> @typed_spreadsheet.CellId
 
+#derive(Eq, @debug.Debug)
 pub enum AdapterStartError {
   InvalidSeedAddress(String)
   DeadAuthorityNode
   SeedMutationNotLanded(String)
   Projection(ProjectionApplyError)
-} derive(Eq, @debug.Debug)
+}
 pub fn AdapterStartError::equal(Self, Self) -> Bool
 pub fn AdapterStartError::not_equal(Self, Self) -> Bool
 pub fn AdapterStartError::to_repr(Self) -> @debug.Repr
@@ -68,7 +69,7 @@ pub struct EgwAdapter {
 pub fn EgwAdapter::apply_command(Self, @domain.SheetCommand, @domain.SheetExecutionContext) -> AdapterApplyResult raise @container.DocumentError
 pub fn EgwAdapter::apply_command_observed(Self, @domain.SheetCommand, @domain.SheetExecutionContext, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> ObservedApplyResult raise @container.DocumentError
 pub fn EgwAdapter::apply_sync(Self, @container.SyncMessage) -> RemoteApplyResult raise @container.DocumentError
-pub fn EgwAdapter::apply_sync_observed(Self, @container.SyncMessage, capture_limit? : Int, trace_cells? : Array[@typed_spreadsheet.CellId]) -> ObservedRemoteApplyResult raise @container.DocumentError
+pub fn EgwAdapter::apply_sync_observed(Self, @container.SyncMessage, capture_limit? : Int32, trace_cells? : Array[@typed_spreadsheet.CellId]) -> ObservedRemoteApplyResult raise @container.DocumentError
 pub fn EgwAdapter::attach(@cells.Runtime, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, @domain.DocumentGeneration, @container.Document, @container.TreeNodeId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult
 pub fn EgwAdapter::bootstrap(@cells.Runtime, String, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult raise @container.DocumentError
 pub fn EgwAdapter::dispose(Self) -> Unit
@@ -100,11 +101,12 @@ pub fn ObservedRemoteApplyResult::snapshots(Self) -> ReadOnlyArray[AdapterCellSn
 pub fn ObservedRemoteApplyResult::targets(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
 pub fn ObservedRemoteApplyResult::trace(Self) -> AdapterTrace
 
+#derive(Eq, @debug.Debug)
 pub enum ProjectionApplyError {
   UnexpectedSetInput(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
   UnexpectedFormula(@typed_spreadsheet.CellId, @typed_spreadsheet.WorksheetError)
   UnexpectedDelete(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
-} derive(Eq, @debug.Debug)
+}
 pub fn ProjectionApplyError::equal(Self, Self) -> Bool
 pub fn ProjectionApplyError::not_equal(Self, Self) -> Bool
 pub fn ProjectionApplyError::to_repr(Self) -> @debug.Repr
@@ -114,17 +116,18 @@ pub struct ProjectionBindings {
 }
 pub fn ProjectionBindings::ProjectionBindings(() -> ReadOnlyArray[@core.DraftObservation], (@core.ProjectionDecision) -> Unit) -> Self
 
+#derive(Eq, @debug.Debug)
 pub struct ProjectionReport {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn ProjectionReport::committed_updates(Self) -> Int
-pub fn ProjectionReport::decisions(Self) -> Int
-pub fn ProjectionReport::diagnostics(Self) -> Int
-pub fn ProjectionReport::draft_updates(Self) -> Int
+}
+pub fn ProjectionReport::committed_updates(Self) -> Int32
+pub fn ProjectionReport::decisions(Self) -> Int32
+pub fn ProjectionReport::diagnostics(Self) -> Int32
+pub fn ProjectionReport::draft_updates(Self) -> Int32
 pub fn ProjectionReport::equal(Self, Self) -> Bool
 pub fn ProjectionReport::not_equal(Self, Self) -> Bool
 pub fn ProjectionReport::to_repr(Self) -> @debug.Repr
-pub fn ProjectionReport::worksheet_operations(Self) -> Int
+pub fn ProjectionReport::worksheet_operations(Self) -> Int32
 
 pub struct RemoteApplyResult {
   // private fields

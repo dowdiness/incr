@@ -27,7 +27,7 @@ test "applicative-probe: map1 dynamic Derived stale" (b : @bench.T) {
 test "applicative-probe: map1 manual fixed-dep lower bound" (b : @bench.T) {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 0)
-  let cached : Ref[Int] = { val: input.get() + 1 }
+  let cached : Ref[Int32] = { val: input.get() + 1, }
   let mut v = 0
   b.bench(fn() {
     v += 1
@@ -60,7 +60,7 @@ test "applicative-probe: map2 manual fixed-dep lower bound" (b : @bench.T) {
   let rt = @incr.Runtime()
   let left = @incr.Input(rt, 0)
   let right = @incr.Input(rt, 10)
-  let cached : Ref[Int] = { val: left.get() + right.get() }
+  let cached : Ref[Int32] = { val: left.get() + right.get(), }
   let mut v = 0
   b.bench(fn() {
     v += 1
@@ -95,7 +95,7 @@ test "applicative-probe: map3 manual fixed-dep lower bound" (b : @bench.T) {
   let first = @incr.Input(rt, 0)
   let second = @incr.Input(rt, 10)
   let third = @incr.Input(rt, 100)
-  let cached : Ref[Int] = { val: first.get() + second.get() + third.get() }
+  let cached : Ref[Int32] = { val: first.get() + second.get() + third.get(), }
   let mut v = 0
   b.bench(fn() {
     v += 1

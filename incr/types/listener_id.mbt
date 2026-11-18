@@ -17,19 +17,28 @@
 /// Like `RuntimeId`, a `ListenerId` is an introspection/debug identity — compare
 /// it for equality or use it as a map key; it is not a stable application key
 /// across program runs and carries no ordering or arithmetic meaning.
+#derive(Eq, Hash, Debug)
 pub(all) struct ListenerId {
   runtime_id : RuntimeId
-  id : Int
-} derive(Eq, Hash, Debug)
+  id : Int32
+}
+
+///|
 pub extend ListenerId with Eq::{not_equal, equal}
+
+///|
 pub extend ListenerId with Debug::{to_repr}
+
+///|
 pub extend ListenerId with Show::{output, to_string}
+
+///|
 pub extend ListenerId with Hash::{hash, hash_combine}
 
 ///|
 /// Pairs a `RuntimeId` with a raw listener-allocation number as a `ListenerId`.
-pub fn ListenerId::ListenerId(runtime_id : RuntimeId, id : Int) -> ListenerId {
-  { runtime_id, id }
+pub fn ListenerId::ListenerId(runtime_id : RuntimeId, id : Int32) -> ListenerId {
+  { runtime_id, id, }
 }
 
 ///|

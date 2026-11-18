@@ -11,7 +11,7 @@ fn[Msg] ui_compare_workspace_line(
   id : String,
   label : String,
   hot : Bool,
-  revision : Int,
+  revision : Int32,
 ) -> Html[Msg] {
   let text_label = if hot {
     "let selected_\{revision} = \{label}"
@@ -28,7 +28,7 @@ fn[Msg] ui_compare_workspace_line(
 #cfg(target="js")
 fn[Msg] ui_compare_workspace_editor(
   items : Array[(String, String)],
-  revision : Int,
+  revision : Int32,
 ) -> Html[Msg] {
   let hot_index = ui_compare_row_leaf_hot_index(items.length())
   let children = items.mapi((idx, pair) => {
@@ -45,7 +45,7 @@ fn[Msg] ui_compare_workspace_editor(
 #cfg(target="js")
 fn[Msg] ui_compare_workspace_sidebar(
   items : Array[(String, String)],
-  revision : Int,
+  revision : Int32,
 ) -> Html[Msg] {
   let children = items.mapi((idx, pair) => {
     let (_, label) = pair
@@ -64,7 +64,7 @@ fn[Msg] ui_compare_workspace_sidebar(
 
 ///|
 #cfg(target="js")
-fn[Msg] ui_compare_workspace_inspector(revision : Int) -> Html[Msg] {
+fn[Msg] ui_compare_workspace_inspector(revision : Int32) -> Html[Msg] {
   let reference_count = revision % 17
   node("aside", attrs=[class_attr("workspace-inspector")], [
     h3([text("Inspector")]),
@@ -83,7 +83,7 @@ fn[Msg] ui_compare_workspace_inspector(revision : Int) -> Html[Msg] {
 #cfg(target="js")
 fn[Msg] ui_compare_workspace_content(
   items : Array[(String, String)],
-  revision : Int,
+  revision : Int32,
   mode : UiCompareWorkspaceMode,
 ) -> Html[Msg] {
   let hidden = mode == UiCompareWorkspaceHiddenMounted
@@ -148,7 +148,7 @@ fn ui_compare_workspace_action_button(
 #cfg(target="js")
 fn ui_compare_incr_workspace_program(
   runtime : @incr.Runtime,
-  n : Int,
+  n : Int32,
 ) -> Program[UiCompareWorkspaceMsg, Html[UiCompareWorkspaceMsg]] {
   let scope = @incr.Scope::new(runtime)
   let items = dom_bench_make_items(n)
@@ -227,13 +227,13 @@ fn ui_compare_incr_workspace_program(
 #cfg(target="js")
 fn UiCompareIncrWorkspaceHarness::UiCompareIncrWorkspaceHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
 ) -> UiCompareIncrWorkspaceHarness {
   let runtime = @incr.Runtime()
   let program = ui_compare_incr_workspace_program(runtime, n)
   let root = DomBenchRoot(program, host, KeyedDomPatch)
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -251,7 +251,7 @@ fn UiCompareIncrWorkspaceHarness::reset_before(
 fn UiCompareIncrWorkspaceHarness::measure_operation(
   self : UiCompareIncrWorkspaceHarness,
   operation : UiCompareWorkspaceOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -279,9 +279,9 @@ fn UiCompareIncrWorkspaceHarness::dispose(
 #cfg(target="js")
 fn ui_compare_incr_run_workspace(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_workspace_operation(operation)
   let size = dom_bench_positive(n, 256)
@@ -313,7 +313,7 @@ priv enum UiCompareInactiveWorkspaceOperation {
   UiCompareInactiveWorkspaceActiveUpdate
   UiCompareInactiveWorkspaceInactiveUpdate
   UiCompareInactiveWorkspaceActivationCatchUp
-  UiCompareInactiveWorkspaceInactiveBurstActivation(Int)
+  UiCompareInactiveWorkspaceInactiveBurstActivation(Int32)
 }
 
 ///|
@@ -375,7 +375,7 @@ priv struct UiCompareIncrInactiveWorkspaceHarness {
 #cfg(target="js")
 fn UiCompareIncrInactiveWorkspaceHarness::UiCompareIncrInactiveWorkspaceHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
 ) -> UiCompareIncrInactiveWorkspaceHarness {
   let runtime = @incr.Runtime()
   let renderer : BrowserRenderer[UiCompareWorkspaceMsg] = BrowserRenderer::BrowserRenderer(
@@ -394,7 +394,7 @@ fn UiCompareIncrInactiveWorkspaceHarness::UiCompareIncrInactiveWorkspaceHarness(
   let root = renderer.mount(host, program)
   ui_compare_dom_click_action(host, "set-hidden-mounted")
   root.flush()
-  { host, renderer, root }
+  { host, renderer, root, }
 }
 
 ///|
@@ -412,7 +412,7 @@ fn UiCompareIncrInactiveWorkspaceHarness::reset_hidden_active(
 fn UiCompareIncrInactiveWorkspaceHarness::measure_operation(
   self : UiCompareIncrInactiveWorkspaceHarness,
   operation : UiCompareInactiveWorkspaceOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     self.reset_hidden_active()
@@ -469,9 +469,9 @@ fn UiCompareIncrInactiveWorkspaceHarness::dispose(
 fn ui_compare_incr_run_inactive_workspace(
   suite_name : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_inactive_workspace_operation(operation)
   let size = dom_bench_positive(n, 256)

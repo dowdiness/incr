@@ -22,13 +22,13 @@ extern "js" fn dom_bench_now_ms() -> Double =
 #cfg(target="js")
 priv struct DomBenchTiming {
   mut patch_ms : Double
-  mut patch_calls : Int
+  mut patch_calls : Int32
 }
 
 ///|
 #cfg(target="js")
 fn DomBenchTiming::DomBenchTiming() -> DomBenchTiming {
-  { patch_ms: 0.0, patch_calls: 0 }
+  { patch_ms: 0.0, patch_calls: 0, }
 }
 
 ///|
@@ -64,7 +64,7 @@ extern "js" fn dom_bench_remove_host(host : DomElement) -> Unit =
 ///|
 #cfg(target="js")
 extern "js" fn dom_bench_install_api(
-  run : (String, String, Int, Int, Int) -> String,
+  run : (String, String, Int32, Int32, Int32) -> String,
 ) -> Unit =
   #| (run) => {
   #|   const toInt = (value, fallback) => {
@@ -167,7 +167,7 @@ priv struct DomListBenchHarness {
 
 ///|
 #cfg(target="js")
-fn dom_bench_make_items(n : Int) -> Array[(String, String)] {
+fn dom_bench_make_items(n : Int32) -> Array[(String, String)] {
   [
     for i in 0..<n => ("item-\{i}", "Item \{i}")
   ]
@@ -214,7 +214,7 @@ fn[Msg] dom_bench_positional_list(items : Array[(String, String)]) -> Html[Msg] 
 #cfg(target="js")
 fn DomListBenchHarness::DomListBenchHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
   patch_mode : DomBenchPatchMode,
 ) -> DomListBenchHarness {
   let runtime = @incr.Runtime()
@@ -237,7 +237,7 @@ fn DomListBenchHarness::DomListBenchHarness(
   )
   let root = DomBenchRoot(program, host, patch_mode)
   root.flush()
-  { runtime, items, baseline, root }
+  { runtime, items, baseline, root, }
 }
 
 ///|
@@ -278,7 +278,7 @@ fn DomListBenchHarness::next_items(
 fn DomListBenchHarness::measure_operation(
   self : DomListBenchHarness,
   operation : DomBenchOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     let next = self.next_items(operation)
@@ -335,7 +335,7 @@ fn DomBenchOperation::name(self : DomBenchOperation) -> String {
 
 ///|
 #cfg(target="js")
-fn dom_bench_positive(value : Int, fallback : Int) -> Int {
+fn dom_bench_positive(value : Int32, fallback : Int32) -> Int32 {
   guard value > 0 else { fallback }
   value
 }
@@ -345,8 +345,8 @@ fn dom_bench_positive(value : Int, fallback : Int) -> Int {
 fn dom_bench_result_json(
   mode : DomBenchPatchMode,
   operation : DomBenchOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
   samples : Array[Double],
 ) -> String {
   let sample_json = samples.map(sample => "\{sample * 1000.0}").join(",")
@@ -360,9 +360,9 @@ fn dom_bench_result_json(
 fn dom_bench_run(
   mode : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let patch_mode = dom_bench_patch_mode(mode)
   let op = dom_bench_operation(operation)

@@ -1,10 +1,10 @@
 ///|
 /// Minimum base64url encoding length for 128 random bits; generation supplies entropy.
-const MIN_ROOM_CAPABILITY_LENGTH : Int = 22
+const MIN_ROOM_CAPABILITY_LENGTH : Int32 = 22
 
 ///|
 /// Bounds capability size before it reaches a transport or relay path.
-const MAX_ROOM_CAPABILITY_LENGTH : Int = 128
+const MAX_ROOM_CAPABILITY_LENGTH : Int32 = 128
 
 ///|
 /// Deterministic room capability validation shared by browser and Worker shells.

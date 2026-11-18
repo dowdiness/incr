@@ -1,24 +1,27 @@
 ///|
 /// The direction of a graph port.
+#derive(Eq, Debug)
 pub(all) enum PortDirection {
   Input
   Output
-} derive(Eq, Debug)
+}
 
 ///|
 /// A graph-scoped opaque parameter identity.
+#derive(Eq, Hash, Debug)
 pub struct ParameterReference {
-  priv graph : Int
-  priv node : Int
-  priv parameter : Int
-} derive(Eq, Hash, Debug)
+  priv graph : Int32
+  priv node : Int32
+  priv parameter : Int32
+}
 
 ///|
 /// An immutable structural node projection.
+#derive(Eq, Debug)
 pub struct NodeView {
   priv node : NodeReference
   priv kind : @application.NodeKind
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns this projection's Semantic Node Reference.
@@ -34,12 +37,13 @@ pub fn NodeView::kind(self : NodeView) -> @application.NodeKind {
 
 ///|
 /// An immutable structural port projection.
+#derive(Eq, Debug)
 pub struct PortView {
   priv port : PortReference
   priv direction : PortDirection
   priv value_type : @application.PortValueType
   priv required : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns this projection's Semantic Port Reference.
@@ -67,10 +71,11 @@ pub fn PortView::required(self : PortView) -> Bool {
 
 ///|
 /// An immutable structural parameter projection.
+#derive(Eq, Debug)
 pub struct ParameterView {
   priv parameter : ParameterReference
   priv value : @application.ParameterValue
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns this projection's Semantic Parameter Reference.
@@ -88,9 +93,10 @@ pub fn ParameterView::value(
 
 ///|
 /// An immutable structural action projection.
+#derive(Eq, Debug)
 pub struct ActionView {
   priv action : ActionReference
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns this projection's Semantic Action Reference.
@@ -100,10 +106,11 @@ pub fn ActionView::action(self : ActionView) -> ActionReference {
 
 ///|
 /// An immutable connection projection.
+#derive(Eq, Debug)
 pub struct ConnectionView {
   priv input : PortReference
   priv output : PortReference
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns the Input endpoint owned by this Connection.
@@ -119,34 +126,37 @@ pub fn ConnectionView::output(self : ConnectionView) -> PortReference {
 
 ///|
 /// A graph-scoped opaque Node identity.
+#derive(Eq, Hash, Debug)
 pub struct NodeReference {
-  priv graph : Int
-  priv node : Int
-} derive(Eq, Hash, Debug)
+  priv graph : Int32
+  priv node : Int32
+}
 
 ///|
 fn parameter_reference(
   node : NodeReference,
-  parameter : Int,
+  parameter : Int32,
 ) -> ParameterReference {
-  { graph: node.graph, node: node.node, parameter }
+  { graph: node.graph, node: node.node, parameter, }
 }
 
 ///|
 /// A graph-scoped opaque Port identity.
+#derive(Eq, Hash, Debug)
 pub struct PortReference {
-  priv graph : Int
-  priv node : Int
-  priv port : Int
-} derive(Eq, Hash, Debug)
+  priv graph : Int32
+  priv node : Int32
+  priv port : Int32
+}
 
 ///|
 /// A graph- and Node-scoped Action identity.
+#derive(Eq, Hash, Debug)
 pub struct ActionReference {
-  priv graph : Int
-  priv node : Int
-  priv action : Int
-} derive(Eq, Hash, Debug)
+  priv graph : Int32
+  priv node : Int32
+  priv action : Int32
+}
 
 ///|
 /// A single final binding for an Input Port. `Bound` providers must be Outputs.
@@ -224,7 +234,7 @@ pub(all) enum GraphEdit {
   AddNode(descriptor~ : @application.NodeDescriptor)
   SetParameter(
     parameter~ : ParameterReference,
-    value~ : @application.ParameterValue
+    value~ : @application.ParameterValue,
   )
   BindingChangeSet(changes~ : Array[BindingChange])
   RemoveNodes(nodes~ : Array[NodeReference])
@@ -232,6 +242,7 @@ pub(all) enum GraphEdit {
 
 ///|
 /// An expected refusal decided by the pure graph core.
+#derive(Eq, Debug)
 pub(all) enum GraphEditRejection {
   InvalidEdit
   MissingNode
@@ -242,60 +253,67 @@ pub(all) enum GraphEditRejection {
   WrongType
   DuplicateBindingTarget
   DuplicateNodeTarget
-} derive(Eq, Debug)
+}
 
 ///|
 /// A reason an Action cannot prepare its inputs.
+#derive(Eq, Debug)
 pub(all) enum ActionInputIssue {
   Unbound(PortReference)
   ValueUnavailable(PortReference)
   EvaluationLimitExceeded
-} derive(Eq, Debug)
+}
 
 ///|
 /// The consumer-safe availability of an Action.
+#derive(Eq, Debug)
 pub(all) enum ActionAvailability {
   Available
   Unavailable(ReadOnlyArray[ActionInputIssue])
-} derive(Eq, Debug)
+}
 
 ///|
 /// The observation of one requested Action.
+#derive(Eq, Debug)
 pub(all) enum ActionObservation {
   Missing
   Present(ActionAvailability)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The expected refusal of an Action invocation.
+#derive(Eq, Debug)
 pub(all) enum ActionInvocationRejection {
   MissingAction
-} derive(Eq, Debug)
+}
 
 ///|
 /// The result of explicitly invoking an Action.
+#derive(Eq, Debug)
 pub(all) enum ActionInvocationOutcome {
   Rejected(ActionInvocationRejection)
   Unavailable(ReadOnlyArray[ActionInputIssue])
   Decided(@application.ApplicationDecision)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Why a Node currently has no available output.
+#derive(Eq, Debug)
 pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
   BlockedEvaluation(PortReference)
   CyclicEvaluation
   EvaluationLimitExceeded
-} derive(Eq, Debug)
+}
 
 ///|
 /// The current result for one demanded Output.
+#derive(Eq, Debug)
 pub(all) enum OutputObservation {
   Missing
   Unavailable(ReadOnlyArray[EvaluationIssue])
   Current(@application.OutputData)
-} derive(Eq, Debug)
+}
 
 ///|
 /// An owned ordered output demand.
@@ -312,7 +330,7 @@ pub struct ObservationDemand {
 ///|
 /// Creates an empty demand.
 pub fn ObservationDemand::empty() -> ObservationDemand {
-  { requests: [] }
+  { requests: [], }
 }
 
 ///|
@@ -435,6 +453,7 @@ pub fn SurfaceSnapshot::action_observation(
 
 ///|
 /// Structural failures while publishing an accepted edit.
+#derive(Debug)
 pub suberror GraphPublicationError {
   ClosedNodeflow
   RegionClosed
@@ -445,10 +464,11 @@ pub suberror GraphPublicationError {
   ReadExpiredContext
   ReadReentrantRoot
   ReadDuringTransaction
-} derive(Debug)
+}
 
 ///|
 /// Structural failures while producing an Action decision.
+#derive(Debug)
 pub suberror ActionInvocationError {
   ClosedNodeflow
   CrossStore
@@ -456,10 +476,11 @@ pub suberror ActionInvocationError {
   ExpiredContext
   ReentrantRoot
   DuringTransaction
-} derive(Debug)
+}
 
 ///|
 /// Structural failures while producing a surface snapshot.
+#derive(Debug)
 pub suberror SurfaceReadError {
   ClosedNodeflow
   CrossStore
@@ -467,12 +488,13 @@ pub suberror SurfaceReadError {
   ExpiredContext
   ReentrantRoot
   DuringTransaction
-} derive(Debug)
+}
 
 ///|
 /// Structural failures while closing the execution domain.
+#derive(Debug)
 pub suberror GraphCloseError {
   RegionClosed
   RegionMutationDuringEvaluation
   RegionMutationDuringTransaction
-} derive(Debug)
+}

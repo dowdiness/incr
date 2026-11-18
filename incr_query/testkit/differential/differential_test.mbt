@@ -1,5 +1,5 @@
 ///|
-fn work_counter(observations : Array[@model.Observation]) -> Int {
+fn work_counter(observations : Array[@model.Observation]) -> Int32 {
   match observations.pop() {
     Some(@model.Observation::Counter(work)) => work
     _ => abort("expected one trailing Counter observation")
@@ -10,8 +10,8 @@ fn work_counter(observations : Array[@model.Observation]) -> Int {
 fn assert_semantics_and_work(
   script : @model.Script,
   expected : Array[@model.Observation],
-  fresh_work : Int,
-  incremental_work : Int,
+  fresh_work : Int32,
+  incremental_work : Int32,
 ) -> Unit raise {
   let fresh = @fresh.evaluate(script)
   let incremental = @incremental_adapter.evaluate(script)

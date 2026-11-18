@@ -56,7 +56,7 @@ test "an existing-memo self Cycle has zero cutoff and equivalent recovery backda
   let region = store.region()
   let trigger = region.source(0)
   let cycle = Ref(false)
-  let self_view : Ref[View[Int]?] = Ref(None)
+  let self_view : Ref[View[Int32]?] = Ref(None)
   let query = region.query(
     (ctx, _unit : Unit) => {
       ignore(ctx.get(trigger.view()))
@@ -180,7 +180,7 @@ test "an equivalent descendant commits before an ancestor Cycle" {
   let child_source = region.source(0)
   let ancestor_trigger = region.source(0)
   let cycle = Ref(false)
-  let self_view : Ref[View[Int]?] = Ref(None)
+  let self_view : Ref[View[Int32]?] = Ref(None)
   let child = region.query(
     (ctx, _unit : Unit) => {
       ignore(ctx.get(child_source.view()))

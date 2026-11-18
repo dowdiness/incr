@@ -9,16 +9,41 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
   imports, qualifying trait calls, and using scoped cleanup for callback and
   batch failures. Recompute failure hooks retain their ordering and error value.
-- Pin repository CI to MoonBit 0.10.14+7d59c7ec9 so the Luna/async 0.21.3
-  dependency graph and current collection APIs are checked with a compatible
-  compiler.
-- Replace the unavailable MoonBit 0.10.4 CI artifact with the available,
-  checksum-verified 0.10.8 compatibility consumer. The original 0.10.4
-  result remains preserved as historical K2 evidence.
-- Check and test the core library on both the standard CI compiler and MoonBit
-  0.10.8, preserving the existing required-check name as a matrix gate.
+- Pin repository CI to MoonBit 0.10.21+06da1ed44 (checksum-verified) for the
+  current dependency graph and collection APIs.
 - Restore the full `ReadError` API documentation by keeping its explicit `Show`
   method promotion separate from the enum's doc comment.
+
+### Changed
+
+- Raise the currently supported minimum compiler to MoonBit 0.10.21 and remove
+  older-compiler compatibility jobs. Historical K1/K2 evidence pins remain
+  unchanged.
+- Upgrade `moonbitlang/quickcheck` to 0.15.1 in `incr`, `dataflow`, and the Incr Query testkit.
+- Update example dependencies: `moonbit-community/rabbita` 0.17.0,
+  `moonbitlang/async` 0.22.9, `dowdiness/btree` 0.3.0, and
+  `dowdiness/event-graph-walker` 0.10.0. Rabbita's void `input` element no
+  longer takes a children argument.
+- Handle the `DuplicateKey` case of `@json.parse` in the Nodeflow spike and the
+  typed-spreadsheet register codec. Default parsing still accepts duplicate
+  keys, so the codec keeps its existing root duplicate-field preflight.
+- Replace the engine's internal `Result[_, CycleError] raise Failure` pull
+  verification and recompute channel with raised errors; cycles are converted
+  to `ReadError::Cycle` only at the read boundary. Remove the unused
+  `read_result`/`get_strict_result` compatibility projections (their tests now
+  cover `read_honest`/`get_strict_honest`).
+
+### Removed
+
+- **Breaking:** Remove `Runtime::batch_result` and the `batch_result` facade
+  helper. They only re-encoded the raised `Error` of `batch` as
+  `Result[Unit, Error]`, which the `result_error_return` lint flags and which
+  carries no more type information than `raise`. Use
+  `try Ok(rt.batch(f)) catch { e => Err(e) }`, or handle the error directly.
+- Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
+  Chromium on the `ubuntu-latest` 26.04 image.
+- Select modern-manifest releases of transitive regexp, prettyprinter, and
+  btree dependencies for MoonBit 0.10.21 workspace resolution.
 
 ## [v0.15.1] - 2026-08-27
 

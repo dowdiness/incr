@@ -9,6 +9,7 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub suberror ActionInvocationError {
   ClosedNodeflow
   CrossStore
@@ -16,14 +17,16 @@ pub suberror ActionInvocationError {
   ExpiredContext
   ReentrantRoot
   DuringTransaction
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror GraphCloseError {
   RegionClosed
   RegionMutationDuringEvaluation
   RegionMutationDuringTransaction
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror GraphPublicationError {
   ClosedNodeflow
   RegionClosed
@@ -34,8 +37,9 @@ pub suberror GraphPublicationError {
   ReadExpiredContext
   ReadReentrantRoot
   ReadDuringTransaction
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror GraphRestorationError {
   RegionClosed
   RegionMutationDuringEvaluation
@@ -45,8 +49,9 @@ pub suberror GraphRestorationError {
   ReadExpiredContext
   ReadReentrantRoot
   ReadDuringTransaction
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror SurfaceReadError {
   ClosedNodeflow
   CrossStore
@@ -54,42 +59,49 @@ pub suberror SurfaceReadError {
   ExpiredContext
   ReentrantRoot
   DuringTransaction
-} derive(@debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionAvailability {
   Available
   Unavailable(ReadOnlyArray[ActionInputIssue])
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionInputIssue {
   Unbound(PortReference)
   ValueUnavailable(PortReference)
   EvaluationLimitExceeded
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionInvocationOutcome {
   Rejected(ActionInvocationRejection)
   Unavailable(ReadOnlyArray[ActionInputIssue])
   Decided(@application.ApplicationDecision)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionInvocationRejection {
   MissingAction
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionObservation {
   Missing
   Present(ActionAvailability)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct ActionReference {
   // private fields
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub struct ActionView {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ActionView::action(Self) -> ActionReference
 
 pub struct AddedNode {
@@ -112,18 +124,20 @@ pub(all) enum BindingTarget {
   Unbound
 }
 
+#derive(Eq, @debug.Debug)
 pub struct ConnectionView {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ConnectionView::input(Self) -> PortReference
 pub fn ConnectionView::output(Self) -> PortReference
 
+#derive(Eq, @debug.Debug)
 pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
   BlockedEvaluation(PortReference)
   CyclicEvaluation
   EvaluationLimitExceeded
-} derive(Eq, @debug.Debug)
+}
 
 pub struct GraphDocument {
   // private fields
@@ -131,10 +145,11 @@ pub struct GraphDocument {
 pub fn GraphDocument::decode_json(StringView) -> Result[Self, GraphDocumentDecodeError]
 pub fn GraphDocument::encode_json(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub enum GraphDocumentDecodeError {
   MalformedJson
   WrongShape
-} derive(Eq, @debug.Debug)
+}
 
 pub(all) enum GraphEdit {
   AddNode(descriptor~ : @application.NodeDescriptor)
@@ -143,6 +158,7 @@ pub(all) enum GraphEdit {
   RemoveNodes(nodes~ : Array[NodeReference])
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GraphEditRejection {
   InvalidEdit
   MissingNode
@@ -153,7 +169,7 @@ pub(all) enum GraphEditRejection {
   WrongType
   DuplicateBindingTarget
   DuplicateNodeTarget
-} derive(Eq, @debug.Debug)
+}
 
 pub(all) enum GraphEditResult {
   Added(AddedNode)
@@ -166,6 +182,7 @@ pub struct GraphRestoration {
 pub fn GraphRestoration::nodeflow(Self) -> Nodeflow
 pub fn GraphRestoration::snapshot(Self) -> SurfaceSnapshot
 
+#derive(Eq, @debug.Debug)
 pub enum GraphRestorationRejection {
   UnsupportedVersion
   InvalidGraphIdentity
@@ -177,15 +194,17 @@ pub enum GraphRestorationRejection {
   MissingEndpoint
   WrongDirection
   WrongType
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct NodeReference {
   // private fields
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub struct NodeView {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn NodeView::kind(Self) -> @application.NodeKind
 pub fn NodeView::node(Self) -> NodeReference
 
@@ -207,34 +226,40 @@ pub fn ObservationDemand::empty() -> Self
 pub fn ObservationDemand::request(Self, PortReference) -> Self
 pub fn ObservationDemand::request_action(Self, ActionReference) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum OutputObservation {
   Missing
   Unavailable(ReadOnlyArray[EvaluationIssue])
   Current(@application.OutputData)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct ParameterReference {
   // private fields
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub struct ParameterView {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ParameterView::parameter(Self) -> ParameterReference
 pub fn ParameterView::value(Self) -> @application.ParameterValue
 
+#derive(Eq, @debug.Debug)
 pub(all) enum PortDirection {
   Input
   Output
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct PortReference {
   // private fields
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub struct PortView {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn PortView::direction(Self) -> PortDirection
 pub fn PortView::port(Self) -> PortReference
 pub fn PortView::required(Self) -> Bool

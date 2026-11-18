@@ -1,6 +1,6 @@
 ///|
-fn install_completed_recompute_counter(runtime : @incr.Runtime) -> Ref[Int] {
-  let completed : Ref[Int] = { val: 0 }
+fn install_completed_recompute_counter(runtime : @incr.Runtime) -> Ref[Int32] {
+  let completed : Ref[Int32] = { val: 0, }
   try! runtime.on_derived_event(event => {
     match event {
       @incr.DerivedEvent::Completed(_) => completed.val = completed.val + 1
@@ -65,7 +65,7 @@ test "counter: watched view survives runtime gc while mounted" {
 
 ///|
 test "counter: multi-field message commits as one runtime change" {
-  let changes : Ref[Int] = { val: 0 }
+  let changes : Ref[Int32] = { val: 0, }
   let runtime = @incr.Runtime(on_change=() => changes.val = changes.val + 1)
   let app = @incr_tea.CounterApp::with_runtime(runtime)
 

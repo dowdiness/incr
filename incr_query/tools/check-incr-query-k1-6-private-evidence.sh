@@ -22,7 +22,7 @@ cat >> "$tmp/work/incr_query/kernel/moon.mod" <<'EOF'
 
 import {
   "dowdiness/incr_query_testkit@0.1.0-alpha.1",
-  "moonbitlang/quickcheck@0.14.0",
+  "moonbitlang/quickcheck@0.15.0",
 }
 EOF
 python3 - "$tmp/work/incr_query/kernel/moon.pkg" <<'PY'
@@ -34,7 +34,7 @@ imports = '''import {
   "dowdiness/incr_query_testkit/model",
   "dowdiness/incr_query_testkit/fresh",
   "moonbitlang/core/debug",
-  "moonbitlang/quickcheck/gen" @qcgen,
+  "moonbitlang/core/quickcheck" @qcgen,
 } for "wbtest"
 
 '''

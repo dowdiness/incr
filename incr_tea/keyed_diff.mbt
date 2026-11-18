@@ -19,8 +19,8 @@
 /// keeps the unit tests readable without a test-only derive on a source type.
 #cfg(target="js")
 priv struct KeyedPlan {
-  steps : Array[Int?]
-  removals : Array[Int]
+  steps : Array[Int32?]
+  removals : Array[Int32]
 }
 
 ///|
@@ -46,7 +46,7 @@ fn plan_keyed_diff(
     new_keys.length() > small_scan_limit else {
     return plan_keyed_diff_by_first_available_scan(old_keys, new_keys)
   }
-  let old_index_by_key : @hashmap.HashMap[String, Int] = @hashmap.HashMap(
+  let old_index_by_key : @hashmap.HashMap[String, Int32] = @hashmap.HashMap(
     [
       for old_index, old_key in old_keys => (old_key, old_index)
     ],
@@ -56,7 +56,7 @@ fn plan_keyed_diff(
   }
   let consumed = Array::make(old_keys.length(), false)
   let steps = new_keys.map(new_key => {
-    let matched : Int? = match old_index_by_key.get(new_key) {
+    let matched : Int32? = match old_index_by_key.get(new_key) {
       Some(old_index) if !consumed[old_index] => Some(old_index)
       _ => None
     }
@@ -71,7 +71,7 @@ fn plan_keyed_diff(
   let removals = [
     for old_index in 0..<old_keys.length() if !consumed[old_index] => old_index
   ]
-  { steps, removals }
+  { steps, removals, }
 }
 
 ///|
@@ -84,7 +84,7 @@ fn plan_keyed_diff_by_first_available_scan(
 ) -> KeyedPlan {
   let consumed = Array::make(old_keys.length(), false)
   let steps = new_keys.map(new_key => {
-    let matched : Int? = for old_index, old_key in old_keys {
+    let matched : Int32? = for old_index, old_key in old_keys {
       if !consumed[old_index] && old_key == new_key {
         break Some(old_index)
       }
@@ -102,5 +102,5 @@ fn plan_keyed_diff_by_first_available_scan(
   let removals = [
     for old_index in 0..<old_keys.length() if !consumed[old_index] => old_index
   ]
-  { steps, removals }
+  { steps, removals, }
 }

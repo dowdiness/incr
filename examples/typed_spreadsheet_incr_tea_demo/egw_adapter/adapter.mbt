@@ -1,14 +1,19 @@
 ///|
 /// A typed projection failure with operation context.
+#derive(Eq, Debug)
 pub enum ProjectionApplyError {
   UnexpectedSetInput(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
   UnexpectedFormula(
     @typed_spreadsheet.CellId,
-    @typed_spreadsheet.WorksheetError
+    @typed_spreadsheet.WorksheetError,
   )
   UnexpectedDelete(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend ProjectionApplyError with Eq::{not_equal, equal}
+
+///|
 pub extend ProjectionApplyError with Debug::{to_repr}
 
 ///|
@@ -29,38 +34,43 @@ pub(all) enum AdapterApplyResult {
 
 ///|
 /// Counts for one application projection frame.
+#derive(Eq, Debug)
 pub struct ProjectionReport {
-  priv decisions : Int
-  priv worksheet_operations : Int
-  priv committed_updates : Int
-  priv draft_updates : Int
-  priv diagnostics : Int
-} derive(Eq, Debug)
+  priv decisions : Int32
+  priv worksheet_operations : Int32
+  priv committed_updates : Int32
+  priv draft_updates : Int32
+  priv diagnostics : Int32
+}
+
+///|
 pub extend ProjectionReport with Eq::{not_equal, equal}
+
+///|
 pub extend ProjectionReport with Debug::{to_repr}
 
 ///|
-pub fn ProjectionReport::decisions(self : ProjectionReport) -> Int {
+pub fn ProjectionReport::decisions(self : ProjectionReport) -> Int32 {
   self.decisions
 }
 
 ///|
-pub fn ProjectionReport::worksheet_operations(self : ProjectionReport) -> Int {
+pub fn ProjectionReport::worksheet_operations(self : ProjectionReport) -> Int32 {
   self.worksheet_operations
 }
 
 ///|
-pub fn ProjectionReport::committed_updates(self : ProjectionReport) -> Int {
+pub fn ProjectionReport::committed_updates(self : ProjectionReport) -> Int32 {
   self.committed_updates
 }
 
 ///|
-pub fn ProjectionReport::draft_updates(self : ProjectionReport) -> Int {
+pub fn ProjectionReport::draft_updates(self : ProjectionReport) -> Int32 {
   self.draft_updates
 }
 
 ///|
-pub fn ProjectionReport::diagnostics(self : ProjectionReport) -> Int {
+pub fn ProjectionReport::diagnostics(self : ProjectionReport) -> Int32 {
   self.diagnostics
 }
 
@@ -77,7 +87,7 @@ pub fn ProjectionBindings::ProjectionBindings(
   drafts : () -> ReadOnlyArray[@core.DraftObservation],
   apply : (@core.ProjectionDecision) -> Unit,
 ) -> ProjectionBindings {
-  { drafts, apply }
+  { drafts, apply, }
 }
 
 ///|
@@ -97,7 +107,7 @@ pub fn ResetAuthority::ResetAuthority(
   node : @container.TreeNodeId,
   sheet_id : @typed_spreadsheet.SheetId,
 ) -> ResetAuthority {
-  { identity, document, node, sheet_id }
+  { identity, document, node, sheet_id, }
 }
 
 ///|
@@ -110,7 +120,7 @@ pub struct Seed {
 ///|
 /// Constructs a seed for a canonical cell address.
 pub fn Seed::Seed(address : String, register : @core.CellRegister) -> Seed {
-  { address, register }
+  { address, register, }
 }
 
 ///|
@@ -125,13 +135,18 @@ pub fn Seed::register(self : Seed) -> @core.CellRegister {
 
 ///|
 /// Structured bootstrap failures.
+#derive(Eq, Debug)
 pub enum AdapterStartError {
   InvalidSeedAddress(String)
   DeadAuthorityNode
   SeedMutationNotLanded(String)
   Projection(ProjectionApplyError)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend AdapterStartError with Eq::{not_equal, equal}
+
+///|
 pub extend AdapterStartError with Debug::{to_repr}
 
 ///|

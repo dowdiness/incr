@@ -45,14 +45,14 @@ test "explain last change keeps engine trace secondary to selected evidence" {
           classification: "changed",
           before: {
             status: "ok",
-            value: Some({ type_name: "Int", value: "11", repr: "Int(11)" }),
+            value: Some({ type_name: "Int", value: "11", repr: "Int(11)", }),
             error: None,
             repr: "Ok(Int(11))",
           },
           before_kind: "formula",
           after: {
             status: "ok",
-            value: Some({ type_name: "Int", value: "12", repr: "Int(12)" }),
+            value: Some({ type_name: "Int", value: "12", repr: "Int(12)", }),
             error: None,
             repr: "Ok(Int(12))",
           },
@@ -110,7 +110,10 @@ test "explain cell separates active and inactive conditional references" {
 
   let switched = {
     ..context,
-    cells: [{ ..focus, last_dynamic_dependencies: ["C1"] }, ..context.cells[1:]],
+    cells: [
+      { ..focus, last_dynamic_dependencies: ["C1"], },
+      ..context.cells[1:],
+    ],
   }
   let second = explain_cell(switched, "B1").unwrap()
   inspect(second.active_inputs[0].id, content="C1")
@@ -331,7 +334,7 @@ test "explanation queries preserve unknown source labels" {
   let context = {
     ..base,
     cells: [
-      { ..base.cells[0], kind: "future_formula", result: pending_result },
+      { ..base.cells[0], kind: "future_formula", result: pending_result, },
       ..base.cells[1:],
     ],
     latest_trace: Some({
@@ -415,7 +418,7 @@ test "explanation queries report bounded absence without inventing facts" {
           before_kind: "missing",
           after: {
             status: "ok",
-            value: Some({ type_name: "Int", value: "1", repr: "Int(1)" }),
+            value: Some({ type_name: "Int", value: "1", repr: "Int(1)", }),
             error: None,
             repr: "Ok(Int(1))",
           },
@@ -492,7 +495,7 @@ fn explanation_test_cell(
     kind,
     result: {
       status: "ok",
-      value: Some({ type_name: "Int", value, repr }),
+      value: Some({ type_name: "Int", value, repr, }),
       error: None,
       repr,
     },

@@ -3,9 +3,9 @@
 /// helpers. Full recomputation is slower but avoids correlated bugs in routing,
 /// consolidation, affected-origin selection, and worker feedback.
 priv struct Oracle {
-  mut source : @hashmap.HashMap[Edge, Int]
+  mut source : @hashmap.HashMap[Edge, Int32]
   mut reachable : @hashset.HashSet[Reach]
-  mut next_epoch : Int
+  mut next_epoch : Int32
 }
 
 ///|
@@ -23,12 +23,12 @@ fn Oracle::Oracle() -> Oracle {
 /// Consolidation is duplicated intentionally; sharing this tempting helper
 /// would make engine/oracle agreement unable to detect its bugs.
 fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] {
-  let sums : @hashmap.HashMap[Edge, Int] = @hashmap.HashMap([])
+  let sums : @hashmap.HashMap[Edge, Int32] = @hashmap.HashMap([])
   for update in updates {
     sums.update_or_default(update.edge, update.diff, old => old + update.diff)
   }
   let result : Array[SourceUpdate] = []
-  sums.each((edge, diff) => if diff != 0 { result.push({ edge, diff }) })
+  sums.each((edge, diff) => if diff != 0 { result.push({ edge, diff, }) })
   result.sort()
   result
 }
@@ -37,9 +37,9 @@ fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] 
 /// BFS from every source trades performance for a ground truth that does not
 /// depend on affected-origin rebuilding or feedback scheduling.
 fn oracle_recompute(
-  source : @hashmap.HashMap[Edge, Int],
+  source : @hashmap.HashMap[Edge, Int32],
 ) -> @hashset.HashSet[Reach] {
-  let adjacency : @hashmap.HashMap[Int, @hashset.HashSet[Int]] = @hashmap.HashMap([],
+  let adjacency : @hashmap.HashMap[Int32, @hashset.HashSet[Int32]] = @hashmap.HashMap([],
   )
   source.each((edge, weight) => {
     if weight > 0 {
@@ -50,8 +50,8 @@ fn oracle_recompute(
   origins.sort()
   let result : @hashset.HashSet[Reach] = @hashset.HashSet([])
   for origin in origins {
-    let visited : @hashset.HashSet[Int] = @hashset.HashSet([])
-    let pending : @queue.Queue[Int] = @queue.Queue([])
+    let visited : @hashset.HashSet[Int32] = @hashset.HashSet([])
+    let pending : @queue.Queue[Int32] = @queue.Queue([])
     match adjacency.get(origin) {
       None => ()
       Some(targets) => {
@@ -69,7 +69,7 @@ fn oracle_recompute(
         None => break
         Some(target) => target
       }
-      result.add(Reach::{ origin, target })
+      result.add(Reach::{ origin, target, })
       match adjacency.get(target) {
         None => ()
         Some(next_targets) => {
@@ -90,9 +90,9 @@ fn oracle_recompute(
 ///|
 /// Only the output representation is shared conceptually with the engine;
 /// canonical form is necessary for comparison, not algorithm reuse.
-fn oracle_source(source : @hashmap.HashMap[Edge, Int]) -> Array[WeightedEdge] {
+fn oracle_source(source : @hashmap.HashMap[Edge, Int32]) -> Array[WeightedEdge] {
   let result : Array[WeightedEdge] = []
-  source.each((edge, weight) => result.push({ edge, weight }))
+  source.each((edge, weight) => result.push({ edge, weight, }))
   result.sort()
   result
 }
@@ -115,12 +115,12 @@ fn oracle_delta(
   let result : Array[ReachUpdate] = []
   previous.each(reach => {
     if !next.contains(reach) {
-      result.push({ reach, diff: -1 })
+      result.push({ reach, diff: -1, })
     }
   })
   next.each(reach => {
     if !previous.contains(reach) {
-      result.push({ reach, diff: 1 })
+      result.push({ reach, diff: 1, })
     }
   })
   result.sort()
@@ -134,7 +134,7 @@ fn oracle_delta(
 /// validation and recomputation.
 fn Oracle::apply(
   self : Oracle,
-  epoch_value : Int,
+  epoch_value : Int32,
   updates : ArrayView[SourceUpdate],
 ) -> Result[Publication, ProtocolError] {
   if epoch_value != self.next_epoch {

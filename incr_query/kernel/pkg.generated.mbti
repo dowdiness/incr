@@ -8,6 +8,7 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub suberror ReadError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
@@ -16,21 +17,23 @@ pub suberror ReadError {
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror RegionError {
   ClosedRegion(Diagnostic)
   MutationDuringEvaluation(Diagnostic)
   MutationDuringTransaction(Diagnostic)
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub suberror TransactionError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
   ExpiredTransaction(Diagnostic)
   TransactionDuringEvaluation(Diagnostic)
   NestedTransaction(Diagnostic)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 pub struct Cutoff[V] {
@@ -38,9 +41,10 @@ pub struct Cutoff[V] {
 }
 pub fn[V : Eq] Cutoff::equal() -> Self[V]
 
+#derive(@debug.Debug)
 pub struct Diagnostic {
   // private fields
-} derive(@debug.Debug)
+}
 pub fn Diagnostic::help(Self) -> String?
 pub fn Diagnostic::message(Self) -> String
 
@@ -72,7 +76,7 @@ pub fn[T] Source::view(Self[T]) -> View[T]
 pub struct Store {
   // private fields
 }
-pub fn Store::Store(max_active_queries? : UInt) -> Self
+pub fn Store::Store(max_active_queries? : UInt32) -> Self
 pub fn[V] Store::get(Self, View[V]) -> V raise ReadError
 pub fn Store::region(Self) -> Region raise RegionError
 pub fn[T, E] Store::transaction(Self, (Transaction) -> Result[T, E] raise TransactionError) -> Result[T, E] raise TransactionError

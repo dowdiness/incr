@@ -22,6 +22,8 @@ pub impl[T : Debug] Debug for Derived[T] with fn to_repr(self) -> Repr {
     "value": Debug::to_repr(self.value),
   })
 }
+
+///|
 pub extend Derived with Debug::{to_repr}
 
 ///|
@@ -341,15 +343,19 @@ pub fn[T, A] Derived::accumulated(
   if rt.is_cell_disposed(self.cell_id) {
     return Err(ReadError::disposed(self.cell_id))
   }
-  let verified = rt.ensure_computed_untracked(self.cell_id) catch {
+  let cycle : CycleError? = try {
+    rt.ensure_computed_untracked(self.cell_id)
+    None
+  } catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e => Some(e)
     e => {
       rt.drain_pending_events_direct()
       abort("Derived::accumulated target compute raised: " + e.to_string())
     }
   }
-  let result = match verified {
-    Err(e) => Err(ReadError::cycle(e))
-    Ok(_) => {
+  let result = match cycle {
+    Some(e) => Err(ReadError::cycle(e))
+    None => {
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match rt.top_active_query() {
         Some(frame) =>

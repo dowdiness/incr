@@ -9,14 +9,15 @@
 /// A point type where equality is based on coordinates, not identity.
 /// Two Point instances at the same coordinates are equal even if they
 /// are different allocations.
+#derive(Eq)
 struct Point {
-  x : Int
-  y : Int
-} derive(Eq)
+  x : Int32
+  y : Int32
+}
 
 ///|
-fn Point::Point(x : Int, y : Int) -> Point {
-  { x, y }
+fn Point::Point(x : Int32, y : Int32) -> Point {
+  { x, y, }
 }
 
 ///|
@@ -67,8 +68,8 @@ test "custom_eq: backdating with Point struct" {
 /// Two Versioned values are equal if their inner value is equal,
 /// regardless of their generation counter.
 priv struct Versioned {
-  value : Int
-  generation : Int // Ignored in equality check
+  value : Int32
+  generation : Int32 // Ignored in equality check
 }
 
 ///|
@@ -77,8 +78,8 @@ impl Eq for Versioned with fn equal(self, other) -> Bool {
 }
 
 ///|
-fn Versioned::Versioned(value : Int, generation : Int) -> Versioned {
-  { value, generation }
+fn Versioned::Versioned(value : Int32, generation : Int32) -> Versioned {
+  { value, generation, }
 }
 
 ///|
@@ -127,9 +128,9 @@ test "custom_eq: backdating ignores generation field" {
 ///|
 /// An enum type with custom equality semantics.
 priv enum Status {
-  Loading(progress~ : Int)
-  Ready(data~ : Int)
-  Error(code~ : Int, message~ : String)
+  Loading(progress~ : Int32)
+  Ready(data~ : Int32)
+  Error(code~ : Int32, message~ : String)
 }
 
 ///|
@@ -213,9 +214,9 @@ test "custom_eq: array content equality" {
   let size = Input::Input(rt, 3)
 
   let mut array_count = 0
-  let array_derived : Derived[Array[Int]] = Derived::Derived(rt, () => {
+  let array_derived : Derived[Array[Int32]] = Derived::Derived(rt, () => {
     array_count = array_count + 1
-    let arr : Array[Int] = []
+    let arr : Array[Int32] = []
     for i = 0; i < size.get(); i = i + 1 {
       arr.push(i * 2)
     }

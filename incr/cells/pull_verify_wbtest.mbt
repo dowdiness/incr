@@ -2,9 +2,8 @@
 test "pull_verify: input always returns Ok" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  match rt.pull_verify(sig.id()) {
-    Ok(_) => ()
-    Err(_) => abort("expected Ok")
+  rt.pull_verify(sig.id()) catch {
+    e => abort("expected success, got " + e.to_string())
   }
 }
 

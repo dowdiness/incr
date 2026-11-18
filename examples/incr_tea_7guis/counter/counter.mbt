@@ -1,20 +1,23 @@
 ///|
 priv struct Model {
-  count : Int
+  count : Int32
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   Increment
   Reset
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
 fn update_model(msg : Msg, model : Model) -> Model {
   match msg {
-    Increment => { count: model.count + 1 }
-    Reset => { count: 0 }
+    Increment => { count: model.count + 1, }
+    Reset => { count: 0, }
   }
 }
 
@@ -56,7 +59,7 @@ pub fn mount(host : @tea.DomElement) -> Unit {
   let runtime = @incr.Runtime()
   let program = @tea.Program::stateful(
     runtime,
-    { count: 0 },
+    { count: 0, },
     update_model,
     view_model,
     label="7guis.counter.view",

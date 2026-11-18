@@ -26,15 +26,13 @@ fn[T] Runtime::memo_force_recompute(
   compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> Result[T, CycleError] raise Failure {
+) -> T raise Error {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
-    return Err(
-      @kernel.construct_cycle_error(
-        self.core,
-        @kernel.collect_tracking_path(self.core),
-        cell.meta.cell_id,
-      ),
+    raise @kernel.construct_cycle_error(
+      self.core,
+      @kernel.collect_tracking_path(self.core),
+      cell.meta.cell_id,
     )
   }
   cell.in_progress = true
@@ -79,7 +77,7 @@ fn[T] Runtime::memo_force_recompute(
   cell.has_been_computed = true
   cell.in_progress = false
   self.dispatch_after_success_hooks(cell_id)
-  Ok(new_value)
+  new_value
 }
 
 ///|
@@ -89,22 +87,22 @@ fn[T] Runtime::static_memo_force_recompute(
   compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> Result[T, CycleError] raise Failure {
+) -> T raise Error {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
-    return Err(
-      @kernel.construct_cycle_error(
-        self.core,
-        @kernel.collect_in_progress_path(self.pull),
-        cell.meta.cell_id,
-      ),
+    raise @kernel.construct_cycle_error(
+      self.core,
+      @kernel.collect_in_progress_path(self.pull),
+      cell.meta.cell_id,
     )
   }
   cell.in_progress = true
   self.dispatch_before_recompute_hooks(cell_id)
   self.enter_static_recompute()
   let new_value = {
-    errdefer { cell.in_progress = false }
+    errdefer {
+      cell.in_progress = false
+    }
     compute_fn() catch {
       Failure::Failure(_) as e => {
         self.leave_static_recompute()
@@ -126,7 +124,7 @@ fn[T] Runtime::static_memo_force_recompute(
   cell.has_been_computed = true
   cell.in_progress = false
   self.dispatch_after_success_hooks(cell_id)
-  Ok(new_value)
+  new_value
 }
 
 ///|
@@ -234,9 +232,7 @@ fn[T] Derived::_create_static(
 ///|
 /// Internal: the core verification logic. Does NOT check tracking context.
 /// Aborts during fixpoint (see InFixpoint guard below).
-fn[T] Derived::get_result_inner(
-  self : Derived[T],
-) -> Result[T, CycleError] raise Failure {
+fn[T] Derived::get_result_inner(self : Derived[T]) -> T raise Error {
   self.get_result_inner_impl(record_dependency=true)
 }
 
@@ -244,7 +240,7 @@ fn[T] Derived::get_result_inner(
 fn[T] Derived::get_result_inner_impl(
   self : Derived[T],
   record_dependency~ : Bool,
-) -> Result[T, CycleError] raise Failure {
+) -> T raise Error {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Derived::get called on a disposed derived cell")
   }
@@ -259,16 +255,11 @@ fn[T] Derived::get_result_inner_impl(
   }
   match self.value {
     None => {
-      let r = self.force_recompute()
-      match r {
-        Ok(_) => {
-          if record_dependency {
-            Tracker::record_dependency(self.rt, self.cell_id)
-          }
-          Ok(self.value.unwrap())
-        }
-        Err(e) => Err(e)
+      ignore(self.force_recompute())
+      if record_dependency {
+        Tracker::record_dependency(self.rt, self.cell_id)
       }
+      self.value.unwrap()
     }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
@@ -276,18 +267,13 @@ fn[T] Derived::get_result_inner_impl(
         if record_dependency {
           Tracker::record_dependency(self.rt, self.cell_id)
         }
-        Ok(cached)
+        cached
       } else {
-        let vr = self.rt.pull_verify(self.cell_id)
-        match vr {
-          Ok(_) => {
-            if record_dependency {
-              Tracker::record_dependency(self.rt, self.cell_id)
-            }
-            Ok(self.value.unwrap())
-          }
-          Err(e) => Err(e)
+        self.rt.pull_verify(self.cell_id)
+        if record_dependency {
+          Tracker::record_dependency(self.rt, self.cell_id)
         }
+        self.value.unwrap()
       }
     }
   }
@@ -313,7 +299,11 @@ fn[T] Derived::read_honest_impl(
     return Err(ReadError::disposed(self.cell_id))
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Derived")
-  let result = self.get_result_inner_impl(record_dependency~) catch {
+  let result : Result[T, ReadError] = Ok(
+    self.get_result_inner_impl(record_dependency~),
+  ) catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
+      Err(ReadError::cycle(e))
     e => {
       self.rt.drain_pending_events_direct()
       abort("Derived compute raised: " + e.to_string())
@@ -322,33 +312,25 @@ fn[T] Derived::read_honest_impl(
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
-  match result {
-    Ok(v) => Ok(v)
-    Err(e) => Err(ReadError::cycle(e))
-  }
+  result
 }
 
 ///|
 fn[T] Derived::read_permissive(self : Derived[T]) -> T {
-  let r = self.get_result_inner() catch {
+  self.get_result_inner() catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
+      abort(e.format_path())
     e => {
       self.rt.drain_pending_events_direct()
       abort("Derived compute raised: " + e.to_string())
     }
   }
-  let value = match r {
-    Ok(value) => value
-    Err(e) => abort(e.format_path())
-  }
-  value
 }
 
 ///|
 /// Force recomputation: delegates to the dynamic or static memo recompute helper.
-fn[T] Derived::force_recompute(
-  self : Derived[T],
-) -> Result[T, CycleError] raise Failure {
-  let result = if self.is_static {
+fn[T] Derived::force_recompute(self : Derived[T]) -> T raise Error {
+  let new_value = if self.is_static {
     self.rt.static_memo_force_recompute(
       self.cell_id,
       self.compute,
@@ -363,36 +345,25 @@ fn[T] Derived::force_recompute(
       self.backdate_eq,
     )
   }
-  match result {
-    Ok(new_value) => {
-      self.value = Some(new_value)
-      Ok(new_value)
-    }
-    Err(e) => Err(e)
-  }
+  self.value = Some(new_value)
+  new_value
 }
 
 ///|
 /// Internal: recompute and return whether the value changed.
 /// This is the closure stored in CellMeta for type-erased recomputation.
-fn[T] Derived::recompute_inner(
-  self : Derived[T],
-) -> Result[Bool, CycleError] raise Failure {
+fn[T] Derived::recompute_inner(self : Derived[T]) -> Bool raise Error {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
-  match self.force_recompute() {
-    Ok(_) => {
-      let changed = cell.meta.changed_at != old_changed_at
-      if changed {
-        match cell.on_change {
-          Some(f) => @kernel.run_callback(self.rt.core, f)
-          None => ()
-        }
-      }
-      Ok(changed)
+  ignore(self.force_recompute())
+  let changed = cell.meta.changed_at != old_changed_at
+  if changed {
+    match cell.on_change {
+      Some(f) => @kernel.run_callback(self.rt.core, f)
+      None => ()
     }
-    Err(e) => Err(e)
   }
+  changed
 }
 
 ///|
@@ -429,31 +400,6 @@ fn[T] Derived::get_strict_honest(self : Derived[T]) -> Result[T, ReadError] {
     )
   }
   self.read_honest()
-}
-
-///|
-/// Package-private strict Result read. Requires an active tracked context.
-/// Compatibility projection of `get_strict_honest` onto `CycleError`.
-fn[T] Derived::get_strict_result(self : Derived[T]) -> Result[T, CycleError] {
-  guard self.rt.core.tracking.stack.length() > 0 else {
-    abort(
-      "Derived::get() called outside tracked context. Use Derived::read(), Derived::read_or_abort(), or Derived::watch() to read from outside the graph.",
-    )
-  }
-  self.read_result()
-}
-
-///|
-/// Package-private permissive Result read. Records a dependency when tracked.
-/// Compatibility projection of `read_honest` onto `CycleError`: a disposed read
-/// aborts (legacy contract), a cycle is `Err(CycleError)`.
-fn[T] Derived::read_result(self : Derived[T]) -> Result[T, CycleError] {
-  match self.read_honest() {
-    Ok(v) => Ok(v)
-    Err(ReadError::Cycle(e)) => Err(e)
-    Err(ReadError::Disposed(_)) =>
-      abort("Derived::get called on a disposed derived cell")
-  }
 }
 
 ///|

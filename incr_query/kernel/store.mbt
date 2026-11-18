@@ -2,14 +2,14 @@
 /// One Store owns its clocks and identity; it owns no Region registry.
 pub struct Store {
   priv id : StoreId
-  priv change_epoch : Ref[Int]
-  priv next_sequence : Ref[Int]
-  priv max_active_queries : UInt?
+  priv change_epoch : Ref[Int32]
+  priv next_sequence : Ref[Int32]
+  priv max_active_queries : UInt32?
 }
 
 ///|
 /// Creates an empty Store with an optional active Query nesting limit.
-pub fn Store::Store(max_active_queries? : UInt) -> Store {
+pub fn Store::Store(max_active_queries? : UInt32) -> Store {
   {
     id: fresh_store_id(),
     change_epoch: Ref(0),
@@ -53,7 +53,7 @@ fn[V] Store::get_result(self : Store, view : View[V]) -> Result[V, ReadError] {
 }
 
 ///|
-fn Store::allocate(self : Store) -> Int {
+fn Store::allocate(self : Store) -> Int32 {
   let sequence = self.next_sequence.val
   self.next_sequence.val = sequence + 1
   sequence

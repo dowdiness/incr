@@ -57,7 +57,7 @@ test "display action" {
     .snapshot(@nodeflow.ObservationDemand::empty().request_action(action))
     .action_observation(action)
     is @nodeflow.ActionObservation::Present(
-      @nodeflow.ActionAvailability::Available
+      @nodeflow.ActionAvailability::Available,
     ),
   )
   assert_eq(

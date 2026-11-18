@@ -137,7 +137,7 @@ By default, delete also leaves the heavier cell slot in place. That tombstone
 lets recreating the same address reuse the existing definition/value slot and
 keeps rollback bookkeeping simple. Long-lived sparse sessions can call
 `Worksheet::compact_deleted_cells()` after a successful edit (or after
-`Runtime::batch`/`batch_result` returns) to remove those heavyweight slots while
+`Runtime::batch` returns) to remove those heavyweight slots while
 retaining the presence anchors. Compaction refreshes present formulas before
 pruning so dependents of deleted cells re-anchor on presence rather than on the
 soon-to-be-disposed value slot.
@@ -184,7 +184,7 @@ Design note:
 - Buckets include only formula cells present **after** `op`; deleted formula cells
   are not represented as trace events.
 - `trace` does not make `op` atomic. Wrap `op` with `Runtime::batch` or
-  `Runtime::batch_result` if you need atomic semantics.
+  `Runtime::batch` if you need atomic semantics.
 
 Global vs bounded behavior:
 

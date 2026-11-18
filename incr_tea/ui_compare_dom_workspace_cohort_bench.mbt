@@ -7,7 +7,7 @@
 
 ///|
 #cfg(target="js")
-const UI_COMPARE_INACTIVE_COHORT_WORKSPACE_SIZE : Int = 256
+const UI_COMPARE_INACTIVE_COHORT_WORKSPACE_SIZE : Int32 = 256
 
 ///|
 #cfg(target="js")
@@ -59,7 +59,7 @@ fn UiCompareInactiveWorkspaceCohortTiming::is_activation_only(
 ///|
 #cfg(target="js")
 priv struct UiCompareInactiveWorkspaceCohortOperation {
-  update_count : Int
+  update_count : Int32
   activation : UiCompareInactiveWorkspaceCohortActivationMode
   timing : UiCompareInactiveWorkspaceCohortTiming
 }
@@ -67,17 +67,17 @@ priv struct UiCompareInactiveWorkspaceCohortOperation {
 ///|
 #cfg(target="js")
 fn UiCompareInactiveWorkspaceCohortOperation::UiCompareInactiveWorkspaceCohortOperation(
-  update_count : Int,
+  update_count : Int32,
   activation : UiCompareInactiveWorkspaceCohortActivationMode,
   timing : UiCompareInactiveWorkspaceCohortTiming,
 ) -> UiCompareInactiveWorkspaceCohortOperation {
-  { update_count, activation, timing }
+  { update_count, activation, timing, }
 }
 
 ///|
 #cfg(target="js")
 fn ui_compare_inactive_workspace_cohort_operation_tail(
-  update_count : Int,
+  update_count : Int32,
   tail : StringView,
 ) -> UiCompareInactiveWorkspaceCohortOperation {
   match tail {
@@ -171,7 +171,7 @@ fn UiCompareInactiveWorkspaceCohortOwnership::mount_roots(
   self : UiCompareInactiveWorkspaceCohortOwnership,
   renderer : BrowserRenderer[UiCompareWorkspaceMsg],
   runtime : @incr.Runtime,
-  root_count : Int,
+  root_count : Int32,
 ) -> Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])] {
   match self {
     UiCompareInactiveWorkspaceCohortSharedProgram => {
@@ -226,7 +226,7 @@ priv struct UiCompareIncrInactiveWorkspaceCohortHarness {
 ///|
 #cfg(target="js")
 fn UiCompareIncrInactiveWorkspaceCohortHarness::UiCompareIncrInactiveWorkspaceCohortHarness(
-  root_count : Int,
+  root_count : Int32,
   ownership : UiCompareInactiveWorkspaceCohortOwnership,
 ) -> UiCompareIncrInactiveWorkspaceCohortHarness {
   let runtime = @incr.Runtime()
@@ -245,7 +245,7 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::UiCompareIncrInactiveWorkspaceCo
   for pair in roots {
     pair.1.flush()
   }
-  { renderer, roots, ownership }
+  { renderer, roots, ownership, }
 }
 
 ///|
@@ -276,7 +276,7 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::deactivate_all(
 #cfg(target="js")
 fn UiCompareIncrInactiveWorkspaceCohortHarness::inactive_updates(
   self : UiCompareIncrInactiveWorkspaceCohortHarness,
-  update_count : Int,
+  update_count : Int32,
 ) -> Unit {
   for _ in 0..<update_count {
     self.ownership.click_action(self.roots, "hidden-mounted-update")
@@ -307,7 +307,7 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::activate(
 fn UiCompareIncrInactiveWorkspaceCohortHarness::measure_operation(
   self : UiCompareIncrInactiveWorkspaceCohortHarness,
   operation : UiCompareInactiveWorkspaceCohortOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     let activation_only = operation.is_activation_only()
@@ -344,9 +344,9 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::dispose(
 #cfg(target="js")
 fn ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
   ownership : UiCompareInactiveWorkspaceCohortOwnership,
 ) -> String {
   let op = ui_compare_inactive_workspace_cohort_operation(operation)
@@ -377,9 +377,9 @@ fn ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
 #cfg(target="js")
 fn ui_compare_incr_run_inactive_workspace_cohort(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
     operation,
@@ -394,9 +394,9 @@ fn ui_compare_incr_run_inactive_workspace_cohort(
 #cfg(target="js")
 fn ui_compare_incr_run_inactive_workspace_independent_cohort(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
     operation,

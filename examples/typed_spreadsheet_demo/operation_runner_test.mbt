@@ -338,7 +338,7 @@ test "shared AI context result conversion covers parse and type errors" {
 }
 
 ///|
-fn new_sheet(id : Int) -> @typed_spreadsheet.Worksheet {
+fn new_sheet(id : Int32) -> @typed_spreadsheet.Worksheet {
   let rt = @incr.Runtime()
   let sheet_id = @typed_spreadsheet.SheetId(id)
   Worksheet(rt, sheet_id)
@@ -349,7 +349,7 @@ fn install_add_one(
   sheet : @typed_spreadsheet.Worksheet,
   source : @typed_spreadsheet.CellId,
   target : @typed_spreadsheet.CellId,
-  value : Int,
+  value : Int32,
 ) -> Unit {
   if !(sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(value))
     is Ok(_)) {
@@ -381,7 +381,7 @@ fn add_one_formula(
 ///|
 fn assert_snapshot_int(
   snapshot : @typed_spreadsheet.CellSnapshot,
-  expected : Int,
+  expected : Int32,
 ) -> Unit {
   match snapshot.result {
     Ok(Int(value)) =>

@@ -2,29 +2,29 @@
 priv type RcToken
 
 ///|
-extern "C" fn token_new(kind : Int) -> RcToken = "incr_query_rc_token_new"
+extern "C" fn token_new(kind : Int32) -> RcToken = "incr_query_rc_token_new"
 
 ///|
-extern "C" fn live(kind : Int) -> Int = "incr_query_rc_live"
+extern "C" fn live(kind : Int32) -> Int32 = "incr_query_rc_live"
 
 ///|
-extern "C" fn finalized(kind : Int) -> Int = "incr_query_rc_finalized"
+extern "C" fn finalized(kind : Int32) -> Int32 = "incr_query_rc_finalized"
 
 ///|
 priv struct Payload {
   token : RcToken
-  value : Int
+  value : Int32
 }
 
 ///|
-fn payload(kind : Int, value : Int) -> Payload {
+fn payload(kind : Int32, value : Int32) -> Payload {
   { token: token_new(kind), value, }
 }
 
 ///|
 priv struct TraceKey {
   _token : RcToken
-  id : Int
+  id : Int32
 }
 
 ///|
@@ -43,7 +43,7 @@ impl Hash for TraceKey with fn hash_combine(self, hasher) {
 }
 
 ///|
-fn trace_key(kind : Int, id : Int) -> TraceKey {
+fn trace_key(kind : Int32, id : Int32) -> TraceKey {
   { _token: token_new(kind), id, }
 }
 
@@ -311,7 +311,7 @@ fn probe_close_releases_memo_payloads_but_view_keeps_key() -> Bool raise {
 fn probe_cycle_diagnostic_does_not_retain_key() -> Bool raise {
   let store = @incr_query.Store::Store()
   let region = store.region()
-  let self_view : Ref[@incr_query.View[Int]?] = Ref(None)
+  let self_view : Ref[@incr_query.View[Int32]?] = Ref(None)
   let query = region.query((ctx, _key : TraceKey) => {
     ctx.get(self_view.val.unwrap())
   })

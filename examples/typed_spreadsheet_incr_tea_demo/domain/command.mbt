@@ -2,8 +2,13 @@
 /// Monotonic generation for commands issued against a sheet document.
 ///
 /// The representation is private; use `initial` and `next` to create values.
-pub struct DocumentGeneration(Int) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct DocumentGeneration(Int32)
+
+///|
 pub extend DocumentGeneration with Eq::{not_equal, equal}
+
+///|
 pub extend DocumentGeneration with Debug::{to_repr}
 
 ///|
@@ -22,6 +27,7 @@ pub fn DocumentGeneration::next(
 
 ///|
 /// A command submitted by the sheet UI for later execution.
+#derive(Eq, Debug)
 pub(all) enum SheetCommand {
   /// Apply submitted text to the currently selected cell.
   ApplyFromSelection(@typed_spreadsheet.CellId, String, DocumentGeneration)
@@ -31,12 +37,17 @@ pub(all) enum SheetCommand {
   DeleteFromSelection(@typed_spreadsheet.CellId, DocumentGeneration)
   /// Reset the document at the captured generation.
   ResetDocument(DocumentGeneration)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SheetCommand with Eq::{not_equal, equal}
+
+///|
 pub extend SheetCommand with Debug::{to_repr}
 
 ///|
 /// Whether a sheet command may be executed in the current context.
+#derive(Eq, Debug)
 pub(all) enum CommandApplicability {
   /// The command may be executed.
   Applicable
@@ -44,20 +55,29 @@ pub(all) enum CommandApplicability {
   StaleGeneration
   /// The command's local selection or editing precondition failed.
   LocalPreconditionFailed
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CommandApplicability with Eq::{not_equal, equal}
+
+///|
 pub extend CommandApplicability with Debug::{to_repr}
 
 ///|
 /// The sheet state needed to validate a command at execution time.
 ///
 /// Construct this value with `SheetExecutionContext::SheetExecutionContext`.
+#derive(Eq, Debug)
 pub struct SheetExecutionContext {
   selected_cell : @typed_spreadsheet.CellId
   editing_cell : @typed_spreadsheet.CellId?
   generation : DocumentGeneration
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SheetExecutionContext with Eq::{not_equal, equal}
+
+///|
 pub extend SheetExecutionContext with Debug::{to_repr}
 
 ///|
@@ -67,7 +87,7 @@ pub fn SheetExecutionContext::SheetExecutionContext(
   editing_cell : @typed_spreadsheet.CellId?,
   generation : DocumentGeneration,
 ) -> SheetExecutionContext {
-  { selected_cell, editing_cell, generation }
+  { selected_cell, editing_cell, generation, }
 }
 
 ///|

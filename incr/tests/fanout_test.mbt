@@ -3,12 +3,12 @@ test "fanout: single input with many downstream memos" {
   let rt = Runtime::Runtime()
   let input = Input::Input(rt, 10)
   let count = 100
-  let memos : Array[Derived[Int]] = []
-  let compute_counts : Array[Ref[Int]] = []
+  let memos : Array[Derived[Int32]] = []
+  let compute_counts : Array[Ref[Int32]] = []
 
   // Create many memos, each depending on the same input
   for i = 0; i < count; i = i + 1 {
-    let counter : Ref[Int] = { val: 0 }
+    let counter : Ref[Int32] = { val: 0, }
     compute_counts.push(counter)
     let multiplier = i + 1
     memos.push(
@@ -47,7 +47,7 @@ test "fanout: aggregator memo over many inputs" {
   // Reverse pattern: many inputs feeding into one memo
   let rt = Runtime::Runtime()
   let count = 50
-  let inputs : Array[Input[Int]] = []
+  let inputs : Array[Input[Int32]] = []
 
   for i = 0; i < count; i = i + 1 {
     inputs.push(Input::Input(rt, i))
@@ -84,19 +84,19 @@ test "fanout: two-level fanout (input -> level1 -> level2)" {
   let input = Input::Input(rt, 5)
 
   // Level 1: 10 memos directly depending on input
-  let level1 : Array[Derived[Int]] = []
+  let level1 : Array[Derived[Int32]] = []
   for i = 0; i < 10; i = i + 1 {
     let offset = i
     level1.push(Derived::Derived(rt, () => input.get() + offset))
   }
 
   // Level 2: each level1 memo has 5 downstream memos (50 total)
-  let level2 : Array[Derived[Int]] = []
-  let level2_counts : Array[Ref[Int]] = []
+  let level2 : Array[Derived[Int32]] = []
+  let level2_counts : Array[Ref[Int32]] = []
   for i = 0; i < 10; i = i + 1 {
     let parent = level1[i]
     for j = 0; j < 5; j = j + 1 {
-      let counter : Ref[Int] = { val: 0 }
+      let counter : Ref[Int32] = { val: 0, }
       level2_counts.push(counter)
       let mult = j + 1
       level2.push(

@@ -83,7 +83,11 @@ fn[T] static_derived(
 
 ///|
 fn[T] static_source_input(source : Input[T]) -> StaticDerivedSource[T] {
-  { rt: source.rt, id: source.id(), read_declared: _dependent => source.peek() }
+  {
+    rt: source.rt,
+    id: source.id(),
+    read_declared: _dependent => source.peek(),
+  }
 }
 
 ///|

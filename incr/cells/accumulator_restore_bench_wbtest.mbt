@@ -19,11 +19,11 @@
 /// the typed `rt.accumulator_commit_hook` field.
 
 ///|
-fn bench_restore(b : @bench.T, n : Int) -> Unit {
+fn bench_restore(b : @bench.T, n : Int32) -> Unit {
   let rt = Runtime::Runtime()
   // Two disjoint sets of accumulators.
-  let prev_accs : Array[Accumulator[Int]] = []
-  let touched_accs : Array[Accumulator[Int]] = []
+  let prev_accs : Array[Accumulator[Int32]] = []
+  let touched_accs : Array[Accumulator[Int32]] = []
   for _ in 0..<n {
     prev_accs.push(Accumulator(rt))
     touched_accs.push(Accumulator(rt))

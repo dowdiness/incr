@@ -11,4 +11,3 @@ pub fn typed_spreadsheet_scenario_json() -> String
 // Type aliases
 
 // Traits
-

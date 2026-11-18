@@ -6,8 +6,8 @@ priv enum RabbitaCounterMsg {
 
 ///|
 priv struct RabbitaCounterModel {
-  count : Int
-  unrelated : Int
+  count : Int32
+  unrelated : Int32
 }
 
 ///|
@@ -43,27 +43,27 @@ priv struct RabbitaCounterHarness {
 fn RabbitaCounterHarness::RabbitaCounterHarness(
   host : @js_dom.Element,
 ) -> RabbitaCounterHarness {
-  let initial : RabbitaCounterModel = { count: 0, unrelated: 0 }
+  let initial : RabbitaCounterModel = { count: 0, unrelated: 0, }
   let cell = @rabbita.simple_cell(
     model=initial,
     update=(msg, model) => {
       match msg {
-        RabbitaIncrement => { ..model, count: model.count + 1 }
-        RabbitaTouchUnrelated => { ..model, unrelated: model.unrelated + 1 }
+        RabbitaIncrement => { ..model, count: model.count + 1, }
+        RabbitaTouchUnrelated => { ..model, unrelated: model.unrelated + 1, }
       }
     },
     view=ui_compare_rabbita_view,
   )
   let app = @rabbita.new(cell)
   app.mount(ui_compare_host_id(host))
-  { host, app }
+  { host, app, }
 }
 
 ///|
 fn RabbitaCounterHarness::measure_operation(
   self : RabbitaCounterHarness,
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -83,7 +83,9 @@ fn RabbitaCounterHarness::dispose(self : RabbitaCounterHarness) -> Unit {
 }
 
 ///|
-fn ui_compare_rabbita_measure_counter_initial_mount(iterations : Int) -> Double {
+fn ui_compare_rabbita_measure_counter_initial_mount(
+  iterations : Int32,
+) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     let host = ui_compare_create_host()
     let started = ui_compare_now_ms()
@@ -101,7 +103,7 @@ fn ui_compare_rabbita_measure_counter_initial_mount(iterations : Int) -> Double 
 ///|
 fn ui_compare_rabbita_measure_counter_updates(
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = RabbitaCounterHarness(host)
@@ -148,14 +150,14 @@ fn LunaCounterHarness::LunaCounterHarness(
   let (_, dispose) = @luna.create_root_with_dispose(fn() {
     @luna_dom.render_to(host, ui_compare_luna_counter_node())
   })
-  { host, dispose }
+  { host, dispose, }
 }
 
 ///|
 fn LunaCounterHarness::measure_operation(
   self : LunaCounterHarness,
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -175,7 +177,7 @@ fn LunaCounterHarness::dispose(self : LunaCounterHarness) -> Unit {
 }
 
 ///|
-fn ui_compare_luna_measure_counter_initial_mount(iterations : Int) -> Double {
+fn ui_compare_luna_measure_counter_initial_mount(iterations : Int32) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     let host = ui_compare_create_host()
     let started = ui_compare_now_ms()
@@ -193,7 +195,7 @@ fn ui_compare_luna_measure_counter_initial_mount(iterations : Int) -> Double {
 ///|
 fn ui_compare_luna_measure_counter_updates(
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = LunaCounterHarness(host)
@@ -210,8 +212,8 @@ fn ui_compare_luna_measure_counter_updates(
 fn ui_compare_counter_samples(
   system : String,
   operation : UiCompareCounterOperation,
-  sample_count : Int,
-  iterations : Int,
+  sample_count : Int32,
+  iterations : Int32,
 ) -> Array[Double] {
   match (system, operation) {
     ("rabbita", UiCompareInitialMount) => {
@@ -254,8 +256,8 @@ fn ui_compare_counter_samples(
 fn ui_compare_adjacent_run_counter(
   system : String,
   operation : String,
-  iterations : Int,
-  sample_count : Int,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_counter_operation(operation)
   let iteration_count = ui_compare_positive(iterations, 200)

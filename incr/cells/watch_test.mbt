@@ -208,7 +208,7 @@ test "watch: source disposed during suspension — reactivation uses fresh sourc
   let rt = Runtime::Runtime()
   let sig1 = Input::Input(rt, 10)
   let sig2 = Input::Input(rt, 20)
-  let use_sig1 : Ref[Bool] = { val: true }
+  let use_sig1 : Ref[Bool] = { val: true, }
   let r = EagerDerived::EagerDerived(rt, fn() {
     if use_sig1.val {
       sig1.get()
@@ -252,8 +252,8 @@ test "panic watch: on_observe during fixpoint aborts" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let r = EagerDerived::EagerDerived(rt, fn() { sig.get() })
-  let input : Relation[Int] = Relation::Relation(rt)
-  let output : Relation[Int] = Relation::Relation(rt)
+  let input : Relation[Int32] = Relation::Relation(rt)
+  let output : Relation[Int32] = Relation::Relation(rt)
   input.insert(1) |> ignore
   rt.new_rule([input.id()], [output.id()], fn() {
     // Attempt to watch a reactive during fixpoint

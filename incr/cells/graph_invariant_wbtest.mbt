@@ -21,9 +21,10 @@
 
 ///|
 /// Random graph operation for pull/push invariant probing.
+#derive(Debug)
 enum GraphOp {
-  SetA(Int)
-  SetB(Int)
+  SetA(Int32)
+  SetB(Int32)
   ReadSum
   ReadDoubled
   ToggleFlag
@@ -33,28 +34,30 @@ enum GraphOp {
   SpawnDisposeEffect
   WatchSumDrop
   GcSweep
-  BatchSetA(Int, Int)
-  BatchSetBoth(Int, Int)
-  BatchSetAFail(Int, Int)
-  BatchSetBothFail(Int, Int)
-  BatchResultFail(Int)
-} derive(Debug)
+  BatchSetA(Int32, Int32)
+  BatchSetBoth(Int32, Int32)
+  BatchSetAFail(Int32, Int32)
+  BatchSetBothFail(Int32, Int32)
+  BatchResultFail(Int32)
+}
+
+///|
 pub extend GraphOp with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 struct GraphFixture {
   rt : Runtime
-  input_a : Input[Int]
-  input_b : Input[Int]
+  input_a : Input[Int32]
+  input_b : Input[Int32]
   flag : Input[Bool]
-  sum : Derived[Int]
-  doubled : Derived[Int]
-  pick : Derived[Int]
-  eager : EagerDerived[Int]
+  sum : Derived[Int32]
+  doubled : Derived[Int32]
+  pick : Derived[Int32]
+  eager : EagerDerived[Int32]
   sum_effect : Effect
-  sum_watch : Watch[Int]
-  eager_watch : Watch[Int]
-  pick_watch : Watch[Int]
+  sum_watch : Watch[Int32]
+  eager_watch : Watch[Int32]
+  pick_watch : Watch[Int32]
 }
 
 ///|
@@ -95,14 +98,14 @@ fn build_graph_fixture() -> GraphFixture {
 }
 
 ///|
-fn read_derived_if_alive(derived : Derived[Int]) -> Unit {
+fn read_derived_if_alive(derived : Derived[Int32]) -> Unit {
   if !derived.rt.is_cell_disposed(derived.id()) {
     ignore(derived.read_or_abort())
   }
 }
 
 ///|
-fn read_eager_if_alive(eager : EagerDerived[Int]) -> Unit {
+fn read_eager_if_alive(eager : EagerDerived[Int32]) -> Unit {
   if !eager.rt.is_cell_disposed(eager.id()) {
     ignore(eager.read())
   }
@@ -176,10 +179,14 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
       }
     BatchResultFail(v) =>
       ignore(
-        fixture.rt.batch_result(fn() raise {
-          fixture.input_a.set(v)
-          raise BatchTestError::Stop
-        }),
+        Ok(
+          fixture.rt.batch(fn() raise {
+            fixture.input_a.set(v)
+            raise BatchTestError::Stop
+          }),
+        ) catch {
+          e => Err(e)
+        },
       )
   }
 }
@@ -200,7 +207,7 @@ fn dispatch_tables_aligned(rt : Runtime) -> Bool {
 }
 
 ///|
-fn cell_id_for_slot(rt : Runtime, slot : Int) -> CellId? {
+fn cell_id_for_slot(rt : Runtime, slot : Int32) -> CellId? {
   if slot < 0 || slot >= rt.core.cell_index.length() {
     return None
   }
@@ -211,7 +218,7 @@ fn cell_id_for_slot(rt : Runtime, slot : Int) -> CellId? {
 }
 
 ///|
-fn push_reachable_count(rt : Runtime, id : CellId) -> Int {
+fn push_reachable_count(rt : Runtime, id : CellId) -> Int32 {
   rt.core.cell_ops[id.id].push_reachable_count()
 }
 
@@ -356,17 +363,17 @@ fn all_graph_invariants_hold(rt : Runtime) -> Bool {
 }
 
 ///|
-fn graph_op_gen() -> @gen.Gen[GraphOp] {
-  let int50 = @gen.int_bound(50)
-  let pair = @gen.tuple(int50, int50)
+fn graph_op_gen() -> @gen.Generator[GraphOp] {
+  let int50 = @gen.int_range(0, 50)
+  let pair = int50.zip(int50)
   @gen.one_of([
-    int50.fmap(v => GraphOp::SetA(v)),
-    int50.fmap(v => GraphOp::SetB(v)),
-    pair.fmap(v => GraphOp::BatchSetA(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetBoth(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetAFail(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetBothFail(v.0, v.1)),
-    int50.fmap(v => GraphOp::BatchResultFail(v)),
+    int50.map(v => GraphOp::SetA(v)),
+    int50.map(v => GraphOp::SetB(v)),
+    pair.map(v => GraphOp::BatchSetA(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetBoth(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetAFail(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetBothFail(v.0, v.1)),
+    int50.map(v => GraphOp::BatchResultFail(v)),
     @gen.pure(GraphOp::ReadSum),
     @gen.pure(GraphOp::ReadDoubled),
     @gen.pure(GraphOp::ToggleFlag),
@@ -380,7 +387,7 @@ fn graph_op_gen() -> @gen.Gen[GraphOp] {
 }
 
 ///|
-fn graph_ops_gen() -> @gen.Gen[Array[GraphOp]] {
+fn graph_ops_gen() -> @gen.Generator[Array[GraphOp]] {
   @gen.sized(size => {
     let count = size % 10 + 1
     graph_op_gen().array_with_size(count)
@@ -503,13 +510,17 @@ test "graph invariant: batch rollback preserves graph invariants" {
 }
 
 ///|
-test "graph invariant: failed batch_result reports err and settles runtime" {
+test "graph invariant: failed batch reports err and settles runtime" {
   let fixture = build_graph_fixture()
   let before_a = fixture.input_a.get()
-  let res = fixture.rt.batch_result(fn() raise {
-    fixture.input_a.set(before_a + 77)
-    raise BatchTestError::Stop
-  })
+  let res = Ok(
+    fixture.rt.batch(fn() raise {
+      fixture.input_a.set(before_a + 77)
+      raise BatchTestError::Stop
+    }),
+  ) catch {
+    e => Err(e)
+  }
   inspect(res is Err(_), content="true")
   inspect(fixture.input_a.get(), content=before_a.to_string())
   inspect(fixture.rt.core.batch.pending.length(), content="0")

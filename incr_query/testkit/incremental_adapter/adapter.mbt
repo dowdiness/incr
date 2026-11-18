@@ -1,7 +1,7 @@
 ///|
 fn normalize_read_error(
   scenario : @model.Scenario,
-  source_id : Int,
+  source_id : Int32,
   error : @incr_query.ReadError,
 ) -> @model.Observation {
   match (scenario, error) {
@@ -14,14 +14,14 @@ fn normalize_read_error(
 ///|
 priv struct StructuralSetup {
   other_region : @incr_query.Region
-  views : Map[Int, @incr_query.View[Int]]
+  views : Map[Int32, @incr_query.View[Int32]]
 }
 
 ///|
 priv struct ReaderSetup {
-  read : (Int, Int) -> Int raise @incr_query.ReadError
-  query_read : ((Int, Int) -> Int raise @incr_query.ReadError)?
-  domain_views : Map[Int, @incr_query.View[Result[Int, Int]]]
+  read : (Int32, Int32) -> Int32 raise @incr_query.ReadError
+  query_read : ((Int32, Int32) -> Int32 raise @incr_query.ReadError)?
+  domain_views : Map[Int32, @incr_query.View[Result[Int32, Int32]]]
   structural : StructuralSetup?
 }
 
@@ -41,30 +41,32 @@ fn normalize_query_error(
 fn cycle_reader(
   store : @incr_query.Store,
   region : @incr_query.Region,
-  source_views : Map[Int, @incr_query.View[Int]],
+  source_views : Map[Int32, @incr_query.View[Int32]],
   scenario : @model.Scenario,
-  computes : Ref[Int],
-) -> ((Int, Int) -> Int raise @incr_query.ReadError) raise {
+  computes : Ref[Int32],
+) -> ((Int32, Int32) -> Int32 raise @incr_query.ReadError) raise {
   match scenario {
     @model.Scenario::DirectCycle => {
-      let self_view : Ref[@incr_query.View[Int]?] = Ref(None)
-      let query = region.query((ctx, _key : Int) => {
+      let self_view : Ref[@incr_query.View[Int32]?] = Ref(None)
+      let query = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         ctx.get(self_view.val.unwrap())
       })
       let view = query.view(0)
       self_view.val = Some(view)
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([((0, 0), view)])
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
+        ((0, 0), view),
+      ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::MutualCycle => {
-      let a_view : Ref[@incr_query.View[Int]?] = Ref(None)
-      let b_view : Ref[@incr_query.View[Int]?] = Ref(None)
-      let a = region.query((ctx, _key : Int) => {
+      let a_view : Ref[@incr_query.View[Int32]?] = Ref(None)
+      let b_view : Ref[@incr_query.View[Int32]?] = Ref(None)
+      let a = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         ctx.get(b_view.val.unwrap())
       })
-      let b = region.query((ctx, _key : Int) => {
+      let b = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         ctx.get(a_view.val.unwrap())
       })
@@ -72,15 +74,15 @@ fn cycle_reader(
       let b_at_zero = b.view(0)
       a_view.val = Some(a_at_zero)
       b_view.val = Some(b_at_zero)
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), a_at_zero),
         ((1, 0), b_at_zero),
       ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::SameQueryKeyCycle => {
-      let views_ref : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
-      let query = region.query((ctx, key : Int) => {
+      let views_ref : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
+      let query = region.query((ctx, key : Int32) => {
         computes.val = computes.val + 1
         let next_key = if key == 0 { 1 } else { 0 }
         ctx.get(views_ref.val[next_key])
@@ -88,15 +90,15 @@ fn cycle_reader(
       let at_zero = query.view(0)
       let at_one = query.view(1)
       views_ref.val = Map([(0, at_zero), (1, at_one)])
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), at_zero),
         ((0, 1), at_one),
       ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::FiniteRecursion => {
-      let views_ref : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
-      let query = region.query((ctx, key : Int) => {
+      let views_ref : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
+      let query = region.query((ctx, key : Int32) => {
         computes.val = computes.val + 1
         if key == 0 {
           0
@@ -114,7 +116,7 @@ fn cycle_reader(
         (2, at_two),
         (3, at_three),
       ])
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), at_zero),
         ((0, 1), at_one),
         ((0, 2), at_two),
@@ -123,9 +125,9 @@ fn cycle_reader(
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::UnequalKeyCrossQuery => {
-      let a_views : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
-      let b_views : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
-      let a = region.query((ctx, key : Int) => {
+      let a_views : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
+      let b_views : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
+      let a = region.query((ctx, key : Int32) => {
         computes.val = computes.val + 1
         if key == 0 {
           ctx.get(b_views.val[0])
@@ -133,7 +135,7 @@ fn cycle_reader(
           key
         }
       })
-      let b = region.query((ctx, key : Int) => {
+      let b = region.query((ctx, key : Int32) => {
         computes.val = computes.val + 1
         if key == 0 {
           ctx.get(a_views.val[1])
@@ -147,7 +149,7 @@ fn cycle_reader(
       let b_at_one = b.view(1)
       a_views.val = Map([(0, a_at_zero), (1, a_at_one)])
       b_views.val = Map([(0, b_at_zero), (1, b_at_one)])
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), a_at_zero),
         ((0, 1), a_at_one),
         ((1, 0), b_at_zero),
@@ -156,9 +158,9 @@ fn cycle_reader(
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::DeadCycleBranch => {
-      let self_view : Ref[@incr_query.View[Int]?] = Ref(None)
+      let self_view : Ref[@incr_query.View[Int32]?] = Ref(None)
       let source_view = source_views[0]
-      let query = region.query((ctx, _key : Int) => {
+      let query = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         let value = ctx.get(source_view)
         if value == 0 {
@@ -169,13 +171,15 @@ fn cycle_reader(
       })
       let view = query.view(0)
       self_view.val = Some(view)
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([((0, 0), view)])
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
+        ((0, 0), view),
+      ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::CycleRecovery => {
-      let self_view : Ref[@incr_query.View[Int]?] = Ref(None)
+      let self_view : Ref[@incr_query.View[Int32]?] = Ref(None)
       let source_view = source_views[0]
-      let query = region.query((ctx, _key : Int) => {
+      let query = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         let value = ctx.get(source_view)
         if value == 1 {
@@ -186,14 +190,16 @@ fn cycle_reader(
       })
       let view = query.view(0)
       self_view.val = Some(view)
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([((0, 0), view)])
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
+        ((0, 0), view),
+      ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::OldTraceCycle => {
-      let a_views : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
-      let b_views : Ref[Map[Int, @incr_query.View[Int]]] = Ref(Map([]))
+      let a_views : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
+      let b_views : Ref[Map[Int32, @incr_query.View[Int32]]] = Ref(Map([]))
       let source_view = source_views[0]
-      let a = region.query((ctx, _key : Int) => {
+      let a = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         let value = ctx.get(source_view)
         if value == 0 {
@@ -202,7 +208,7 @@ fn cycle_reader(
           ctx.get(b_views.val[0])
         }
       })
-      let b = region.query((ctx, _key : Int) => {
+      let b = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         let value = ctx.get(source_view)
         if value == 0 {
@@ -215,28 +221,28 @@ fn cycle_reader(
       let b_at_zero = b.view(0)
       a_views.val = Map([(0, a_at_zero)])
       b_views.val = Map([(0, b_at_zero)])
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), a_at_zero),
         ((1, 0), b_at_zero),
       ])
       (query_id, key) => store.get(views[(query_id, key)])
     }
     @model.Scenario::SequentialDuplicateRead => {
-      let child_view : Ref[@incr_query.View[Int]?] = Ref(None)
-      let parent = region.query((ctx, _key : Int) => {
+      let child_view : Ref[@incr_query.View[Int32]?] = Ref(None)
+      let parent = region.query((ctx, _key : Int32) => {
         computes.val = computes.val + 1
         let left = ctx.get(child_view.val.unwrap())
         let right = ctx.get(child_view.val.unwrap())
         left + right
       })
-      let child = region.query((_ctx, _key : Int) => {
+      let child = region.query((_ctx, _key : Int32) => {
         computes.val = computes.val + 1
         0
       })
       let parent_at_zero = parent.view(0)
       let child_at_zero = child.view(0)
       child_view.val = Some(child_at_zero)
-      let views : Map[(Int, Int), @incr_query.View[Int]] = Map([
+      let views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([
         ((0, 0), parent_at_zero),
         ((1, 0), child_at_zero),
       ])
@@ -250,12 +256,13 @@ fn cycle_reader(
 fn make_reader(
   store : @incr_query.Store,
   region : @incr_query.Region,
-  source_views : Map[Int, @incr_query.View[Int]],
+  source_views : Map[Int32, @incr_query.View[Int32]],
   operations : Array[@model.Operation],
   scenario : @model.Scenario,
-  computes : Ref[Int],
+  computes : Ref[Int32],
 ) -> ReaderSetup raise {
-  let read : (Int, Int) -> Int raise @incr_query.ReadError = match scenario {
+  let read : (Int32, Int32) -> Int32 raise @incr_query.ReadError = match
+    scenario {
     @model.Scenario::Source =>
       (source_id, _key) => store.get(source_views[source_id])
     @model.Scenario::UnitQuery => {
@@ -268,12 +275,12 @@ fn make_reader(
       (_source_id, _key) => store.get(view)
     }
     @model.Scenario::KeyedQuery => {
-      let query = region.query((ctx, key : (Int, Int)) => {
+      let query = region.query((ctx, key : (Int32, Int32)) => {
         computes.val = computes.val + 1
         let value = ctx.get(source_views[key.0])
         value + key.1
       })
-      let keyed_views : Map[(Int, Int), @incr_query.View[Int]] = Map([])
+      let keyed_views : Map[(Int32, Int32), @incr_query.View[Int32]] = Map([])
       for operation in operations {
         match operation {
           @model.Operation::ReadKey(source_id, key) =>
@@ -310,7 +317,7 @@ fn make_reader(
     }
     @model.Scenario::Diamond => {
       let source_view = source_views[0]
-      let shared = region.query((ctx, _key : (Int, Int)) => {
+      let shared = region.query((ctx, _key : (Int32, Int32)) => {
         computes.val = computes.val + 1
         ctx.get(source_view)
       })
@@ -384,7 +391,7 @@ fn make_reader(
     | @model.Scenario::SequentialDuplicateRead =>
       (_source_id, _key) => abort("cycle scenario uses query reads")
   }
-  let query_read : ((Int, Int) -> Int raise @incr_query.ReadError)? = match
+  let query_read : ((Int32, Int32) -> Int32 raise @incr_query.ReadError)? = match
     scenario {
     @model.Scenario::DirectCycle
     | @model.Scenario::MutualCycle
@@ -398,11 +405,11 @@ fn make_reader(
       Some(cycle_reader(store, region, source_views, scenario, computes))
     _ => None
   }
-  let domain_views : Map[Int, @incr_query.View[Result[Int, Int]]] = Map([])
+  let domain_views : Map[Int32, @incr_query.View[Result[Int32, Int32]]] = Map([])
   if scenario == @model.Scenario::DomainFailure {
-    let query = region.query((_ctx, code : Int) => {
+    let query = region.query((_ctx, code : Int32) => {
       computes.val = computes.val + 1
-      let domain_value : Result[Int, Int] = Err(code)
+      let domain_value : Result[Int32, Int32] = Err(code)
       domain_value
     })
     for operation in operations {
@@ -417,8 +424,8 @@ fn make_reader(
     @model.Scenario::StructuralError => {
       let other = @incr_query.Store::Store()
       let other_region = other.region()
-      let foreign = other_region.query((_ctx, code : Int) => code)
-      let foreign_views : Map[Int, @incr_query.View[Int]] = Map([])
+      let foreign = other_region.query((_ctx, code : Int32) => code)
+      let foreign_views : Map[Int32, @incr_query.View[Int32]] = Map([])
       for operation in operations {
         match operation {
           @model.Operation::StructuralFailure(code) =>
@@ -426,11 +433,11 @@ fn make_reader(
           _ => ()
         }
       }
-      let local_query = region.query((ctx, code : Int) => {
+      let local_query = region.query((ctx, code : Int32) => {
         computes.val = computes.val + 1
         ctx.get(foreign_views[code])
       })
-      let local_views : Map[Int, @incr_query.View[Int]] = Map([])
+      let local_views : Map[Int32, @incr_query.View[Int32]] = Map([])
       for operation in operations {
         match operation {
           @model.Operation::StructuralFailure(code) =>
@@ -448,9 +455,9 @@ fn make_reader(
 ///|
 fn publish_existing(
   store : @incr_query.Store,
-  sources : Map[Int, @incr_query.Source[Int]],
-  source_id : Int,
-  value : Int,
+  sources : Map[Int32, @incr_query.Source[Int32]],
+  source_id : Int32,
+  value : Int32,
 ) -> Unit raise {
   let source = match sources.get(source_id) {
     Some(source) => source
@@ -468,10 +475,10 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] raise {
   let store = @incr_query.Store::Store()
   let region = store.region()
   let initial_sources = script.initial_sources()
-  let sources : Map[Int, @incr_query.Source[Int]] = Map(
+  let sources : Map[Int32, @incr_query.Source[Int32]] = Map(
     initial_sources.map(init => (init.id, region.source(init.value))),
   )
-  let source_views : Map[Int, @incr_query.View[Int]] = Map(
+  let source_views : Map[Int32, @incr_query.View[Int32]] = Map(
     initial_sources.map(init => (init.id, sources[init.id].view())),
   )
   let operations = script.operations()
@@ -485,11 +492,11 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] raise {
     script.scenario_tag(),
     computes,
   )
-  let read = (source_id : Int, key : Int) => {
+  let read = (source_id : Int32, key : Int32) => {
     if !sources.contains(source_id) {
       observations.push(@model.Observation::Missing(source_id))
     } else {
-      let result : Result[Int, @incr_query.ReadError] = Ok(
+      let result : Result[Int32, @incr_query.ReadError] = Ok(
         (setup.read)(source_id, key),
       ) catch {
         error => Err(error)
@@ -512,7 +519,7 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] raise {
       @model.Operation::ReadQuery(query_id, key) =>
         match setup.query_read {
           Some(query_read) => {
-            let result : Result[Int, @incr_query.ReadError] = Ok(
+            let result : Result[Int32, @incr_query.ReadError] = Ok(
               query_read(query_id, key),
             ) catch {
               error => Err(error)
@@ -526,7 +533,7 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] raise {
           None => observations.push(@model.Observation::Missing(query_id))
         }
       @model.Operation::DomainFailure(code) => {
-        let domain_result : Result[Result[Int, Int], @incr_query.ReadError] = Ok(
+        let domain_result : Result[Result[Int32, Int32], @incr_query.ReadError] = Ok(
           store.get(setup.domain_views[code]),
         ) catch {
           error => Err(error)
@@ -546,7 +553,7 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] raise {
           Some(structural) => structural
           None => abort("StructuralFailure runner was not prepared")
         }
-        let structural_result : Result[Int, @incr_query.ReadError] = Ok(
+        let structural_result : Result[Int32, @incr_query.ReadError] = Ok(
           store.get(structural.views[code]),
         ) catch {
           error => Err(error)

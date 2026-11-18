@@ -40,17 +40,29 @@ fn ExprDebug::to_string(self : ExprDebug) -> String {
     Map(inner) => "Map(" + inner.to_string() + ")"
   }
 }
+
+///|
 pub extend Expr with Add::{add}
+
+///|
 pub extend Expr with Sub::{sub}
+
+///|
 pub extend Expr with Mul::{mul}
+
+///|
 pub extend Expr with Div::{div}
+
+///|
 pub extend Expr with Mod::{mod}
+
+///|
 pub extend Expr with Neg::{neg}
 
 ///|
 /// Creates a constant expression tied to an explicit runtime.
 pub fn[T] Expr::constant(rt : Runtime, value : T, label? : String) -> Expr[T] {
-  { rt, eval: () => value, debug: ExprDebug::Const(label) }
+  { rt, eval: () => value, debug: ExprDebug::Const(label), }
 }
 
 ///|
@@ -107,7 +119,7 @@ pub fn[T : Eq] Expr::derived(self : Expr[T], label? : String) -> Derived[T] {
 ///|
 #alias(e)
 pub fn[T] Input::expr(self : Input[T]) -> Expr[T] {
-  { rt: self.rt, eval: () => self.get(), debug: ExprDebug::Source(self.label) }
+  { rt: self.rt, eval: () => self.get(), debug: ExprDebug::Source(self.label), }
 }
 
 ///|
@@ -139,7 +151,7 @@ pub fn[T : Eq] ReachableDerived::expr(self : ReachableDerived[T]) -> Expr[T] {
 ///|
 #alias(e)
 pub fn[T] EagerDerived::expr(self : EagerDerived[T]) -> Expr[T] {
-  { rt: self.rt, eval: () => self.get(), debug: ExprDebug::Source(None) }
+  { rt: self.rt, eval: () => self.get(), debug: ExprDebug::Source(None), }
 }
 
 // ── Operator trait implementations ──

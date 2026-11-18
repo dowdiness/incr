@@ -127,7 +127,7 @@ Use `Runtime::set_on_change` to run a callback whenever the runtime commits a ch
 test "getting started: committed change callback" {
   let rt = @incr.Runtime()
   let quantity = rt.input(10, label="quantity")
-  let changes : Ref[Int] = { val: 0 }
+  let changes : Ref[Int32] = { val: 0, }
 
   rt.set_on_change(() => changes.val = changes.val + 1)
 
@@ -151,13 +151,17 @@ suberror GettingStartedBatchStop {
 }
 
 ///|
-test "getting started: batch_result rollback" {
+test "getting started: batch rollback" {
   let rt = @incr.Runtime()
   let amount = rt.input(100)
-  let result = rt.batch_result(fn() raise {
-    amount.set(999)
-    raise GettingStartedStop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      amount.set(999)
+      raise GettingStartedStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(amount.get(), content="100")

@@ -10,7 +10,7 @@ test "derived closure accepts non-raising function (auto-promotion)" {
 test "derived closure accepts raising function" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let m : Derived[Int] = Derived(rt, () => {
+  let m : Derived[Int32] = Derived(rt, () => {
     if s.get() < 0 {
       fail("negative input")
     } else {
@@ -24,7 +24,7 @@ test "derived closure accepts raising function" {
 test "panic derived closure that raises aborts caller" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, -1)
-  let m : Derived[Int] = Derived(rt, () => {
+  let m : Derived[Int32] = Derived(rt, () => {
     if s.get() < 0 {
       fail("negative")
     } else {

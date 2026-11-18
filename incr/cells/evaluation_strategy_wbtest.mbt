@@ -1,8 +1,8 @@
 ///|
 struct EvaluationStrategyScenarioResult {
-  derived_values : Array[Int]
-  eager_derived_values : Array[Int]
-  effect_log : Array[Int]
+  derived_values : Array[Int32]
+  eager_derived_values : Array[Int32]
+  effect_log : Array[Int32]
   revision : Revision
 }
 
@@ -15,10 +15,10 @@ fn run_evaluation_strategy_scenario(
   let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() * 10)
   let eager = EagerDerived::EagerDerived(rt, () => derived.get_or_abort() + 1)
-  let effect_log : Array[Int] = []
+  let effect_log : Array[Int32] = []
   let _effect = Effect::Effect(rt, () => effect_log.push(eager.get()))
-  let derived_values : Array[Int] = []
-  let eager_derived_values : Array[Int] = []
+  let derived_values : Array[Int32] = []
+  let eager_derived_values : Array[Int32] = []
   derived_values.push(derived.read_or_abort())
   eager_derived_values.push(read_reactive_for_test(eager))
   source.set(2)
@@ -99,7 +99,7 @@ test "evaluation strategy: tracing records lazy derived aborts without listener"
   let recorder = @kernel.EvaluationTraceRecorder()
   let rt = Runtime()
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
-  let derived : Derived[Int] = Derived(rt, () => raise Failure("traced boom"))
+  let derived : Derived[Int32] = Derived(rt, () => raise Failure("traced boom"))
 
   let mut failed = false
   try derived.force_recompute() catch {
@@ -127,10 +127,10 @@ test "evaluation strategy: tracing records lazy derived aborts without listener"
 ///|
 fn run_evaluation_strategy_fixpoint_scenario(
   strategies : EvaluationStrategies,
-) -> Int {
+) -> Int32 {
   let rt = Runtime()
   rt.install_evaluation_strategies(strategies)
-  let relation : Relation[Int] = Relation::Relation(rt)
+  let relation : Relation[Int32] = Relation::Relation(rt)
   relation.insert(1) |> ignore
   relation.insert(2) |> ignore
   rt.fixpoint()

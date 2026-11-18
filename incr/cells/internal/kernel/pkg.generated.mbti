@@ -15,7 +15,7 @@ import {
 // Values
 pub fn abort_cross_runtime(String, @types.RuntimeId, @types.RuntimeId) -> Unit
 
-pub fn add_gc_root(RuntimeCore, @types.CellId) -> Int
+pub fn add_gc_root(RuntimeCore, @types.CellId) -> Int32
 
 pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
@@ -25,7 +25,7 @@ pub fn alloc_listener_id(RuntimeCore) -> @types.ListenerId
 
 pub fn alloc_runtime_id() -> @types.RuntimeId
 
-pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
+pub fn cell_id_at(RuntimeCore, Int32) -> @types.CellId
 
 pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @types.CellId
 
@@ -63,7 +63,7 @@ pub fn get_current_computing_runtime_id() -> @types.RuntimeId?
 
 pub fn get_durability(RuntimeCore, @types.CellId) -> @types.Durability
 
-pub fn get_level(RuntimeCore, @types.CellId) -> Int
+pub fn get_level(RuntimeCore, @types.CellId) -> Int32
 
 pub fn get_subscribers(RuntimeCore, @types.CellId) -> Iter[@types.CellId]
 
@@ -83,13 +83,13 @@ pub fn propagate_changes(RuntimeCore, PullState, PushState, DatalogState, Array[
 
 pub fn propagate_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
-pub fn propagate_liveness(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Int) -> Unit
+pub fn propagate_liveness(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Int32) -> Unit
 
 pub fn publish_cell_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
 
 pub fn publish_cell_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
-pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
+pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Unit raise
 
 pub fn push_propagate_from(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId]) -> Unit
 
@@ -97,11 +97,11 @@ pub fn push_propagate_from_with_events(RuntimeCore, PullState, PushState, Datalo
 
 pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
 
-pub fn recompute_level(RuntimeCore, @types.CellId, Array[@types.CellId]) -> Int
+pub fn recompute_level(RuntimeCore, @types.CellId, Array[@types.CellId]) -> Int32
 
 pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
 
-pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int
+pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int32
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
@@ -142,7 +142,7 @@ pub fn BatchFrame::has_undo_for(Self, @types.CellId) -> Bool
 pub fn BatchFrame::new() -> Self
 
 pub(all) struct BatchState {
-  mut depth : Int
+  mut depth : Int32
   pending : Array[&@shared.Committable]
   frames : Array[BatchFrame]
   mut max_durability : @types.Durability
@@ -159,62 +159,68 @@ pub(all) struct DatalogState {
   rules : Array[@datalog.RuleData]
 }
 
+#derive(@debug.Debug)
 pub(all) struct DerivedRebuildAbortSummary {
   cell_id : @types.CellId
-  dependency_count_before : Int
+  dependency_count_before : Int32
   changed_at_before : @types.Revision
   verified_at_before : @types.Revision
   error : String
-} derive(@debug.Debug)
+}
 pub fn DerivedRebuildAbortSummary::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DerivedRebuildDisposition {
   RecomputedChanged
   RecomputedBackdated
-} derive(Eq, @debug.Debug)
+}
 pub fn DerivedRebuildDisposition::equal(Self, Self) -> Bool
 pub fn DerivedRebuildDisposition::not_equal(Self, Self) -> Bool
 pub fn DerivedRebuildDisposition::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct DerivedRebuildSummary {
   cell_id : @types.CellId
   disposition : DerivedRebuildDisposition
-  dependency_count_before : Int
-  dependency_count_after : Int
+  dependency_count_before : Int32
+  dependency_count_after : Int32
   changed_at_before : @types.Revision
   changed_at_after : @types.Revision
   verified_at : @types.Revision
   had_synthetic_accumulator_reads : Bool
-} derive(@debug.Debug)
+}
 pub fn DerivedRebuildSummary::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum EagerDerivedEvaluationDisposition {
   RecomputedChanged
   RecomputedUnchanged
-} derive(Eq, @debug.Debug)
+}
 pub fn EagerDerivedEvaluationDisposition::equal(Self, Self) -> Bool
 pub fn EagerDerivedEvaluationDisposition::not_equal(Self, Self) -> Bool
 pub fn EagerDerivedEvaluationDisposition::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct EagerDerivedEvaluationSummary {
   cell_id : @types.CellId
   disposition : EagerDerivedEvaluationDisposition
-  level_before : Int
-  level_after : Int
-  dependency_count_before : Int
-  dependency_count_after : Int
+  level_before : Int32
+  level_after : Int32
+  dependency_count_before : Int32
+  dependency_count_after : Int32
   changed_at_before : @types.Revision
   changed_at_after : @types.Revision
-} derive(@debug.Debug)
+}
 pub fn EagerDerivedEvaluationSummary::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct EffectExecutionSummary {
   cell_id : @types.CellId
-  level_before : Int
-  level_after : Int
-  dependency_count_before : Int
-  dependency_count_after : Int
-} derive(@debug.Debug)
+  level_before : Int32
+  level_after : Int32
+  dependency_count_before : Int32
+  dependency_count_after : Int32
+}
 pub fn EffectExecutionSummary::to_repr(Self) -> @debug.Repr
 
 pub struct EvaluationStrategies {
@@ -224,7 +230,7 @@ pub fn EvaluationStrategies::commit_batch(Self, RuntimeCore, PullState, PushStat
 pub fn EvaluationStrategies::default() -> Self
 pub fn EvaluationStrategies::propagate_changes(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 pub fn EvaluationStrategies::publish_cell_changes(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
-pub fn EvaluationStrategies::pull_verify(Self, RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
+pub fn EvaluationStrategies::pull_verify(Self, RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Unit raise
 pub fn EvaluationStrategies::push_propagate_from(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 pub fn EvaluationStrategies::run_fixpoint(Self, RuntimeCore, DatalogState) -> Array[@types.CellId]
 pub fn EvaluationStrategies::trace_recorder(Self) -> EvaluationTraceRecorder?
@@ -238,17 +244,18 @@ pub fn EvaluationTraceRecorder::events(Self) -> Array[RuntimeEvaluationEvent]
 pub fn EvaluationTraceRecorder::record_event(Self, RuntimeEvaluationEvent) -> Unit
 pub fn EvaluationTraceRecorder::summary(Self) -> EvaluationTraceSummary
 
+#derive(@debug.Debug)
 pub(all) struct EvaluationTraceSummary {
-  derived_pull_verification_count : Int
-  derived_rebuild_count : Int
-  derived_rebuild_abort_count : Int
-  eager_derived_evaluation_count : Int
-  effect_execution_count : Int
-  push_queue_skip_count : Int
-  push_propagation_count : Int
-  changed_source_count : Int
-  fixpoint_run_count : Int
-} derive(@debug.Debug)
+  derived_pull_verification_count : Int32
+  derived_rebuild_count : Int32
+  derived_rebuild_abort_count : Int32
+  eager_derived_evaluation_count : Int32
+  effect_execution_count : Int32
+  push_queue_skip_count : Int32
+  push_propagation_count : Int32
+  changed_source_count : Int32
+  fixpoint_run_count : Int32
+}
 pub fn EvaluationTraceSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListenerEntry[F] {
@@ -268,12 +275,13 @@ pub fn[F] ListenerRegistry::remove(Self[F], @types.ListenerId) -> Bool
 pub fn[F] ListenerRegistry::set_singleton(Self[F], () -> @types.ListenerId, F) -> Unit
 pub fn[F] ListenerRegistry::snapshot(Self[F]) -> Array[F]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum PropagationPhase {
   Idle
   PushPropagating
   InFixpoint
   GarbageCollecting
-} derive(Eq, @debug.Debug)
+}
 pub fn PropagationPhase::equal(Self, Self) -> Bool
 pub fn PropagationPhase::not_equal(Self, Self) -> Bool
 pub fn PropagationPhase::output(Self, &Logger) -> Unit
@@ -284,41 +292,44 @@ pub impl Show for PropagationPhase
 pub(all) struct PullState {
   inputs : Array[@pull.PullInputData]
   memos : Array[@pull.MemoData]
-  free_inputs : Array[Int]
-  free_memos : Array[Int]
+  free_inputs : Array[Int32]
+  free_memos : Array[Int32]
 }
 
+#derive(@debug.Debug)
 pub(all) struct PushPropagationSummary {
-  changed_source_count : Int
-  eager_derived_evaluation_count : Int
-  effect_execution_count : Int
-  skipped_queue_entry_count : Int
-} derive(@debug.Debug)
+  changed_source_count : Int32
+  eager_derived_evaluation_count : Int32
+  effect_execution_count : Int32
+  skipped_queue_entry_count : Int32
+}
 pub fn PushPropagationSummary::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum PushQueueSkipReason {
   StaleLevel
   DisposedOrKindMismatch
   NotDirty
-} derive(Eq, @debug.Debug)
+}
 pub fn PushQueueSkipReason::equal(Self, Self) -> Bool
 pub fn PushQueueSkipReason::not_equal(Self, Self) -> Bool
 pub fn PushQueueSkipReason::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct PushQueueSkipSummary {
   cell_id : @types.CellId
-  queued_level : Int
-  current_level : Int
+  queued_level : Int32
+  current_level : Int32
   reason : PushQueueSkipReason
-} derive(@debug.Debug)
+}
 pub fn PushQueueSkipSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PushState {
   reactives : Array[@push.PushReactiveData]
   effects : Array[@push.PushEffectData]
-  free_reactives : Array[Int]
-  free_effects : Array[Int]
-  mut node_count : Int
+  free_reactives : Array[Int32]
+  free_effects : Array[Int32]
+  mut node_count : Int32
 }
 
 pub(all) struct RevisionState {
@@ -329,19 +340,20 @@ pub(all) struct RevisionState {
 pub(all) struct RuntimeCore {
   runtime_id : @types.RuntimeId
   revision : RevisionState
-  mut next_cell_id : Int
+  mut next_cell_id : Int32
   tracking : TrackingState
   batch : BatchState
-  mut callback_depth : Int
+  mut callback_depth : Int32
   on_change_listeners : ListenerRegistry[() -> Unit]
-  mut next_listener_id : Int
+  mut next_listener_id : Int32
   cell_index : Array[@shared.CellRef]
   cell_ops : Array[&@shared.CellOps]
   mut phase : PropagationPhase
-  gc_root_counts : @hashmap.HashMap[@types.CellId, Int]
+  gc_root_counts : @hashmap.HashMap[@types.CellId, Int32]
 }
 pub fn RuntimeCore::RuntimeCore() -> Self
 
+#derive(@debug.Debug)
 pub(all) enum RuntimeEvaluationEvent {
   DerivedRebuilt(DerivedRebuildSummary)
   DerivedRebuildAborted(DerivedRebuildAbortSummary)
@@ -349,7 +361,7 @@ pub(all) enum RuntimeEvaluationEvent {
   EffectExecuted(EffectExecutionSummary)
   PushQueueSkipped(PushQueueSkipSummary)
   PushPropagationCompleted(PushPropagationSummary)
-} derive(@debug.Debug)
+}
 pub fn RuntimeEvaluationEvent::to_repr(Self) -> @debug.Repr
 
 pub(all) struct TrackingState {

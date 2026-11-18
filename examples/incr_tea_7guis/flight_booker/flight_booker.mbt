@@ -7,12 +7,15 @@ priv struct Model {
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   SetFlightKind(String)
   SetStartDate(String)
   SetReturnDate(String)
   BookFlight
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -47,7 +50,7 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view,
     label="7guis.flight.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
@@ -64,9 +67,9 @@ fn dates_valid(model : Model) -> Bool {
 ///|
 fn update_model(msg : Msg, model : Model) -> Model {
   match msg {
-    SetFlightKind(value) => { ..model, flight_kind: value }
-    SetStartDate(value) => { ..model, start_date: value }
-    SetReturnDate(value) => { ..model, return_date: value }
+    SetFlightKind(value) => { ..model, flight_kind: value, }
+    SetStartDate(value) => { ..model, start_date: value, }
+    SetReturnDate(value) => { ..model, return_date: value, }
     BookFlight =>
       if dates_valid(model) {
         let status = if model.flight_kind == "one-way" {
@@ -76,7 +79,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
         }
         { ..model, status, }
       } else {
-        { ..model, status: "Choose valid flight dates." }
+        { ..model, status: "Choose valid flight dates.", }
       }
   }
 }

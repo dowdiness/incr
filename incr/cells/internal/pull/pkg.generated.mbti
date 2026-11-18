@@ -15,7 +15,7 @@ import {
 // Types and methods
 pub(all) struct MemoData {
   meta : @shared.CellMeta
-  compute : () -> Result[Bool, @types.CycleError] raise Failure
+  compute : () -> Bool raise
   mut verified_at : @types.Revision
   mut dependencies : Array[@types.CellId]
   mut in_progress : Bool
@@ -31,9 +31,9 @@ pub fn MemoData::durability(Self) -> @types.Durability
 pub fn MemoData::gc_dependencies(Self) -> Array[@types.CellId]
 pub fn MemoData::gc_role(Self) -> @types.GcRole
 pub fn MemoData::label(Self) -> String?
-pub fn MemoData::level(Self) -> Int
+pub fn MemoData::level(Self) -> Int32
 pub fn MemoData::meta(Self) -> @shared.CellMeta
-pub fn MemoData::push_reachable_count(Self) -> Int
+pub fn MemoData::push_reachable_count(Self) -> Int32
 pub fn MemoData::set_changed_at(Self, @types.Revision) -> Unit
 pub fn MemoData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for MemoData
@@ -52,9 +52,9 @@ pub fn PullInputData::durability(Self) -> @types.Durability
 pub fn PullInputData::gc_dependencies(Self) -> Array[@types.CellId]
 pub fn PullInputData::gc_role(Self) -> @types.GcRole
 pub fn PullInputData::label(Self) -> String?
-pub fn PullInputData::level(Self) -> Int
+pub fn PullInputData::level(Self) -> Int32
 pub fn PullInputData::meta(Self) -> @shared.CellMeta
-pub fn PullInputData::push_reachable_count(Self) -> Int
+pub fn PullInputData::push_reachable_count(Self) -> Int32
 pub fn PullInputData::set_changed_at(Self, @types.Revision) -> Unit
 pub fn PullInputData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PullInputData

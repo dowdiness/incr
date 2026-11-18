@@ -28,7 +28,7 @@ fn missing_grid_cell_snapshot() -> GridCellSnapshot {
 fn grid_cell_snapshot_from(
   snapshot : @typed_spreadsheet.CellSnapshot,
 ) -> GridCellSnapshot {
-  { present: snapshot.present, kind: snapshot.kind, result: snapshot.result }
+  { present: snapshot.present, kind: snapshot.kind, result: snapshot.result, }
 }
 
 ///|

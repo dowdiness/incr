@@ -19,8 +19,8 @@ an unsound propagation relation. They are not promised kernel semantics.
 ```mbt check
 ///|
 priv struct MutableMeaningKey {
-  identity : Int
-  meaning : Ref[Int]
+  identity : Int32
+  meaning : Ref[Int32]
 }
 
 ///|
@@ -42,7 +42,7 @@ impl Hash for MutableMeaningKey with fn hash_combine(self, hasher) {
 test "Incr Query expected divergence: mutable key meaning stays memoized" {
   let store = @incr_query.Store::Store()
   let region = store.region()
-  let key = MutableMeaningKey::{ identity: 42, meaning: Ref(10) }
+  let key = MutableMeaningKey::{ identity: 42, meaning: Ref(10), }
   let query = region.query((_ctx, key : MutableMeaningKey) => key.meaning.val)
   let view = query.view(key)
 

@@ -1,5 +1,5 @@
 ///|
-fn current_model_pull_memo_idx(rt : Runtime, cell_id : CellId) -> Int {
+fn current_model_pull_memo_idx(rt : Runtime, cell_id : CellId) -> Int32 {
   match rt.core.cell_index[cell_id.id] {
     PullMemo(idx) => idx
     _ => abort("expected PullMemo")
@@ -101,7 +101,7 @@ test "backdating early cutoff: stable middle prevents downstream recompute" {
 test "failed read does not record dependency: self cycle is not traced" {
   let rt = Runtime()
   let source = Input(rt, 100)
-  let memo_ref : Ref[Derived[Int]?] = { val: None }
+  let memo_ref : Ref[Derived[Int32]?] = { val: None, }
   let mut runs = 0
   let derived = Derived(rt, () => {
     runs += 1
@@ -143,9 +143,11 @@ test "cycle cleanup preserves previous trace: in_progress cleared on verify erro
   rt.pull.memos[b_idx].dependencies = [a.id()]
 
   tick.set(1)
-  match rt.pull_verify(a.id()) {
-    Ok(_) => abort("expected cycle during trace verification")
-    Err(_) => ()
+  try rt.pull_verify(a.id()) catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) => ()
+    e => abort("expected cycle during trace verification, got " + e.to_string())
+  } noraise {
+    _ => abort("expected cycle during trace verification")
   }
 
   inspect(rt.pull.memos[a_idx].in_progress, content="false")

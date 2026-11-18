@@ -4,6 +4,6 @@ fn Runtime::recompute_level(
   self : Runtime,
   cell_id : CellId,
   sources : Array[CellId],
-) -> Int {
+) -> Int32 {
   @kernel.recompute_level(self.core, cell_id, sources)
 }

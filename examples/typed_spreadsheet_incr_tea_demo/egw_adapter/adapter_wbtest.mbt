@@ -1,10 +1,15 @@
 ///|
+#derive(Eq, Debug)
 struct BindingCell {
   address : String
   text : String?
   diagnostic : @core.ProjectionDiagnostic?
-} derive(Eq, Debug)
+}
+
+///|
 pub extend BindingCell with Eq::{not_equal, equal}
+
+///|
 pub extend BindingCell with Debug::{to_repr}
 
 ///|
@@ -48,8 +53,8 @@ fn replace_diagnostic(
 ///|
 fn BindingFixture::new(runtime : @incr.Runtime) -> BindingFixture {
   let blank = [
-    BindingCell::{ address: "A1", text: None, diagnostic: None },
-    BindingCell::{ address: "B1", text: None, diagnostic: None },
+    BindingCell::{ address: "A1", text: None, diagnostic: None, },
+    BindingCell::{ address: "B1", text: None, diagnostic: None, },
   ]
   {
     runtime,
@@ -119,7 +124,7 @@ fn reset_authority(
 ///|
 fn fixture_start(
   replica : String,
-  sheet : Int,
+  sheet : Int32,
 ) -> (EgwAdapter, BindingFixture) raise @container.DocumentError {
   let fixture = BindingFixture::new(@incr.Runtime())
   let started = try! EgwAdapter::bootstrap(
@@ -166,7 +171,7 @@ fn command(
 fn assert_int(
   sheet : @typed_spreadsheet.Worksheet,
   cell : @typed_spreadsheet.CellId,
-  value : Int,
+  value : Int32,
 ) -> Unit raise {
   match sheet.read(cell) {
     @typed_spreadsheet.CellResult::Ok(actual) =>
@@ -264,7 +269,7 @@ fn assert_converged(a : EgwAdapter, b : EgwAdapter) -> Unit raise {
 fn attach_peer(
   source : EgwAdapter,
   replica : String,
-  sheet : Int,
+  sheet : Int32,
 ) -> (EgwAdapter, BindingFixture) raise @container.DocumentError {
   let fixture = BindingFixture::new(@incr.Runtime())
   let document = @container.Document::new(replica)
@@ -484,7 +489,7 @@ test "failed prepared frame rolls back bindings and retries" {
   let message = adapter.export_all()
   match adapter.apply_sync(message).adapter_result() {
     AdapterApplyResult::ProjectionFailed(
-      ProjectionApplyError::UnexpectedDelete(failed, _)
+      ProjectionApplyError::UnexpectedDelete(failed, _),
     ) => assert_eq(failed, b)
     _ => fail("unexpected rollback result")
   }
@@ -568,7 +573,7 @@ test "reset uses fresh authority and rejects stale command" {
   assert_true(
     stale
     is AdapterApplyResult::Rejected(
-      @domain.CommandApplicability::StaleGeneration
+      @domain.CommandApplicability::StaleGeneration,
     ),
   )
 }

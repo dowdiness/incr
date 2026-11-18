@@ -49,7 +49,7 @@ fn UiCompareIncrCounterHarness::UiCompareIncrCounterHarness(
   let program = ui_compare_incr_counter_program(runtime)
   let root = DomBenchRoot(program, host, KeyedDomPatch)
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -57,7 +57,7 @@ fn UiCompareIncrCounterHarness::UiCompareIncrCounterHarness(
 fn UiCompareIncrCounterHarness::measure_operation(
   self : UiCompareIncrCounterHarness,
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -82,7 +82,7 @@ fn UiCompareIncrCounterHarness::dispose(
 
 ///|
 #cfg(target="js")
-fn ui_compare_incr_measure_counter_initial_mount(iterations : Int) -> Double {
+fn ui_compare_incr_measure_counter_initial_mount(iterations : Int32) -> Double {
   let total = for _ in 0..<iterations; total = 0.0 {
     let host = dom_bench_create_host()
     let started = dom_bench_now_ms()
@@ -101,7 +101,7 @@ fn ui_compare_incr_measure_counter_initial_mount(iterations : Int) -> Double {
 #cfg(target="js")
 fn ui_compare_incr_measure_counter_updates(
   operation : UiCompareCounterOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let host = dom_bench_create_host()
   let harness = UiCompareIncrCounterHarness(host)
@@ -118,8 +118,8 @@ fn ui_compare_incr_measure_counter_updates(
 #cfg(target="js")
 fn ui_compare_incr_run_counter(
   operation : String,
-  iterations : Int,
-  sample_count : Int,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_counter_operation(operation)
   let iteration_count = dom_bench_positive(iterations, 200)

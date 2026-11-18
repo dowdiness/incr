@@ -7,7 +7,7 @@
 
 ///|
 #cfg(target="js")
-fn ui_compare_incr_counter_view(count : Int) -> Html[String] {
+fn ui_compare_incr_counter_view(count : Int32) -> Html[String] {
   div(attrs=[class_attr("counter")], [
     h2([text("Count: \{count}")]),
     button(events=[on_click("increment")], "+"),

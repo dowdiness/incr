@@ -9,7 +9,7 @@ priv enum RegionState {
 priv struct RegionEpoch {
   owner : StoreId
   region : RegionId
-  generation : Ref[Int]
+  generation : Ref[Int32]
   state : Ref[RegionState]
 }
 
@@ -31,8 +31,8 @@ fn RegionEpoch::accepts(
 pub struct Region {
   priv owner : StoreId
   priv epoch : RegionEpoch
-  priv change_epoch : Ref[Int]
-  priv next_sequence : Ref[Int]
+  priv change_epoch : Ref[Int32]
+  priv next_sequence : Ref[Int32]
   priv close_actions : Array[() -> Unit]
 }
 

@@ -10,7 +10,7 @@ priv struct EvalSession {
   owner : StoreId
   change_epoch : ChangeEpoch
   active_stack : Array[ActiveQuery]
-  max_active_queries : UInt?
+  max_active_queries : UInt32?
   active : Ref[Bool]
 }
 

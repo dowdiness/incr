@@ -1,60 +1,69 @@
 ///|
+#derive(Eq)
 priv struct MachineValidationToken {
-  child_id : Int
-  incarnation : Int
-  request_seq : Int
-} derive(Eq)
+  child_id : Int32
+  incarnation : Int32
+  request_seq : Int32
+}
 
 ///|
+#derive(Eq)
 priv enum MachineValidation {
-  MachinePending(Int)
-  MachineValid(Int)
-  MachineInvalid(Int, String)
-} derive(Eq)
+  MachinePending(Int32)
+  MachineValid(Int32)
+  MachineInvalid(Int32, String)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_constructor")
 priv enum MachineValidationOutcome {
   MachineValidationValid
   MachineValidationInvalid(String)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct MachineChild {
-  id : Int
-  incarnation : Int
+  id : Int32
+  incarnation : Int32
   text : String
   validation : MachineValidation
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct MachineParentModel {
   children : ReadOnlyArray[MachineChild]
-  selected_id : Int?
-  next_incarnation : Int
-} derive(Eq)
+  selected_id : Int32?
+  next_incarnation : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct MachineSnapshotChild {
-  id : Int
+  id : Int32
   text : String
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct MachineHistorySnapshot {
   children : ReadOnlyArray[MachineSnapshotChild]
-  selected_id : Int?
-} derive(Eq)
+  selected_id : Int32?
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct MachineValidateText {
   token : MachineValidationToken
   text : String
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv enum MachineDecision {
   MachineApplied
@@ -66,19 +75,20 @@ priv enum MachineDecision {
   MachineIgnoredDuplicate
   MachineRejectedInvalidAction
   MachineRejectedUnexpected
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_constructor")
 priv enum MachineAction {
-  MachineEdit(Int, String)
-  MachineSelect(Int)
-  MachineAdd(Int, String)
-  MachineRemove(Int)
-  MachineReorder(ReadOnlyArray[Int])
+  MachineEdit(Int32, String)
+  MachineSelect(Int32)
+  MachineAdd(Int32, String)
+  MachineRemove(Int32)
+  MachineReorder(ReadOnlyArray[Int32])
   MachineRestore(MachineHistorySnapshot)
   MachineComplete(MachineValidationToken, MachineValidationOutcome)
-} derive(Eq)
+}
 
 ///|
 priv struct MachineTransitionResult {
@@ -94,16 +104,16 @@ fn[T] machine_readonly(items : Array[T]) -> ReadOnlyArray[T] {
 
 ///|
 fn machine_initial_model() -> MachineParentModel {
-  { children: machine_readonly([]), selected_id: None, next_incarnation: 1 }
+  { children: machine_readonly([]), selected_id: None, next_incarnation: 1, }
 }
 
 ///|
-fn machine_child_index(model : MachineParentModel, id : Int) -> Int? {
+fn machine_child_index(model : MachineParentModel, id : Int32) -> Int32? {
   model.children.search_by(child => child.id == id)
 }
 
 ///|
-fn machine_child(model : MachineParentModel, id : Int) -> MachineChild? {
+fn machine_child(model : MachineParentModel, id : Int32) -> MachineChild? {
   match machine_child_index(model, id) {
     Some(index) => Some(model.children[index])
     None => None
@@ -111,7 +121,7 @@ fn machine_child(model : MachineParentModel, id : Int) -> MachineChild? {
 }
 
 ///|
-fn machine_ids(model : MachineParentModel) -> Array[Int] {
+fn machine_ids(model : MachineParentModel) -> Array[Int32] {
   [
     for child in model.children => child.id
   ]
@@ -120,7 +130,7 @@ fn machine_ids(model : MachineParentModel) -> Array[Int] {
 ///|
 fn machine_replace_child(
   model : MachineParentModel,
-  index : Int,
+  index : Int32,
   replacement : MachineChild,
 ) -> MachineParentModel {
   let children = [
@@ -132,16 +142,16 @@ fn machine_replace_child(
       }
     }
   ]
-  { ..model, children: machine_readonly(children) }
+  { ..model, children: machine_readonly(children), }
 }
 
 ///|
 fn machine_result(
   model : MachineParentModel,
   decision : MachineDecision,
-  commands? : Array[MachineValidateText] = [],
+  commands~ : Array[MachineValidateText] = [],
 ) -> MachineTransitionResult {
-  { model, commands: machine_readonly(commands), decision }
+  { model, commands: machine_readonly(commands), decision, }
 }
 
 ///|
@@ -151,13 +161,13 @@ fn machine_validation_command(child : MachineChild) -> MachineValidateText {
     _ => abort("validation command requires a pending child")
   }
   {
-    token: { child_id: child.id, incarnation: child.incarnation, request_seq },
+    token: { child_id: child.id, incarnation: child.incarnation, request_seq, },
     text: child.text,
   }
 }
 
 ///|
-fn machine_validation_request_seq(validation : MachineValidation) -> Int {
+fn machine_validation_request_seq(validation : MachineValidation) -> Int32 {
   match validation {
     MachinePending(seq) | MachineValid(seq) | MachineInvalid(seq, _) => seq
   }
@@ -165,12 +175,12 @@ fn machine_validation_request_seq(validation : MachineValidation) -> Int {
 
 ///|
 fn machine_pending_child(
-  id : Int,
-  incarnation : Int,
+  id : Int32,
+  incarnation : Int32,
   text : String,
-  request_seq : Int,
+  request_seq : Int32,
 ) -> MachineChild {
-  { id, incarnation, text, validation: MachinePending(request_seq) }
+  { id, incarnation, text, validation: MachinePending(request_seq), }
 }
 
 ///|
@@ -179,7 +189,7 @@ fn machine_snapshot(model : MachineParentModel) -> MachineHistorySnapshot {
     children: machine_readonly(
       [
         for child in model.children => {
-          MachineSnapshotChild::{ id: child.id, text: child.text }
+          MachineSnapshotChild::{ id: child.id, text: child.text, }
         }
       ],
     ),
@@ -205,7 +215,7 @@ fn machine_snapshot_is_valid(snapshot : MachineHistorySnapshot) -> Bool {
 ///|
 fn machine_reorder_is_valid(
   model : MachineParentModel,
-  ids : ReadOnlyArray[Int],
+  ids : ReadOnlyArray[Int32],
 ) -> Bool {
   guard ids.length() == model.children.length() else { return false }
   for i, id in ids {
@@ -222,7 +232,7 @@ fn machine_reorder_is_valid(
 ///|
 fn machine_transition_edit(
   model : MachineParentModel,
-  id : Int,
+  id : Int32,
   text : String,
 ) -> MachineTransitionResult {
   guard machine_child_index(model, id) is Some(index) else {
@@ -233,7 +243,7 @@ fn machine_transition_edit(
     return machine_result(model, MachineIgnoredNoChange)
   }
   let next_seq = machine_validation_request_seq(child.validation) + 1
-  let replacement = { ..child, text, validation: MachinePending(next_seq) }
+  let replacement = { ..child, text, validation: MachinePending(next_seq), }
   machine_result(
     machine_replace_child(model, index, replacement),
     MachineApplied,
@@ -244,7 +254,7 @@ fn machine_transition_edit(
 ///|
 fn machine_transition_select(
   model : MachineParentModel,
-  id : Int,
+  id : Int32,
 ) -> MachineTransitionResult {
   guard machine_child(model, id) is Some(_) else {
     return machine_result(model, MachineIgnoredMissingChild)
@@ -252,13 +262,13 @@ fn machine_transition_select(
   guard model.selected_id != Some(id) else {
     return machine_result(model, MachineIgnoredNoChange)
   }
-  machine_result({ ..model, selected_id: Some(id) }, MachineApplied)
+  machine_result({ ..model, selected_id: Some(id), }, MachineApplied)
 }
 
 ///|
 fn machine_transition_add(
   model : MachineParentModel,
-  id : Int,
+  id : Int32,
   text : String,
 ) -> MachineTransitionResult {
   guard machine_child(model, id) is None else {
@@ -280,8 +290,8 @@ fn machine_transition_add(
 ///|
 fn machine_selection_after_remove(
   model : MachineParentModel,
-  removed_index : Int,
-) -> Int? {
+  removed_index : Int32,
+) -> Int32? {
   guard model.selected_id == Some(model.children[removed_index].id) else {
     return model.selected_id
   }
@@ -297,7 +307,7 @@ fn machine_selection_after_remove(
 ///|
 fn machine_transition_remove(
   model : MachineParentModel,
-  id : Int,
+  id : Int32,
 ) -> MachineTransitionResult {
   guard machine_child_index(model, id) is Some(index) else {
     return machine_result(model, MachineIgnoredMissingChild)
@@ -316,7 +326,7 @@ fn machine_transition_remove(
 ///|
 fn machine_transition_reorder(
   model : MachineParentModel,
-  ids : ReadOnlyArray[Int],
+  ids : ReadOnlyArray[Int32],
 ) -> MachineTransitionResult {
   guard machine_reorder_is_valid(model, ids) else {
     return machine_result(model, MachineRejectedInvalidAction)
@@ -333,7 +343,7 @@ fn machine_transition_reorder(
     }
   ]
   machine_result(
-    { ..model, children: machine_readonly(children) },
+    { ..model, children: machine_readonly(children), },
     MachineApplied,
   )
 }

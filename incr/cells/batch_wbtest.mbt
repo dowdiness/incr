@@ -104,7 +104,7 @@ test "batch: same-value set is still no-op in batch" {
 test "batch: force_set commits a changed value once" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
   rt.batch(() => sig.force_set(1))
   inspect(sig.get(), content="1")
@@ -116,7 +116,7 @@ test "batch: force_set commits a changed value once" {
 test "batch: force_set commits an equal value once" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 42)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
   rt.batch(() => sig.force_set(42))
   inspect(sig.get(), content="42")
@@ -128,12 +128,16 @@ test "batch: force_set commits an equal value once" {
 test "batch: force_set rolls back without revision or callback" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
-  let result = rt.batch_result(fn() raise {
-    sig.force_set(1)
-    raise Stop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      sig.force_set(1)
+      raise Stop
+    }),
+  ) catch {
+    e => Err(e)
+  }
   inspect(result is Err(_), content="true")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
@@ -292,7 +296,7 @@ test "batch: nested raised error rolls back entire outer batch" {
 }
 
 ///|
-test "batch: failed inner batch_result rolls back before outer continues" {
+test "batch: failed inner batch rolls back before outer continues" {
   let rt = Runtime::Runtime()
   let outer_only = Input::Input(rt, 0)
   let shared = Input::Input(rt, 0)
@@ -302,11 +306,15 @@ test "batch: failed inner batch_result rolls back before outer continues" {
     outer_only.set(10)
     shared.set(1)
 
-    let inner = rt.batch_result(fn() raise {
-      shared.set(2)
-      inner_only.set(99)
-      raise Stop
-    })
+    let inner = Ok(
+      rt.batch(fn() raise {
+        shared.set(2)
+        inner_only.set(99)
+        raise Stop
+      }),
+    ) catch {
+      e => Err(e)
+    }
     inspect(inner is Err(_), content="true")
 
     // Outer batch continues with its own writes.
@@ -342,23 +350,26 @@ test "batch: raised error does not fire on_change callback" {
 }
 
 ///|
-test "batch_result: commits on success" {
+test "batch: commits on success" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let res = rt.batch_result(() => sig.set(5))
-  inspect(res is Ok(_), content="true")
+  rt.batch(() => sig.set(5))
   inspect(sig.get(), content="5")
   inspect(rt.core.revision.current_revision.value, content="1")
 }
 
 ///|
-test "batch_result: returns Err and rolls back" {
+test "batch: raised error is observable and rolls back" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let res = rt.batch_result(fn() raise {
-    sig.set(5)
-    raise Stop
-  })
+  let res = Ok(
+    rt.batch(fn() raise {
+      sig.set(5)
+      raise Stop
+    }),
+  ) catch {
+    e => Err(e)
+  }
   inspect(res is Err(_), content="true")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")

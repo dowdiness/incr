@@ -17,7 +17,13 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   compute : (K) -> V raise Failure,
   label? : String,
 ) -> DerivedMap[K, V] {
-  { rt, compute, label, entries: @hashmap.HashMap([]), disposed: { val: None } }
+  {
+    rt,
+    compute,
+    label,
+    entries: @hashmap.HashMap([]),
+    disposed: { val: None, },
+  }
 }
 
 ///|
@@ -160,7 +166,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
 
 ///|
 /// Returns the number of cached entries.
-pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
+pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int32 {
   match self.guard_live() {
     Ok(_) => self.entries.length()
     Err(_) => 0
@@ -173,7 +179,7 @@ pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
 /// maps and diagnostics.
 pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
   self : DerivedMap[K, V],
-) -> Int {
+) -> Int32 {
   match self.guard_live() {
     Ok(_) => self.sweep_entries()
     Err(_) => 0

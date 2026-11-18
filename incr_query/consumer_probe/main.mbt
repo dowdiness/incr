@@ -60,7 +60,7 @@ fn run_consumer_probe() -> Unit raise {
   println("")
 
   region.close()
-  let selected_after_close : Result[Int, @incr_query.ReadError] = Ok(
+  let selected_after_close : Result[Int32, @incr_query.ReadError] = Ok(
     store.get(selected_view),
   ) catch {
     error => Err(error)
@@ -68,7 +68,7 @@ fn run_consumer_probe() -> Unit raise {
   guard selected_after_close is Err(@incr_query.ReadError::ClosedRegion(_)) else {
     abort("selected View remained readable after Region close")
   }
-  let doubled_after_close : Result[Int, @incr_query.ReadError] = Ok(
+  let doubled_after_close : Result[Int32, @incr_query.ReadError] = Ok(
     store.get(doubled_view),
   ) catch {
     error => Err(error)

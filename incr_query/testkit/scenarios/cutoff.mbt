@@ -1,7 +1,7 @@
 ///|
 fn cutoff_script(
   kind : @model.CutoffKind,
-  steps : Array[Int],
+  steps : Array[Int32],
 ) -> @model.CutoffScript {
   @model.CutoffScript::CutoffScript(kind, steps)
 }

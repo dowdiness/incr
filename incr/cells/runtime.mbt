@@ -37,14 +37,14 @@ pub(all) struct Runtime {
   // MemoCommitPhase takes Runtime as a parameter (see
   // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
   priv commit_hooks : Array[&MemoCommitPhase]
-  priv mut static_recompute_depth : Int
-  priv static_recompute_tracking_floors : Array[Int]
+  priv mut static_recompute_depth : Int32
+  priv static_recompute_tracking_floors : Array[Int32]
   priv static_recompute_previous_runtime_ids : Array[@incr_types.RuntimeId?]
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
-  priv event_broadcast_hook_index : Int
+  priv event_broadcast_hook_index : Int32
   priv runtime_evaluation_event_hook : RuntimeEvaluationEventHook
-  priv runtime_evaluation_event_hook_index : Int
+  priv runtime_evaluation_event_hook_index : Int32
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
   priv accumulator_slots : Array[SlotMeta]
@@ -53,7 +53,7 @@ pub(all) struct Runtime {
   // from `slot_snapshots()` so kernel-side verify code does not allocate
   // per call.
   priv accumulator_snapshots : Array[&@shared.SlotSnapshot]
-  priv mut next_accumulator_id : Int
+  priv mut next_accumulator_id : Int32
   // Reverse index: for each memo, which accumulator slots it has pushed to.
   // Populated on successful recompute commit; used for BEFORE_CLOSURE snapshot
   // iteration and memo disposal cleanup.
@@ -95,7 +95,7 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
   let runtime_event_hook = RuntimeEvaluationEventHook::new()
   let rt : Runtime = {
     core: @kernel.RuntimeCore(),
-    pull: { inputs: [], memos: [], free_inputs: [], free_memos: [] },
+    pull: { inputs: [], memos: [], free_inputs: [], free_memos: [], },
     push: {
       reactives: [],
       effects: [],
@@ -103,7 +103,7 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
       free_effects: [],
       node_count: 0,
     },
-    datalog: { relations: [], functional_relations: [], rules: [] },
+    datalog: { relations: [], functional_relations: [], rules: [], },
     evaluation_strategies: EvaluationStrategies::default(),
     cell_lifecycle: [],
     commit_hooks: [],
@@ -403,7 +403,7 @@ fn Runtime::leave_phase(self : Runtime) -> Unit {
 fn Runtime::alloc_next_id(self : Runtime) -> CellId {
   let id = self.core.next_cell_id
   self.core.next_cell_id = id + 1
-  { runtime_id: self.core.runtime_id, id }
+  { runtime_id: self.core.runtime_id, id, }
 }
 
 ///|
@@ -424,11 +424,11 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 /// Input, Derived, EagerDerived, and Effect constructors.
 fn[T : CellOps + CellLifecycle] Runtime::install_cell(
   self : Runtime,
-  free_list : Array[Int],
+  free_list : Array[Int32],
   arr : Array[T],
-  make_ref : (Int) -> CellRef,
+  make_ref : (Int32) -> CellRef,
   make_data : (CellId) -> T,
-) -> (CellId, Int) {
+) -> (CellId, Int32) {
   let idx = free_list.pop().unwrap_or(arr.length())
   let cell_id = self.alloc_cell_id(make_ref(idx))
   let data = make_data(cell_id)
@@ -747,14 +747,14 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
 ///|
 /// Increments the observer reference count for a cell.
 /// Returns the previous count (0 means this is the first observer).
-fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Int {
+fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Int32 {
   @kernel.add_gc_root(self.core, id)
 }
 
 ///|
 /// Decrements the observer reference count for a cell.
 /// Removes the entry when count reaches 0. Returns remaining count.
-fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
+fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int32 {
   @kernel.remove_gc_root(self.core, id)
 }
 
@@ -795,7 +795,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
 pub fn[T] Runtime::input(
   self : Runtime,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> Input[T] {
   Input(self, initial, durability~, label?)

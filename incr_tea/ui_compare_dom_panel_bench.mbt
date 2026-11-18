@@ -80,7 +80,7 @@ fn UiCompareIncrPanelHarness::UiCompareIncrPanelHarness(
   let program = ui_compare_incr_panel_program(runtime)
   let root = DomBenchRoot(program, host, KeyedDomPatch)
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -122,7 +122,7 @@ fn UiCompareIncrPanelHarness::reset_after(
 fn UiCompareIncrPanelHarness::measure_operation(
   self : UiCompareIncrPanelHarness,
   operation : UiComparePanelOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -149,8 +149,8 @@ fn UiCompareIncrPanelHarness::dispose(self : UiCompareIncrPanelHarness) -> Unit 
 #cfg(target="js")
 fn ui_compare_incr_run_panel(
   operation : String,
-  iterations : Int,
-  sample_count : Int,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_panel_operation(operation)
   let iteration_count = dom_bench_positive(iterations, 200)

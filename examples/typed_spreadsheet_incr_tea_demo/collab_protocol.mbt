@@ -1,10 +1,12 @@
 ///|
 /// Transport-only peer identity. It is never used as an EGW replica id.
-struct PeerId(String) derive(Eq, Debug)
+#derive(Eq, Debug)
+struct PeerId(String)
 
 ///|
 /// EGW identity is generated independently for every page.
-struct ReplicaId(String) derive(Eq, Debug)
+#derive(Eq, Debug)
+struct ReplicaId(String)
 
 ///|
 /// Startup configuration errors are shown without starting a document.
@@ -38,19 +40,21 @@ suberror CollabProtocolError {
 
 ///|
 /// The browser transport selected at the imperative shell boundary.
+#derive(Eq, Debug)
 enum CollabTransportKind {
   Broadcast
   WebSocket
-} derive(Eq, Debug)
+}
 
 ///|
 /// The only supported startup modes.
+#derive(Eq, Debug)
 enum StartupMode {
   Standalone
   RoomChooser
   Host(PeerId, String, CollabTransportKind)
   Join(PeerId, String, CollabTransportKind)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Authority inputs selected by the collaboration shell before app creation.
@@ -71,7 +75,7 @@ enum CollabMessage {
     @typed_spreadsheet.SheetId,
     @domain.DocumentGeneration,
     @container.TreeNodeId,
-    @container.SyncMessage
+    @container.SyncMessage,
   )
   Ops(PeerId, PeerId, @container.SyncMessage)
 }
@@ -88,6 +92,7 @@ struct BootstrapData {
 
 ///|
 /// Collaboration lifecycle phases.
+#derive(Eq, Debug)
 enum CollabPhase {
   StartingHost
   Hosting
@@ -96,7 +101,7 @@ enum CollabPhase {
   Attached
   Failed
   Closed
-} derive(Eq, Debug)
+}
 
 ///|
 /// Events entering the collaboration reducer.
@@ -166,19 +171,19 @@ fn reduce_collab(
     (CollabPhase::Closed, CollabEvent::CloseRequested) =>
       (state, CollabDecision::NoEffect)
     (_, CollabEvent::CloseRequested) =>
-      ({ ..state, phase: CollabPhase::Closed }, CollabDecision::Stop)
+      ({ ..state, phase: CollabPhase::Closed, }, CollabDecision::Stop)
     (CollabPhase::Failed, CollabEvent::TransportFailed(_))
     | (CollabPhase::Closed, CollabEvent::TransportFailed(_)) =>
       (state, CollabDecision::NoEffect)
     (_, CollabEvent::TransportFailed(error)) =>
-      ({ ..state, phase: CollabPhase::Failed }, CollabDecision::Fail(error))
+      ({ ..state, phase: CollabPhase::Failed, }, CollabDecision::Fail(error))
     (CollabPhase::StartingHost, CollabEvent::HostStartSucceeded(bootstrap)) =>
       (
-        { ..state, phase: CollabPhase::Hosting, bootstrap: Some(bootstrap) },
+        { ..state, phase: CollabPhase::Hosting, bootstrap: Some(bootstrap), },
         CollabDecision::Mount,
       )
     (CollabPhase::StartingHost, CollabEvent::HostStartFailed(error)) =>
-      ({ ..state, phase: CollabPhase::Failed }, CollabDecision::Fail(error))
+      ({ ..state, phase: CollabPhase::Failed, }, CollabDecision::Fail(error))
     (CollabPhase::Hosting, CollabEvent::Incoming(CollabMessage::Join(peer))) =>
       match state.bootstrap {
         Some(payload) => {
@@ -192,13 +197,13 @@ fn reduce_collab(
             payload.sync,
           )
           (
-            { ..state, phase: CollabPhase::Attached, remote_peer: Some(peer) },
+            { ..state, phase: CollabPhase::Attached, remote_peer: Some(peer), },
             CollabDecision::Send(message),
           )
         }
         None =>
           (
-            { ..state, phase: CollabPhase::Failed },
+            { ..state, phase: CollabPhase::Failed, },
             CollabDecision::Fail("host bootstrap is missing"),
           )
       }
@@ -212,8 +217,8 @@ fn reduce_collab(
           sheet_id,
           generation,
           node,
-          sync
-        )
+          sync,
+        ),
       ),
     ) if target == state.local_peer => {
       let payload = BootstrapData::{
@@ -245,19 +250,19 @@ fn reduce_collab(
       match state.bootstrap {
         Some(bootstrap) =>
           (
-            { ..state, bootstrap: Some({ ..bootstrap, sync, }) },
+            { ..state, bootstrap: Some({ ..bootstrap, sync, }), },
             CollabDecision::NoEffect,
           )
         None =>
           (
-            { ..state, phase: CollabPhase::Failed },
+            { ..state, phase: CollabPhase::Failed, },
             CollabDecision::Fail("host bootstrap is missing"),
           )
       }
     (CollabPhase::Attaching, CollabEvent::AttachSucceeded) =>
-      ({ ..state, phase: CollabPhase::Attached }, CollabDecision::Mount)
+      ({ ..state, phase: CollabPhase::Attached, }, CollabDecision::Mount)
     (CollabPhase::Attaching, CollabEvent::AttachFailed(error)) =>
-      ({ ..state, phase: CollabPhase::Failed }, CollabDecision::Fail(error))
+      ({ ..state, phase: CollabPhase::Failed, }, CollabDecision::Fail(error))
     (
       CollabPhase::Attached,
       CollabEvent::Incoming(CollabMessage::Ops(target, source, sync)),
@@ -277,7 +282,7 @@ fn reduce_collab(
     (CollabPhase::Attached, CollabEvent::RemoteApplySucceeded) =>
       (state, CollabDecision::NoEffect)
     (CollabPhase::Attached, CollabEvent::RemoteApplyFailed(error)) =>
-      ({ ..state, phase: CollabPhase::Failed }, CollabDecision::Fail(error))
+      ({ ..state, phase: CollabPhase::Failed, }, CollabDecision::Fail(error))
     (
       CollabPhase::Attached,
       CollabEvent::Incoming(CollabMessage::Bootstrap(_, _, _, _, _, _, _)),
@@ -435,7 +440,7 @@ fn message_to_json(message : CollabMessage) -> String {
       _sheet_id,
       _generation,
       node,
-      sync
+      sync,
     ) =>
       Json::array([
         schema,
@@ -466,7 +471,7 @@ fn message_to_json(message : CollabMessage) -> String {
 /// Reads one required JSON string while retaining a typed protocol error.
 fn required_string(
   values : Array[Json],
-  index : Int,
+  index : Int32,
 ) -> String raise CollabProtocolError {
   guard index >= 0 && index < values.length() else {
     raise CollabProtocolError::InvalidShape

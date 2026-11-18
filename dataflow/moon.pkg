@@ -9,7 +9,7 @@ import {
 import {
   "moonbitlang/core/bench",
   "moonbitlang/quickcheck" @qc,
-  "moonbitlang/quickcheck/gen",
+  "moonbitlang/core/quickcheck" @gen,
   "moonbitlang/core/cmp",
 } for "wbtest"
 

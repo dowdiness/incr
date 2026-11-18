@@ -5,11 +5,11 @@ struct RecordingSessionTransport {
   ]
   failure : Ref[((String) -> Unit)?]
   published : Ref[Array[@container.SyncMessage]]
-  publish_attempts : Ref[Int]
+  publish_attempts : Ref[Int32]
   stopped : Ref[Bool]
-  bind_count : Ref[Int]
-  delivery_count : Ref[Int]
-  stop_count : Ref[Int]
+  bind_count : Ref[Int32]
+  delivery_count : Ref[Int32]
+  stop_count : Ref[Int32]
   fail_on_publish : Ref[String?]
 }
 

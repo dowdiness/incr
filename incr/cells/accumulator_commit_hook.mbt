@@ -25,7 +25,7 @@ priv struct AccumulatorCommitHook {
 
 ///|
 fn AccumulatorCommitHook::new() -> AccumulatorCommitHook {
-  { active: @hashmap.HashMap([]) }
+  { active: @hashmap.HashMap([]), }
 }
 
 ///|

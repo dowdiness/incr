@@ -64,7 +64,7 @@ pub(open) trait CellOps: HasCellMeta {
 
   /// Returns the topological level of this cell for push propagation.
   /// Pull cells and leaf cells return 0. Push reactives return their stored level.
-  fn level(Self) -> Int = _
+  fn level(Self) -> Int32 = _
 
   /// Determines whether this cell's dependency has changed since `verified_at`.
   ///
@@ -74,7 +74,7 @@ pub(open) trait CellOps: HasCellMeta {
 
   /// Number of subscriber-path routes from this cell to a live push cell.
   /// > 0 iff at least one live push cell (Reactive/Effect) is downstream.
-  fn push_reachable_count(Self) -> Int = _
+  fn push_reachable_count(Self) -> Int32 = _
 
   /// GC role of this cell. Default: Source (input cells).
   fn gc_role(Self) -> GcRole = _
@@ -121,7 +121,7 @@ impl CellOps with fn durability(self) -> Durability {
 
 ///|
 /// Default: level 0 (leaf/pull cells). Override for push cells that store a level.
-impl CellOps with fn level(_self) -> Int {
+impl CellOps with fn level(_self) -> Int32 {
   0
 }
 
@@ -134,7 +134,7 @@ impl CellOps with fn dep_changed_since(self, verified_at) -> Bool? {
 
 ///|
 /// Default: push_reachable_count from shared metadata.
-impl CellOps with fn push_reachable_count(self) -> Int {
+impl CellOps with fn push_reachable_count(self) -> Int32 {
   HasCellMeta::meta(self).push_reachable_count
 }
 

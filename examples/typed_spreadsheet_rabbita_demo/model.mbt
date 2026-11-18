@@ -5,17 +5,19 @@ struct CellDraft {
 }
 
 ///|
+#derive(Eq)
 enum Appearance {
   Paper
   Night
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 enum OverlayPanel {
   OverlayClosed
   EditorOverlay
   ExplanationOverlay
-} derive(Eq)
+}
 
 ///|
 struct ExplanationFrame {
@@ -54,7 +56,7 @@ enum Msg {
   CancelSelected
   BeginInlineEdit(String)
   ApplyInlineEdit(String)
-  MoveSelection(Int, Int)
+  MoveSelection(Int32, Int32)
   HandleAppKey(@html.Keyboard)
   SetAppearance(Appearance)
   SetOverlay(OverlayPanel)
@@ -69,8 +71,8 @@ fn init_model() -> Model {
   )
   let cells = grid_cells()
   let seed_drafts = [
-    { cell: "A1", text: "10" },
-    { cell: "B1", text: "=A1 + 1" },
+    { cell: "A1", text: "10", },
+    { cell: "B1", text: "=A1 + 1", },
   ]
   let base = {
     sheet,
@@ -111,7 +113,7 @@ fn init_model() -> Model {
 ///|
 fn update(msg : Msg, model : Model) -> Model {
   let next = match msg {
-    SelectCell(cell) => { ..select_cell(model, cell), editing_cell: None }
+    SelectCell(cell) => { ..select_cell(model, cell), editing_cell: None, }
     UpdateDraft(cell, text) =>
       {
         ..select_cell(model, cell),
@@ -163,7 +165,7 @@ fn reset_model(model : Model) -> Model {
 
 ///|
 fn select_cell(model : Model, cell : String) -> Model {
-  { ..model, selected_cell: cell, status: "Editing \{cell}.", error: None }
+  { ..model, selected_cell: cell, status: "Editing \{cell}.", error: None, }
 }
 
 ///|
@@ -198,7 +200,7 @@ fn should_ignore_keyboard(event : @html.Keyboard) -> Bool {
 }
 
 ///|
-fn move_selection(model : Model, delta_col : Int, delta_row : Int) -> Model {
+fn move_selection(model : Model, delta_col : Int32, delta_row : Int32) -> Model {
   guard model.cells.search_by(cell => cell == model.selected_cell)
     is Some(index) else {
     return model
@@ -216,7 +218,7 @@ fn move_selection(model : Model, delta_col : Int, delta_row : Int) -> Model {
   }
   let next_cell = model.cells[next_index]
   guard next_cell != model.selected_cell else { return model }
-  { ..select_cell(model, next_cell), status: "Selected \{next_cell}." }
+  { ..select_cell(model, next_cell), status: "Selected \{next_cell}.", }
 }
 
 ///|
@@ -232,13 +234,13 @@ fn set_appearance(model : Model, appearance : Appearance) -> Model {
 ///|
 fn set_overlay(model : Model, overlay : OverlayPanel) -> Model {
   let next = if model.overlay == overlay { OverlayClosed } else { overlay }
-  { ..model, overlay: next, status: overlay_status(next), error: None }
+  { ..model, overlay: next, status: overlay_status(next), error: None, }
 }
 
 ///|
 fn close_intro(model : Model) -> Model {
   if model.intro_visible {
-    { ..model, intro_visible: false }
+    { ..model, intro_visible: false, }
   } else {
     model
   }
@@ -262,12 +264,12 @@ fn appearance_label(appearance : Appearance) -> String {
 }
 
 ///|
-fn grid_column_count() -> Int {
+fn grid_column_count() -> Int32 {
   50
 }
 
 ///|
-fn grid_row_count() -> Int {
+fn grid_row_count() -> Int32 {
   50
 }
 
@@ -447,7 +449,7 @@ fn update_draft(
       })
     None => {
       let appended = drafts.copy()
-      appended.push({ cell, text })
+      appended.push({ cell, text, })
       appended
     }
   }

@@ -3,16 +3,23 @@
 ///
 /// Keep sheet ids stable for the same logical sheet so cell ids can be compared
 /// or stored without reconstructing the sheet wrapper.
+#derive(Eq, Debug)
 pub struct SheetId {
-  value : Int
-} derive(Eq, Debug)
+  value : Int32
+}
+
+///|
 pub extend SheetId with Eq::{not_equal, equal}
+
+///|
 pub extend SheetId with Debug::{to_repr}
+
+///|
 pub extend SheetId with Hash::{hash, hash_combine}
 
 ///|
 /// Creates a `SheetId`.
-pub fn SheetId::SheetId(value : Int) -> SheetId {
+pub fn SheetId::SheetId(value : Int32) -> SheetId {
   { value, }
 }
 
@@ -33,18 +40,25 @@ pub impl Hash for SheetId with fn hash_combine(self, hasher) {
 ///
 /// A `CellId` is stable for a given sheet+address pair and can be used as a
 /// map key for cell registration and cache lookups.
+#derive(Eq, Debug)
 pub struct CellId {
   sheet_id : SheetId
   address : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellId with Eq::{not_equal, equal}
+
+///|
 pub extend CellId with Debug::{to_repr}
+
+///|
 pub extend CellId with Hash::{hash, hash_combine}
 
 ///|
 /// Creates a `CellId`.
 pub fn CellId::CellId(sheet_id : SheetId, address : String) -> CellId {
-  { sheet_id, address }
+  { sheet_id, address, }
 }
 
 ///|

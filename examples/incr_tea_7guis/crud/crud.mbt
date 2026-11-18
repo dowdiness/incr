@@ -10,19 +10,22 @@ priv struct Model {
   name : String
   surname : String
   people : Array[Person]
-  selected : Int?
+  selected : Int32?
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   SetFilter(String)
   SetName(String)
   SetSurname(String)
-  Select(Int)
+  Select(Int32)
   Create
   Update
   Delete
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -39,9 +42,9 @@ fn App::App(runtime : @incr.Runtime) -> App {
     name: "Hans",
     surname: "Emil",
     people: [
-      { name: "Hans", surname: "Emil" },
-      { name: "Max", surname: "Mustermann" },
-      { name: "Roman", surname: "Tisch" },
+      { name: "Hans", surname: "Emil", },
+      { name: "Max", surname: "Mustermann", },
+      { name: "Roman", surname: "Tisch", },
     ],
     selected: Some(0),
   })
@@ -62,11 +65,11 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view,
     label="7guis.crud.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
-fn parse_int_or_none(value : String) -> Int? {
+fn parse_int_or_none(value : String) -> Int32? {
   let trimmed = value.trim()
   try @string.parse_int(trimmed) catch {
     _ => None
@@ -89,7 +92,7 @@ fn person_matches(person : Person, filter : String) -> Bool {
 }
 
 ///|
-fn filtered_people(model : Model) -> Array[(Int, Person)] {
+fn filtered_people(model : Model) -> Array[(Int32, Person)] {
   model.people
   .mapi((index, person) => (index, person))
   .filter(pair => person_matches(pair.1, model.filter))
@@ -99,7 +102,7 @@ fn filtered_people(model : Model) -> Array[(Int, Person)] {
 fn update_model(msg : Msg, model : Model) -> Model {
   match msg {
     SetFilter(value) => {
-      let filtered_model = { ..model, filter: value }
+      let filtered_model = { ..model, filter: value, }
       let people = filtered_people(filtered_model)
       let selected = match model.selected {
         Some(index) =>
@@ -114,28 +117,28 @@ fn update_model(msg : Msg, model : Model) -> Model {
         Some(index) =>
           model.people
           .get(index)
-          .map_or({ ..filtered_model, selected: None }, person => {
+          .map_or({ ..filtered_model, selected: None, }, person => {
             ..filtered_model,
             selected: Some(index),
             name: person.name,
             surname: person.surname,
           })
-        None => { ..filtered_model, selected: None }
+        None => { ..filtered_model, selected: None, }
       }
     }
-    SetName(value) => { ..model, name: value }
-    SetSurname(value) => { ..model, surname: value }
+    SetName(value) => { ..model, name: value, }
+    SetSurname(value) => { ..model, surname: value, }
     Select(index) =>
       model.people
       .get(index)
-      .map_or({ ..model, selected: None }, person => {
+      .map_or({ ..model, selected: None, }, person => {
         ..model,
         selected: Some(index),
         name: person.name,
         surname: person.surname,
       })
     Create => {
-      let person = { name: model.name, surname: model.surname }
+      let person = { name: model.name, surname: model.surname, }
       let people = model.people.copy()
       people.push(person)
       let filter = if person_matches(person, model.filter) {
@@ -143,11 +146,11 @@ fn update_model(msg : Msg, model : Model) -> Model {
       } else {
         ""
       }
-      { ..model, filter, people, selected: Some(people.length() - 1) }
+      { ..model, filter, people, selected: Some(people.length() - 1), }
     }
     Update =>
       model.selected.map_or(model, index => {
-        let updated_person = { name: model.name, surname: model.surname }
+        let updated_person = { name: model.name, surname: model.surname, }
         let people = model.people.mapi((i, person) => {
           if i == index {
             updated_person
@@ -160,7 +163,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
         } else {
           ""
         }
-        { ..model, filter, people }
+        { ..model, filter, people, }
       })
     Delete =>
       model.selected.map_or(model, index => {
@@ -168,7 +171,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
           .mapi((i, person) => (i, person))
           .filter(pair => pair.0 != index)
           .map(pair => pair.1)
-        { ..model, people, selected: None }
+        { ..model, people, selected: None, }
       })
   }
 }

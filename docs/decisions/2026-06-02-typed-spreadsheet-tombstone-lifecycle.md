@@ -16,7 +16,7 @@ declared type accepts Blank preserve the Blank value.
 
 Deleted cells retain their heavyweight definition/value slot by default. Long-lived
 sparse sessions may call `Worksheet::compact_deleted_cells()` after a successful
-edit or after `Runtime::batch`/`Runtime::batch_result` returns. Compaction refreshes
+edit or after `Runtime::batch` returns. Compaction refreshes
 present formulas first, then disposes deleted cells' heavyweight slots while
 preserving the presence anchors.
 

@@ -9,7 +9,7 @@ enum EgwBenchProjectionHint {
 ///|
 struct EgwBenchSnapshot {
   snapshot : @core.RawRegisterSnapshot
-  get_property_reads : Int
+  get_property_reads : Int32
 }
 
 ///|
@@ -58,7 +58,7 @@ fn egw_bench_adapter() -> EgwAdapter raise @container.DocumentError {
 }
 
 ///|
-fn egw_bench_addresses(count : Int) -> Array[String] {
+fn egw_bench_addresses(count : Int32) -> Array[String] {
   @domain.grid_cells()[0:count].to_owned()
 }
 
@@ -126,7 +126,7 @@ fn egw_bench_apply_prepared(
 fn egw_bench_project_changed_lower_bound(
   adapter : EgwAdapter,
   addresses : Array[String],
-) -> Int {
+) -> Int32 {
   let transition = egw_bench_transition(adapter, ChangedProperties(addresses))
   egw_bench_apply_prepared(adapter, transition.decisions())
   transition.decisions().length()
@@ -135,7 +135,7 @@ fn egw_bench_project_changed_lower_bound(
 ///|
 fn egw_bench_scan(
   b : @bench.T,
-  count : Int,
+  count : Int32,
   hint : EgwBenchProjectionHint,
 ) -> Unit raise @container.DocumentError {
   let adapter = egw_bench_adapter()
@@ -146,7 +146,7 @@ fn egw_bench_scan(
 }
 
 ///|
-fn egw_bench_decode(b : @bench.T, count : Int) -> Unit {
+fn egw_bench_decode(b : @bench.T, count : Int32) -> Unit {
   let entries = egw_bench_addresses(count).mapi((index, address) => {
     (address, @core.encode_register(@core.CellRegister::Source("\{index}")))
   })
@@ -161,7 +161,7 @@ fn egw_bench_decode(b : @bench.T, count : Int) -> Unit {
 ///|
 fn egw_bench_decode_diff(
   b : @bench.T,
-  count : Int,
+  count : Int32,
   hint : EgwBenchProjectionHint,
 ) -> Unit raise @container.DocumentError {
   let adapter = egw_bench_adapter()
@@ -184,7 +184,7 @@ fn egw_bench_decode_diff(
 ///|
 fn egw_bench_projection(
   b : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit raise @container.DocumentError {
   let adapter = egw_bench_adapter()
   let addresses = egw_bench_addresses(count)
@@ -206,7 +206,7 @@ fn egw_bench_projection(
 ///|
 fn egw_bench_end_to_end_full_scan(
   b : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit raise @container.DocumentError {
   let adapter = egw_bench_adapter()
   let addresses = egw_bench_addresses(count)
@@ -226,7 +226,7 @@ fn egw_bench_end_to_end_full_scan(
 ///|
 fn egw_bench_end_to_end_changed_properties(
   b : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit raise @container.DocumentError {
   let adapter = egw_bench_adapter()
   let addresses = egw_bench_addresses(count)

@@ -52,7 +52,7 @@ extern "js" fn dom_focus_element_by_id(id : String, select_text : Bool) -> Unit 
 #cfg(target="js")
 pub fn[Msg] Cmd::focus_element_by_id(
   id : String,
-  select? : Bool = false,
+  select~ : Bool = false,
 ) -> Cmd[Msg] {
   Cmd::after_flush(_ => dom_focus_element_by_id(id, select))
 }
@@ -259,7 +259,7 @@ extern "js" fn dom_add_key_listener(
   name : String,
   prevent_default : Bool,
   stop_propagation : Bool,
-  callback : (String, String, Bool, Bool, Bool, Bool, Bool) -> Int,
+  callback : (String, String, Bool, Bool, Bool, Bool, Bool) -> Int32,
 ) -> Unit =
   #| (element, name, preventDefault, stopPropagation, callback) => {
   #|   element.addEventListener(name, event => {
@@ -289,14 +289,14 @@ extern "js" fn dom_add_pointer_listener(
   prevent_default : Bool,
   stop_propagation : Bool,
   callback : (
-    Int,
+    Int32,
     String,
     Double,
     Double,
     Double,
     Double,
-    Int,
-    Int,
+    Int32,
+    Int32,
     Bool,
     Bool,
     Bool,
@@ -347,7 +347,7 @@ extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Bool =
 extern "js" fn dom_create_intersection_observer(
   element : DomElement,
   callback : () -> Unit,
-) -> Int =
+) -> Int32 =
   #| (element, callback) => {
   #|   const store = globalThis.__incrTeaIntersectionObservers ??= new Map();
   #|   const next = (globalThis.__incrTeaIntersectionObserverSeq ?? 0) + 1;
@@ -364,7 +364,7 @@ extern "js" fn dom_create_intersection_observer(
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_disconnect_intersection_observer(handle : Int) -> Unit =
+extern "js" fn dom_disconnect_intersection_observer(handle : Int32) -> Unit =
   #| (handle) => {
   #|   const store = globalThis.__incrTeaIntersectionObservers;
   #|   const observer = store?.get(handle);
@@ -433,14 +433,14 @@ priv enum Rendered[Msg] {
     attrs~ : Array[Attribute],
     events~ : Array[EventBinding[Msg]],
     children~ : Array[Rendered[Msg]],
-    element~ : DomElement
+    element~ : DomElement,
   )
   RenderedKeyedElem(
     tag~ : String,
     attrs~ : Array[Attribute],
     events~ : Array[EventBinding[Msg]],
     children~ : Array[(String, Rendered[Msg])],
-    element~ : DomElement
+    element~ : DomElement,
   )
 }
 
@@ -471,11 +471,11 @@ priv struct PayloadResolvers[Msg] {
 ///|
 #cfg(target="js")
 fn[Msg] PayloadResolvers::PayloadResolvers(
-  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
-  resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
-  resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
-  resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
-  resolve_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
+  resolve_value~ : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
+  resolve_checked~ : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
+  resolve_key~ : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  resolve_pointer~ : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  resolve_key_event~ : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
     _,
     _,
   ) => None,
@@ -501,10 +501,10 @@ priv struct DirectPatchResolvers {
 ///|
 #cfg(target="js")
 fn DirectPatchResolvers::DirectPatchResolvers(
-  resolve_text? : (DirectTextId) -> String? = _ => None,
-  resolve_attr? : (DirectAttrId) -> String? = _ => None,
+  resolve_text~ : (DirectTextId) -> String? = _ => None,
+  resolve_attr~ : (DirectAttrId) -> String? = _ => None,
 ) -> DirectPatchResolvers {
-  { resolve_text, resolve_attr }
+  { resolve_text, resolve_attr, }
 }
 
 ///|
@@ -923,13 +923,13 @@ fn[Msg : Eq] diff_rendered(
         attrs=old_attrs,
         events=old_events,
         children=old_children,
-        element~
+        element~,
       ),
       Elem(
         tag=next_tag,
         attrs=next_attrs,
         events=next_events,
-        children=next_children
+        children=next_children,
       ),
     ) =>
       if old_tag != next_tag || old_events != next_events {
@@ -962,13 +962,13 @@ fn[Msg : Eq] diff_rendered(
         attrs=old_attrs,
         events=old_events,
         children=old_children,
-        element~
+        element~,
       ),
       KeyedElem(
         tag=next_tag,
         attrs=next_attrs,
         events=next_events,
-        children=next_children
+        children=next_children,
       ),
     ) =>
       if old_tag != next_tag || old_events != next_events {
@@ -1098,7 +1098,7 @@ fn[Msg] collect_direct_patches(
   match rendered {
     RenderedText(_, _) => ()
     RenderedDirectText(id, value, node) =>
-      text_patches.push({ id, node, last: value })
+      text_patches.push({ id, node, last: value, })
     RenderedElem(tag~, attrs~, children~, element~, ..) => {
       collect_direct_attrs(tag, attrs, element, attr_patches, direct_resolvers)
       for child in children {
@@ -1314,12 +1314,12 @@ fn[Msg] BrowserRoot::BrowserRoot(
   host : DomElement,
   stats : RenderStats,
   mount_handle : ProgramMountHandle,
-  label? : String = "",
-  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
-  resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
-  resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
-  resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
-  resolve_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
+  label~ : String = "",
+  resolve_value~ : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
+  resolve_checked~ : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
+  resolve_key~ : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  resolve_pointer~ : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  resolve_key_event~ : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
     _,
     _,
   ) => None,
@@ -1477,7 +1477,7 @@ pub struct BrowserRenderer[Msg] {
 #cfg(target="js")
 pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
   runtime : @incr.Runtime,
-  after_flush? : (RenderStats) -> Unit = _ => (),
+  after_flush~ : (RenderStats) -> Unit = _ => (),
 ) -> BrowserRenderer[Msg] {
   let stats = RenderStats::RenderStats()
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
@@ -1546,12 +1546,12 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
-  label? : String = "",
-  on_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
-  on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
-  on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
-  on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
-  on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (_, _) => {
+  label~ : String = "",
+  on_value~ : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
+  on_checked_change~ : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
+  on_key~ : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  on_pointer~ : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  on_key_event~ : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (_, _) => {
     None
   },
 ) -> BrowserRoot[Msg] {

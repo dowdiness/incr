@@ -1,5 +1,6 @@
 ///|
 /// A typed formula AST for spreadsheet expressions.
+#derive(Eq)
 pub enum Formula {
   /// A literal value in the formula.
   Literal(CellValue)
@@ -15,11 +16,14 @@ pub enum Formula {
   Gt(Formula, Formula)
   /// Conditional formula execution.
   If(Formula, Formula, Formula)
-} derive(Eq)
+}
+
+///|
 pub extend Formula with Eq::{not_equal, equal}
 
 ///|
 /// Dependency-shape classification for typed spreadsheet formulas.
+#derive(Eq, Debug)
 pub(all) enum FormulaDependencyShape {
   /// Dependencies are known before evaluation.
   Applicative
@@ -27,8 +31,12 @@ pub(all) enum FormulaDependencyShape {
   Selective
   /// Dependencies may be chosen by values read during evaluation.
   Dynamic
-} derive(Eq, Debug)
+}
+
+///|
 pub extend FormulaDependencyShape with Eq::{not_equal, equal}
+
+///|
 pub extend FormulaDependencyShape with Debug::{to_repr}
 
 ///|
@@ -180,7 +188,7 @@ fn evaluate_int_binary(
   read : (CellId) -> CellResult,
   left_type_error : String,
   right_type_error : String,
-  combine : (Int, Int) -> CellValue,
+  combine : (Int32, Int32) -> CellValue,
 ) -> CellResult {
   let left_result = lhs.evaluate(read)
   guard left_result is CellResult::Ok(left_value) else { return left_result }

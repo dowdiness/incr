@@ -180,7 +180,7 @@ test "integration: deep chain (200+ levels) - iterative verification" {
   let input = Input::Input(rt, 1)
   let depth = 250
   // Build chain: memos[0] depends on input, memos[i] depends on memos[i-1]
-  let memos : Array[Derived[Int]] = []
+  let memos : Array[Derived[Int32]] = []
   memos.push(Derived::Derived(rt, () => input.get() + 1))
   for i = 1; i < depth; i = i + 1 {
     let prev = memos[i - 1]
@@ -247,10 +247,10 @@ test "integration: batch + on_change + memo chain fires once with correct final 
   let sum = Derived::Derived(rt, () => x.get() + y.get(), label="sum")
   let product = Derived::Derived(rt, () => x.get() * y.get(), label="product")
   // Track callback invocations
-  let global_fires : Ref[Int] = { val: 0 }
-  let x_fires : Ref[Int] = { val: 0 }
-  let y_fires : Ref[Int] = { val: 0 }
-  let sum_at_callback : Ref[Int] = { val: -1 }
+  let global_fires : Ref[Int32] = { val: 0, }
+  let x_fires : Ref[Int32] = { val: 0, }
+  let y_fires : Ref[Int32] = { val: 0, }
+  let sum_at_callback : Ref[Int32] = { val: -1, }
   rt.set_on_change(() => {
     global_fires.val = global_fires.val + 1
     // Read memos inside the callback — must see committed values
@@ -335,7 +335,7 @@ test "scope: add_watch triggers suspension on scope dispose" {
 test "memo_map: sweep after gc cleans up disposed entries" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 1)
-  let mm = @incr.DerivedMap::DerivedMap(rt, fn(k : Int) { source.get() + k })
+  let mm = @incr.DerivedMap::DerivedMap(rt, fn(k : Int32) { source.get() + k })
   // Create entries
   ignore(mm.read_or_abort(10))
   ignore(mm.read_or_abort(20))
@@ -352,7 +352,7 @@ test "memo_map: sweep after gc cleans up disposed entries" {
 ///|
 test "cross-engine: fixpoint fires on_change only when facts change" {
   let rt = Runtime::Runtime()
-  let rel : @incr.Relation[Int] = @incr.Relation::Relation(rt, label="R")
+  let rel : @incr.Relation[Int32] = @incr.Relation::Relation(rt, label="R")
   let mut notifications = 0
   rt.set_on_change(() => notifications = notifications + 1)
   // Fixpoint with no pending delta — no notification expected

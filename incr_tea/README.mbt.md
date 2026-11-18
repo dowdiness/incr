@@ -538,8 +538,8 @@ The reference read for this slice was
 
 ```mbt check
 ///|
-fn install_readme_recompute_counter(runtime : @incr.Runtime) -> Ref[Int] {
-  let completed : Ref[Int] = Ref(0)
+fn install_readme_recompute_counter(runtime : @incr.Runtime) -> Ref[Int32] {
+  let completed : Ref[Int32] = Ref(0)
   try! runtime.on_derived_event(event => {
     match event {
       @incr.DerivedEvent::Completed(_) => completed.val = completed.val + 1

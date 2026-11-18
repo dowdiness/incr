@@ -10,7 +10,7 @@ priv enum OptionalInputEvaluation {
 fn make_optional_offset_runtime(
   region : @incr_query.Region,
   node : NodeReference,
-  value : Int,
+  value : Int32,
 ) -> RuntimeNode raise GraphPublicationError {
   let parameter = region.source(value) catch {
     error => fail_runtime_setup(region, error)

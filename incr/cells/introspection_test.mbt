@@ -211,7 +211,7 @@ test "runtime: cell_info() returns metadata for derived" {
 test "runtime: cell_info() returns None for out-of-bounds CellId" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let invalid_id : CellId = { runtime_id: sig.id().runtime_id, id: 999 }
+  let invalid_id : CellId = { runtime_id: sig.id().runtime_id, id: 999, }
 
   match rt.cell_info(invalid_id) {
     Some(_) => abort("Expected None for invalid ID")
@@ -223,7 +223,7 @@ test "runtime: cell_info() returns None for out-of-bounds CellId" {
 test "runtime: cell_info() returns None for unused slot" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let beyond_id : CellId = { runtime_id: sig.id().runtime_id, id: 1000 }
+  let beyond_id : CellId = { runtime_id: sig.id().runtime_id, id: 1000, }
 
   match rt.cell_info(beyond_id) {
     Some(_) => abort("Expected None for unused slot")
@@ -235,7 +235,7 @@ test "runtime: cell_info() returns None for unused slot" {
 test "runtime: cell_info() returns None for negative CellId" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 42)
-  let negative_id : CellId = { runtime_id: sig.id().runtime_id, id: -1 }
+  let negative_id : CellId = { runtime_id: sig.id().runtime_id, id: -1, }
 
   match rt.cell_info(negative_id) {
     Some(_) => abort("Expected None for negative CellId")
@@ -378,7 +378,7 @@ test "gc_root_count tracks Watch lifecycle" {
 test "gc_root_count returns 0 for an unknown CellId" {
   let rt = Runtime::Runtime()
   let d = Derived::Derived(rt, fn() { 0 }, label="anchor")
-  let unknown : CellId = { id: d.id().id + 999, runtime_id: d.id().runtime_id }
+  let unknown : CellId = { id: d.id().id + 999, runtime_id: d.id().runtime_id, }
   assert_eq(rt.gc_root_count(unknown), 0)
 }
 

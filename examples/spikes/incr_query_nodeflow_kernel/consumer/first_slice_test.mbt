@@ -117,7 +117,7 @@ test "atomic removal unbinds survivors without cascading and retires demands" {
   let action = display.actions()[0]
   let command = match graph.invoke(action) {
     @nodeflow.ActionInvocationOutcome::Decided(
-      @application.ApplicationDecision::Success(command)
+      @application.ApplicationDecision::Success(command),
     ) => command
     _ => abort("expected command")
   }
@@ -305,8 +305,8 @@ test "type mismatch is rejected before replacing a valid binding" {
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[0], binding: Bound(number.outputs()[0]) },
-        { target: add.inputs()[1], binding: Bound(number.outputs()[0]) },
+        { target: add.inputs()[0], binding: Bound(number.outputs()[0]), },
+        { target: add.inputs()[1], binding: Bound(number.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -323,7 +323,7 @@ test "type mismatch is rejected before replacing a valid binding" {
   let rejected = graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[1], binding: Bound(boolean.outputs()[0]) },
+        { target: add.inputs()[1], binding: Bound(boolean.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -350,8 +350,8 @@ test "duplicate binding targets reject the whole change set" {
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[0], binding: Bound(ten.outputs()[0]) },
-        { target: add.inputs()[1], binding: Bound(ten.outputs()[0]) },
+        { target: add.inputs()[0], binding: Bound(ten.outputs()[0]), },
+        { target: add.inputs()[1], binding: Bound(ten.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -360,8 +360,8 @@ test "duplicate binding targets reject the whole change set" {
   let rejected = graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[1], binding: Bound(twenty.outputs()[0]) },
-        { target: add.inputs()[1], binding: Bound(ten.outputs()[0]) },
+        { target: add.inputs()[1], binding: Bound(twenty.outputs()[0]), },
+        { target: add.inputs()[1], binding: Bound(ten.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -389,8 +389,8 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[0], binding: Bound(ten.outputs()[0]) },
-        { target: add.inputs()[1], binding: Bound(twenty.outputs()[0]) },
+        { target: add.inputs()[0], binding: Bound(ten.outputs()[0]), },
+        { target: add.inputs()[1], binding: Bound(twenty.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -408,7 +408,7 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs()[1], binding: Bound(two.outputs()[0]) },
+        { target: add.inputs()[1], binding: Bound(two.outputs()[0]), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )

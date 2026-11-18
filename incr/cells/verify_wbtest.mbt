@@ -67,7 +67,7 @@ test "memo_get_or_else_receives_cycle_error" {
   meta.in_progress = true
   Tracker::push_tracking(rt, derived.id())
 
-  let captured : Ref[CellId?] = { val: None }
+  let captured : Ref[CellId?] = { val: None, }
   let v = match derived.get() {
     Ok(v) => v
     Err(ReadError::Cycle(err)) => {

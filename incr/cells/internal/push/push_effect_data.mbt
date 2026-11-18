@@ -10,7 +10,7 @@ pub(all) struct PushEffectData {
   /// Cells this effect reads (updated on recompute).
   mut sources : Array[CellId]
   /// Topological depth (max source level + 1).
-  mut level : Int
+  mut level : Int32
   /// Set true by push propagation when an upstream cell changes.
   mut dirty : Bool
 }
@@ -19,10 +19,23 @@ pub(all) struct PushEffectData {
 pub impl HasCellMeta for PushEffectData with fn meta(self) {
   self.meta
 }
+
+///|
 pub extend PushEffectData with HasCellMeta::{meta}
+
+///|
 pub extend PushEffectData with CellOps::{
-  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
-  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+  cell_id,
+  changed_at,
+  set_changed_at,
+  subscribers,
+  label,
+  durability,
+  level,
+  dep_changed_since,
+  push_reachable_count,
+  gc_role,
+  gc_dependencies,
 }
 
 ///|
@@ -54,7 +67,7 @@ pub impl CellOps for PushEffectData with fn durability(self) -> Durability {
 }
 
 ///|
-pub impl CellOps for PushEffectData with fn level(self) -> Int {
+pub impl CellOps for PushEffectData with fn level(self) -> Int32 {
   self.level
 }
 

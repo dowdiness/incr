@@ -26,7 +26,7 @@ priv struct SentinelHook {
 
 ///|
 fn SentinelHook::new() -> SentinelHook {
-  { before_log: [], success_log: [], abort_log: [] }
+  { before_log: [], success_log: [], abort_log: [], }
 }
 
 ///|
@@ -82,7 +82,7 @@ test "MemoCommitPhase: forward dispatch order on success" {
   rt.commit_hooks.push(sentinel)
   // Real accumulator slot disables the AccumulatorCommitHook fast-path so
   // entries are actually installed/removed during recompute.
-  let acc : Accumulator[Int] = Accumulator(rt)
+  let acc : Accumulator[Int32] = Accumulator(rt)
   let m = Derived(rt, () => {
     acc.push(1)
     42
@@ -106,8 +106,8 @@ test "MemoCommitPhase: forward dispatch order on abort" {
   let rt = Runtime::Runtime()
   let sentinel = SentinelHook::new()
   rt.commit_hooks.push(sentinel)
-  let _acc : Accumulator[Int] = Accumulator(rt)
-  let m : Derived[Int] = Derived(rt, () => raise Failure("test abort"))
+  let _acc : Accumulator[Int32] = Accumulator(rt)
+  let m : Derived[Int32] = Derived(rt, () => raise Failure("test abort"))
   try m.force_recompute() catch {
     _ => ()
   } noraise {
@@ -130,7 +130,7 @@ test "MemoCommitPhase: forward dispatch order on abort" {
 /// accumulator push paths is what enforces the silent no-op.
 test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator(rt)
+  let acc : Accumulator[Int32] = Accumulator(rt)
   let m = Derived(rt, () => {
     acc.push(7)
     1
@@ -173,10 +173,13 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   let rt = Runtime::Runtime()
   let sentinel = SentinelHook::new()
   rt.commit_hooks.push(sentinel)
-  let _acc : Accumulator[Int] = Accumulator(rt)
-  let m2 : Derived[Int] = Derived(rt, () => raise Failure("inner abort"))
+  let _acc : Accumulator[Int32] = Accumulator(rt)
+  let m2 : Derived[Int32] = Derived(rt, () => raise Failure("inner abort"))
   let m1 = Derived(rt, () => {
-    let _ = m2.get_result_inner()
+    let _ = m2.get_result_inner() catch {
+      Failure::Failure(_) as e => raise e
+      e => abort("unexpected error: " + e.to_string())
+    }
     0
   })
   try m1.force_recompute() catch {
@@ -217,12 +220,12 @@ test "MemoCommitPhase: ensure_for_cell lazy-creates entry when fast-path took be
   // `accumulator_slots.is_empty()` is true and the hook's before_recompute
   // takes its fast-path. The Ref lets the memo's compute register the
   // accumulator on first run and reuse it on subsequent runs.
-  let acc_ref : Ref[Accumulator[Int]?] = { val: None }
+  let acc_ref : Ref[Accumulator[Int32]?] = { val: None, }
   let m = Derived(rt, () => {
     let acc = match acc_ref.val {
       Some(a) => a
       None => {
-        let a : Accumulator[Int] = Accumulator(rt)
+        let a : Accumulator[Int32] = Accumulator(rt)
         acc_ref.val = Some(a)
         a
       }

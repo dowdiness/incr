@@ -62,7 +62,7 @@ pub impl[T] Freshness for ReachableDerived[T] with fn is_fresh(self) {
 pub fn[Ctx : RuntimeContext, T] create_input(
   ctx : Ctx,
   value : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> Input[T] {
   Input(ctx.runtime(), value, durability~, label?)
@@ -73,7 +73,7 @@ pub fn[Ctx : RuntimeContext, T] create_input(
 pub fn[Ctx : RuntimeContext, T] create_input_field(
   ctx : Ctx,
   value : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> InputField[T] {
   InputField(ctx.runtime(), value, durability~, label?)
@@ -134,15 +134,6 @@ pub fn[Ctx : RuntimeContext] batch(
   f : () -> Unit raise?,
 ) -> Unit raise? {
   ctx.runtime().batch(f)
-}
-
-///|
-/// Runs a batch and returns raised errors as `Result`.
-pub fn[Ctx : RuntimeContext] batch_result(
-  ctx : Ctx,
-  f : () -> Unit raise,
-) -> Result[Unit, Error] {
-  ctx.runtime().batch_result(f)
 }
 
 ///|

@@ -1,18 +1,23 @@
 ///|
 /// A typed value for spreadsheet cells.
+#derive(Eq, Debug)
 pub enum CellValue {
-  Int(Int)
+  Int(Int32)
   Bool(Bool)
   Text(String)
   /// A first-class blank value, also returned for absent same-sheet cells.
   Blank
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellValue with Eq::{not_equal, equal}
+
+///|
 pub extend CellValue with Debug::{to_repr}
 
 ///|
 /// Creates an integer spreadsheet value.
-pub fn CellValue::from_int(value : Int) -> CellValue {
+pub fn CellValue::from_int(value : Int32) -> CellValue {
   Int(value)
 }
 
@@ -36,14 +41,19 @@ pub fn CellValue::blank() -> CellValue {
 
 ///|
 /// The static kind of a spreadsheet value.
+#derive(Eq, Debug)
 pub enum CellType {
   TInt
   TBool
   TString
   TBlank
   TAny
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellType with Eq::{not_equal, equal}
+
+///|
 pub extend CellType with Debug::{to_repr}
 
 ///|
@@ -78,22 +88,32 @@ pub fn CellType::t_any() -> CellType {
 
 ///|
 /// Public result type for typed spreadsheet reads and evaluates.
+#derive(Eq, Debug)
 pub enum CellResult {
   Ok(CellValue)
   ParseError(String)
   TypeError(String)
   RefError(String)
   CycleError(String)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CellResult with Eq::{not_equal, equal}
+
+///|
 pub extend CellResult with Debug::{to_repr}
 
 ///|
 /// Errors returned by worksheet operations during installation.
+#derive(Eq, Debug)
 pub enum WorksheetError {
   RefError(String)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend WorksheetError with Eq::{not_equal, equal}
+
+///|
 pub extend WorksheetError with Debug::{to_repr}
 
 ///|

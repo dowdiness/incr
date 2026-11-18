@@ -1,5 +1,5 @@
 ///|
-fn fresh_work(observations : Array[@model.Observation]) -> Int {
+fn fresh_work(observations : Array[@model.Observation]) -> Int32 {
   match observations.pop() {
     Some(@model.Observation::Counter(work)) => work
     _ => abort("expected one trailing Counter observation")

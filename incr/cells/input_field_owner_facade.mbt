@@ -3,6 +3,8 @@
 pub impl[T] InputFieldOwner for Input[T] with fn cell_ids(self) -> Array[CellId] {
   [self.id()]
 }
+
+///|
 pub extend Input with InputFieldOwner::{cell_ids}
 
 ///|
@@ -12,6 +14,8 @@ pub impl[T] InputFieldOwner for InputField[T] with fn cell_ids(self) -> Array[
 ] {
   [self.id()]
 }
+
+///|
 pub extend InputField with InputFieldOwner::{cell_ids}
 
 ///|
@@ -21,6 +25,8 @@ pub impl[T] InputFieldOwner for Derived[T] with fn cell_ids(self) -> Array[
 ] {
   [self.id()]
 }
+
+///|
 pub extend Derived with InputFieldOwner::{cell_ids}
 
 ///|
@@ -30,6 +36,8 @@ pub impl[T] InputFieldOwner for ReachableDerived[T] with fn cell_ids(self) -> Ar
 ] {
   [self.id()]
 }
+
+///|
 pub extend ReachableDerived with InputFieldOwner::{cell_ids}
 
 ///|
@@ -39,4 +47,6 @@ pub impl[T] InputFieldOwner for EagerDerived[T] with fn cell_ids(self) -> Array[
 ] {
   [self.id()]
 }
+
+///|
 pub extend EagerDerived with InputFieldOwner::{cell_ids}

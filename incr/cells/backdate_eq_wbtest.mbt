@@ -6,7 +6,7 @@ using @incr_types {trait HasChangedAt, trait BackdateEq}
 
 ///|
 priv struct Stamped {
-  value : Int
+  value : Int32
   changed_at : Revision
 }
 
@@ -21,8 +21,8 @@ impl BackdateEq for Stamped
 ///|
 test "BackdateEq default: same changed_at → backdate_equal returns true" {
   let r = Revision::initial()
-  let a = Stamped::{ value: 1, changed_at: r }
-  let b = Stamped::{ value: 2, changed_at: r }
+  let a = Stamped::{ value: 1, changed_at: r, }
+  let b = Stamped::{ value: 2, changed_at: r, }
   // Values differ (1 vs 2) but revision is the same — BackdateEq only compares revisions.
   inspect(a.value == b.value, content="false")
   inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="true")
@@ -32,8 +32,8 @@ test "BackdateEq default: same changed_at → backdate_equal returns true" {
 test "BackdateEq default: different changed_at → backdate_equal returns false" {
   let r0 = Revision::initial()
   let r1 = r0.next()
-  let a = Stamped::{ value: 1, changed_at: r0 }
-  let b = Stamped::{ value: 1, changed_at: r1 }
+  let a = Stamped::{ value: 1, changed_at: r0, }
+  let b = Stamped::{ value: 1, changed_at: r1, }
   inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="false")
 }
 
@@ -42,8 +42,8 @@ test "BackdateEq default: same value but different changed_at → backdate_equal
   // Default impl compares revisions, not values — so different revision → false even if value equal
   let r0 = Revision::initial()
   let r1 = r0.next()
-  let a = Stamped::{ value: 42, changed_at: r0 }
-  let b = Stamped::{ value: 42, changed_at: r1 }
+  let a = Stamped::{ value: 42, changed_at: r0, }
+  let b = Stamped::{ value: 42, changed_at: r1, }
   inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="false")
 }
 
@@ -51,15 +51,15 @@ test "BackdateEq default: same value but different changed_at → backdate_equal
 test "with_backdate: backdates when backdate_equal returns true (same changed_at)" {
   // Stamped returns same changed_at when value is "unchanged" — downstream skips
   let rt = Runtime::Runtime()
-  let rev_ref : Ref[Revision] = { val: Revision::initial() }
-  let m_count : Ref[Int] = { val: 0 }
+  let rev_ref : Ref[Revision] = { val: Revision::initial(), }
+  let m_count : Ref[Int32] = { val: 0, }
   let sig = Input::Input(rt, 0)
   let m = Derived::with_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1
-    Stamped::{ value: 42, changed_at: rev_ref.val }
+    Stamped::{ value: 42, changed_at: rev_ref.val, }
   })
-  let down_count : Ref[Int] = { val: 0 }
+  let down_count : Ref[Int32] = { val: 0, }
   let _down = Derived(rt, () => {
     let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
@@ -79,17 +79,17 @@ test "with_backdate: backdates when backdate_equal returns true (same changed_at
 ///|
 test "with_backdate: propagates when backdate_equal returns false (advanced changed_at)" {
   let rt = Runtime::Runtime()
-  let rev_ref : Ref[Revision] = { val: Revision::initial() }
-  let m_count : Ref[Int] = { val: 0 }
+  let rev_ref : Ref[Revision] = { val: Revision::initial(), }
+  let m_count : Ref[Int32] = { val: 0, }
   let sig = Input::Input(rt, 0)
   let m = Derived::with_backdate(rt, () => {
     let v = sig.get()
     m_count.val = m_count.val + 1
     // Advance rev_ref — value is "changed"
     rev_ref.val = rev_ref.val.next()
-    Stamped::{ value: v, changed_at: rev_ref.val }
+    Stamped::{ value: v, changed_at: rev_ref.val, }
   })
-  let down_count : Ref[Int] = { val: 0 }
+  let down_count : Ref[Int32] = { val: 0, }
   let _down = Derived(rt, () => {
     let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
@@ -107,14 +107,14 @@ test "with_backdate: propagates when backdate_equal returns false (advanced chan
 ///|
 test "derived_no_backdate: always propagates even when value is identical" {
   let rt = Runtime::Runtime()
-  let m_count : Ref[Int] = { val: 0 }
+  let m_count : Ref[Int32] = { val: 0, }
   let sig = Input::Input(rt, 0)
   let m = Derived::derived_no_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1 // always returns same value
     42
   })
-  let down_count : Ref[Int] = { val: 0 }
+  let down_count : Ref[Int32] = { val: 0, }
   let _down = Derived(rt, () => {
     let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
@@ -132,14 +132,14 @@ test "derived_no_backdate: always propagates even when value is identical" {
 ///|
 // A type with no Eq instance — verifies new_no_backdate is usable without Eq.
 priv struct NoEq {
-  data : Array[Int]
+  data : Array[Int32]
 }
 
 ///|
 test "derived_no_backdate: usable with non-Eq output type" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let m = Derived::derived_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
+  let m = Derived::derived_no_backdate(rt, () => NoEq::{ data: [sig.get()], })
   // read() must work without T : Eq
   inspect(m.read_or_abort().data[0], content="0")
   sig.set(42)
@@ -149,11 +149,11 @@ test "derived_no_backdate: usable with non-Eq output type" {
 ///|
 test "compatibility: Derived::with_backdate backdates via BackdateEq (unchanged changed_at)" {
   let rt = Runtime::Runtime()
-  let rev_ref : Ref[Revision] = { val: Revision::initial() }
+  let rev_ref : Ref[Revision] = { val: Revision::initial(), }
   let sig = Input::Input(rt, 0)
   let m = Derived::with_backdate(rt, () => {
     let _ = sig.get()
-    Stamped::{ value: 42, changed_at: rev_ref.val }
+    Stamped::{ value: 42, changed_at: rev_ref.val, }
   })
   let down_count = Ref(0)
   let down = Derived(rt, () => {

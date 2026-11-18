@@ -1,16 +1,21 @@
 ///|
+#derive(Eq, Debug)
 enum SubTestMsg {
   Enable
   Disable
   SetFast
   SetSlow
   TouchUnrelated
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SubTestMsg with Eq::{not_equal, equal}
+
+///|
 pub extend SubTestMsg with Debug::{to_repr}
 
 ///|
-fn subscription_program(runtime : @incr.Runtime) -> Program[SubTestMsg, Int] {
+fn subscription_program(runtime : @incr.Runtime) -> Program[SubTestMsg, Int32] {
   let scope = @incr.Scope::new(runtime)
   let running = scope.input_field(false, label="subtest.running")
   let interval = scope.input_field(300, label="subtest.interval")
@@ -60,7 +65,7 @@ fn subscription_program(runtime : @incr.Runtime) -> Program[SubTestMsg, Int] {
     }
   }
 
-  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+  let view : () -> Int32 raise Failure = () => if running.get() { 1 } else { 0 }
 
   Program::with_subscriptions(
     runtime,
@@ -110,7 +115,7 @@ fn[Msg] has_active_keydown(
 }
 
 ///|
-fn[Msg] active_timer_count(manager : SubscriptionsManager[Msg]) -> Int {
+fn[Msg] active_timer_count(manager : SubscriptionsManager[Msg]) -> Int32 {
   manager.active.to_array().length()
 }
 
@@ -131,7 +136,7 @@ test "panic subscriptions: constructor rejects a scope from another Runtime" {
   let foreign_runtime = @incr.Runtime()
   let foreign_scope = @incr.Scope::new(foreign_runtime)
   let update : (SubTestMsg) -> Cmd[SubTestMsg] = _ => Cmd::none()
-  let view : () -> Int raise Failure = () => 0
+  let view : () -> Int32 raise Failure = () => 0
   let subscriptions : () -> Subscriptions[SubTestMsg] raise Failure = () => {
     @hashmap.HashMap([])
   }
@@ -227,6 +232,7 @@ test "subscriptions: same key handler change updates timer in-place" {
 // ── WindowKeydown subscription lifecycle tests ──────────────────────────────
 
 ///|
+#derive(Eq, Debug)
 enum KeydownTestMsg {
   EnableKey
   DisableKey
@@ -234,14 +240,18 @@ enum KeydownTestMsg {
   SwitchToMsgB
   KeepKeyA
   TouchUnrelatedKd
-} derive(Eq, Debug)
+}
+
+///|
 pub extend KeydownTestMsg with Eq::{not_equal, equal}
+
+///|
 pub extend KeydownTestMsg with Debug::{to_repr}
 
 ///|
 fn keydown_subscription_program(
   runtime : @incr.Runtime,
-) -> Program[KeydownTestMsg, Int] {
+) -> Program[KeydownTestMsg, Int32] {
   let scope = @incr.Scope::new(runtime)
   let running = scope.input_field(false, label="kdtest.running")
   let use_key_b = scope.input_field(false, label="kdtest.use_key_b")
@@ -290,7 +300,7 @@ fn keydown_subscription_program(
     }
   }
 
-  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+  let view : () -> Int32 raise Failure = () => if running.get() { 1 } else { 0 }
 
   Program::with_subscriptions(
     runtime,
@@ -406,18 +416,23 @@ test "subscriptions: key name change restarts keydown listener" {
 // ── Type-transition tests (same SubKey switching between sub families) ───────
 
 ///|
+#derive(Eq, Debug)
 enum TransitionTestMsg {
   Start
   SwitchToKeydown
   SwitchToTimer
-} derive(Eq, Debug)
+}
+
+///|
 pub extend TransitionTestMsg with Eq::{not_equal, equal}
+
+///|
 pub extend TransitionTestMsg with Debug::{to_repr}
 
 ///|
 fn transition_program(
   runtime : @incr.Runtime,
-) -> Program[TransitionTestMsg, Int] {
+) -> Program[TransitionTestMsg, Int32] {
   let scope = @incr.Scope::new(runtime)
   let running = scope.input_field(false, label="trans.running")
   let use_keydown = scope.input_field(false, label="trans.use_keydown")
@@ -452,7 +467,7 @@ fn transition_program(
     }
   }
 
-  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+  let view : () -> Int32 raise Failure = () => if running.get() { 1 } else { 0 }
 
   Program::with_subscriptions(
     runtime,
@@ -546,19 +561,24 @@ fn[Msg] has_active_raf(
 }
 
 ///|
+#derive(Eq, Debug)
 enum RafTestMsg {
   EnableRaf
   DisableRaf
   SwitchMsg
   TouchUnrelatedRaf
-} derive(Eq, Debug)
+}
+
+///|
 pub extend RafTestMsg with Eq::{not_equal, equal}
+
+///|
 pub extend RafTestMsg with Debug::{to_repr}
 
 ///|
 fn raf_subscription_program(
   runtime : @incr.Runtime,
-) -> Program[RafTestMsg, Int] {
+) -> Program[RafTestMsg, Int32] {
   let scope = @incr.Scope::new(runtime)
   let running = scope.input_field(false, label="raftest.running")
   let use_msg_b = scope.input_field(false, label="raftest.use_msg_b")
@@ -601,7 +621,7 @@ fn raf_subscription_program(
     }
   }
 
-  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+  let view : () -> Int32 raise Failure = () => if running.get() { 1 } else { 0 }
 
   Program::with_subscriptions(
     runtime,

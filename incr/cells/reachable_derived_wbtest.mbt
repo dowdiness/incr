@@ -197,7 +197,7 @@ test "panic hybrid: self-referential cycle aborts" {
   // A HybridMemo that reads itself triggers cycle detection via in_progress.
   let rt = Runtime::Runtime()
   // Use a ref cell to close over h before h is created
-  let rd_ref : Ref[ReachableDerived[Int]?] = { val: None }
+  let rd_ref : Ref[ReachableDerived[Int32]?] = { val: None, }
   let rd = ReachableDerived(rt, () => {
     match rd_ref.val {
       None => 0
@@ -212,7 +212,7 @@ test "panic hybrid: self-referential cycle aborts" {
 test "panic hybrid cycle: mixed Memo → HybridMemo → Memo cycle aborts" {
   // Memo m reads HybridMemo h; h reads m → cycle across cell types.
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   let rd = ReachableDerived(rt, () => {
     match d_ref.val {
       None => 0

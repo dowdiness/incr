@@ -9,7 +9,7 @@
 //     are untouched.
 
 ///|
-fn ad_parse(s : String) -> Result[Int, String] {
+fn ad_parse(s : String) -> Result[Int32, String] {
   match s {
     "v1" => Ok(1)
     "v2" => Ok(2)
@@ -28,7 +28,7 @@ test "accepted: equal error backdates current channel (observers not woken)" {
   let rt = Runtime::Runtime()
   let input = Input::Input(rt, "e1a")
   let ad = AcceptedDerived::AcceptedDerived(rt, () => ad_parse(input.get()))
-  let cur_runs : Ref[Int] = { val: 0 }
+  let cur_runs : Ref[Int32] = { val: 0, }
   let cur_probe = Derived::Derived(rt, () => {
     cur_runs.val = cur_runs.val + 1
     ignore(ad.candidate.get_or_abort())

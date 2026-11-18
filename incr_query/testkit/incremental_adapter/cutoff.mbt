@@ -1,6 +1,6 @@
 ///|
 priv struct CutoffValue {
-  value : Int
+  value : Int32
 }
 
 ///|

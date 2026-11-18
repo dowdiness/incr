@@ -6,8 +6,8 @@
 /// going through CellMeta.
 priv struct PullVerifyFrame {
   cell_id : CellId
-  memo_idx : Int
-  mut dep_cursor : Int
+  memo_idx : Int32
+  mut dep_cursor : Int32
   mut changed : Bool
 }
 
@@ -44,7 +44,7 @@ fn can_skip_dep_walk_by_durability(
 priv enum DependencyFreshness {
   DependencyUnchanged
   DependencyChanged
-  DependencyNeedsVerification(Int)
+  DependencyNeedsVerification(Int32)
 }
 
 ///|
@@ -72,10 +72,10 @@ fn enter_pull_frame(
   stack : Array[PullVerifyFrame],
   derived : @pull.MemoData,
   cell_id : CellId,
-  derived_idx : Int,
+  derived_idx : Int32,
 ) -> Unit {
   derived.in_progress = true
-  stack.push({ cell_id, memo_idx: derived_idx, dep_cursor: 0, changed: false })
+  stack.push({ cell_id, memo_idx: derived_idx, dep_cursor: 0, changed: false, })
 }
 
 ///|
@@ -89,21 +89,12 @@ fn run_pull_recompute(
   stack : Array[PullVerifyFrame],
   derived : @pull.MemoData,
   changed : Bool,
-) -> Result[Unit, @incr_types.CycleError] raise Failure {
+) -> Unit raise Error {
   if !changed {
-    return Ok(())
+    return
   }
-  let compute_result = {
-    errdefer abort_pull_rebuild(pull, stack)
-    (derived.compute)()
-  }
-  match compute_result {
-    Ok(_) => Ok(())
-    Err(e) => {
-      abort_pull_rebuild(pull, stack)
-      Err(e)
-    }
-  }
+  errdefer abort_pull_rebuild(pull, stack)
+  ignore((derived.compute)())
 }
 
 ///|
@@ -125,10 +116,10 @@ fn commit_pull_rebuild(
 }
 
 ///|
-/// Returns `Ok(true)` if any synthetic accumulator dep of `memo` has been
+/// Returns `true` if any synthetic accumulator dep of `memo` has been
 /// invalidated (target/slot disposed, or producer `push_revised_at` advanced
-/// past the stored read revision). Returns `Ok(false)` if all synthetic deps
-/// are still current. Returns `Err(e)` if a recursive `pull_verify` on a
+/// past the stored read revision). Returns `false` if all synthetic deps
+/// are still current. Raises `CycleError` if a recursive `pull_verify` on a
 /// target surfaces a cycle.
 ///
 /// Runs during per-frame finalize in `pull_verify`. The caller keeps
@@ -139,9 +130,9 @@ fn synthetic_accumulator_changed(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   memo : @pull.MemoData,
-) -> Result[Bool, @incr_types.CycleError] raise Failure {
+) -> Bool raise Error {
   if memo.accumulator_reads.is_empty() {
-    return Ok(false)
+    return false
   }
   for entry in memo.accumulator_reads {
     let slot_id = entry.0.0
@@ -149,21 +140,18 @@ fn synthetic_accumulator_changed(
     let stored_rev = entry.1
     if slot_id.id >= slot_snapshots.length() ||
       slot_snapshots[slot_id.id].disposed() {
-      return Ok(true)
+      return true
     }
     if is_cell_disposed(core, target_id) {
-      return Ok(true)
+      return true
     }
-    match pull_verify(core, pull, slot_snapshots, target_id) {
-      Ok(_) => ()
-      Err(e) => return Err(e)
-    }
+    pull_verify(core, pull, slot_snapshots, target_id)
     let current_rev = slot_snapshots[slot_id.id].push_revised_at_for(target_id)
     if current_rev > stored_rev {
-      return Ok(true)
+      return true
     }
   }
-  Ok(false)
+  false
 }
 
 ///|
@@ -176,22 +164,20 @@ pub fn pull_verify(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   cell_id : CellId,
-) -> Result[Unit, @incr_types.CycleError] raise Failure {
+) -> Unit raise Error {
   validate_cell(core, cell_id, "pull_verify")
   match core.cell_index[cell_id.id] {
-    PullInput(_) => Ok(()) // always fresh
-    PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
-    Relation(_) | FunctionalRelation(_) | Rule(_) => {
+    PullInput(_) => () // always fresh
+    PushReactive(_) | PushEffect(_) => () // freshness via push_propagate_from
+    Relation(_) | FunctionalRelation(_) | Rule(_) =>
       if core.phase is InFixpoint {
         abort("pull_verify: cannot verify Relation/Rule during fixpoint()")
       }
-      Ok(())
-    }
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) | HybridMemo(root_idx) => {
       let root = pull.memos[root_idx]
       if derived_is_revision_fresh(core, root) {
-        return Ok(())
+        return
       }
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
@@ -200,11 +186,13 @@ pub fn pull_verify(
       // in the durability index.
       if can_skip_dep_walk_by_durability(core, root) {
         root.verified_at = core.revision.current_revision
-        return Ok(())
+        return
       }
       if root.in_progress {
-        return Err(
-          construct_cycle_error(core, collect_in_progress_path(pull), cell_id),
+        raise construct_cycle_error(
+          core,
+          collect_in_progress_path(pull),
+          cell_id,
         )
       }
       let stack : Array[PullVerifyFrame] = []
@@ -272,7 +260,7 @@ pub fn pull_verify(
                       path.push(frame.cell_id)
                     }
                     abort_pull_rebuild(pull, stack)
-                    return Err(construct_cycle_error(core, path, dep_id))
+                    raise construct_cycle_error(core, path, dep_id)
                   }
                   enter_pull_frame(stack, dep, dep_id, dep_idx)
                 }
@@ -288,29 +276,18 @@ pub fn pull_verify(
           // pull_verify calls on target memos must observe this frame
           // as in-progress so that a cycle through an accumulator
           // producer is detected.
-          let acc_result = {
+          let acc_changed = {
             errdefer abort_pull_rebuild(pull, stack)
             synthetic_accumulator_changed(core, pull, slot_snapshots, memo)
-          }
-          let acc_changed = match acc_result {
-            Ok(b) => b
-            Err(e) => {
-              abort_pull_rebuild(pull, stack)
-              return Err(e)
-            }
           }
           let frame_changed = stack[top].changed || acc_changed
           let _ = stack.pop()
           // memo is still valid — MemoData is heap-allocated (has mut fields)
           memo.in_progress = false
-          match run_pull_recompute(pull, stack, memo, frame_changed) {
-            Ok(_) => ()
-            Err(e) => return Err(e)
-          }
+          run_pull_recompute(pull, stack, memo, frame_changed)
           commit_pull_rebuild(core, pull, stack, memo)
         }
       }
-      Ok(())
     }
   }
 }

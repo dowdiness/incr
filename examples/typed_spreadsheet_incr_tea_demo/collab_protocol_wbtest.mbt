@@ -79,7 +79,7 @@ test "tagged JSON protocol roundtrips nested sync" {
         _,
         _,
         expected_node,
-        expected_sync
+        expected_sync,
       ),
       Ok(CollabMessage::Bootstrap(target, source, identity, _, _, node, sync)),
     ) => {
@@ -144,7 +144,7 @@ test "host lifecycle refreshes bootstrap and failures close" {
   let joiner = PeerId("joiner")
   let bootstrap = match protocol_bootstrap(joiner, host) {
     CollabMessage::Bootstrap(_, _, identity, sheet_id, generation, node, sync) =>
-      BootstrapData::{ identity, sheet_id, generation, node, sync }
+      BootstrapData::{ identity, sheet_id, generation, node, sync, }
     _ => fail("bootstrap fixture has the wrong variant")
   }
   let (hosting, mount) = reduce_collab(

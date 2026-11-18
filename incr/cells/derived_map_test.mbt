@@ -3,7 +3,7 @@ test "derived_map: cache hit for same key" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let mut compute_count = 0
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => {
     compute_count = compute_count + 1
     source.get() + key
   })
@@ -18,7 +18,7 @@ test "derived_map: cache hit for same key" {
 test "derived_map: independent caching per key" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => {
     compute_count = compute_count + 1
     key * 10
   })
@@ -40,7 +40,7 @@ test "derived_map: source change triggers lazy recompute per key" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 100)
   let mut compute_count = 0
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => {
     compute_count = compute_count + 1
     source.get() + key
   })
@@ -62,7 +62,7 @@ test "derived_map: source change triggers lazy recompute per key" {
 test "derived_map: read mirrors read" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => {
     compute_count = compute_count + 1
     key + 5
   })
@@ -81,7 +81,7 @@ test "derived_map: read mirrors read" {
 ///|
 test "derived_map: read_or and read_or_else mirror successful read" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key + 5)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => key + 5)
   let mut fallback_called = 0
 
   inspect(by_key.read_or(10, -1), content="15")
@@ -99,7 +99,7 @@ test "derived_map: read_or and read_or_else mirror successful read" {
 test "derived_map: sweep removes disposed entries" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => source.get() + key)
   // Force creation of 3 entries by reading them
   inspect(by_key.read_or_abort(1), content="11")
   inspect(by_key.read_or_abort(2), content="12")
@@ -115,7 +115,7 @@ test "derived_map: sweep removes disposed entries" {
 ///|
 test "derived_map: sweep on empty map returns 0" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => key * 10)
   inspect(by_key.sweep_cache(), content="0")
 }
 
@@ -123,7 +123,7 @@ test "derived_map: sweep on empty map returns 0" {
 test "derived_map: sweep with all entries alive returns 0" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 1)
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => source.get() + key)
   ignore(by_key.read_or_abort(1))
   ignore(by_key.read_or_abort(2))
   // No gc, no disposal — all entries alive
@@ -135,7 +135,7 @@ test "derived_map: sweep with all entries alive returns 0" {
 test "derived_map: clear disposes every wrapper and empties the map" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 1)
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => source.get() + key)
   ignore(by_key.read_or_abort(1))
   ignore(by_key.read_or_abort(2))
   ignore(by_key.read_or_abort(3))
@@ -156,7 +156,7 @@ test "derived_map: clear disposes every wrapper and empties the map" {
 test "derived_map: cache helpers are safe after scope disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let by_key = scope.derived_map((key : Int) => key * 2)
+  let by_key = scope.derived_map((key : Int32) => key * 2)
   ignore(by_key.read_or_abort(1))
   inspect(by_key.cache_len(), content="1")
   scope.dispose()
@@ -169,7 +169,9 @@ test "derived_map: cache helpers are safe after scope disposal" {
 ///|
 test "derived_map: clear is idempotent on an empty map" {
   let rt = Runtime::Runtime()
-  let by_key : DerivedMap[Int, Int] = DerivedMap::DerivedMap(rt, key => key * 10)
+  let by_key : DerivedMap[Int32, Int32] = DerivedMap::DerivedMap(rt, key => {
+    key * 10
+  })
   by_key.clear_cache()
   inspect(by_key.cache_len(), content="0")
 }
@@ -181,7 +183,7 @@ test "panic derived_map: get_tracked at top level aborts" {
   // test, a refactor that reroutes through read_permissive would preserve
   // in-memo dep recording but silently lose the top-level contract.
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => key * 10)
   ignore(by_key.get_or_abort(1))
 }
 
@@ -190,7 +192,7 @@ test "derived_map: get_tracked records per-key dep, not cross-key" {
   let rt = Runtime::Runtime()
   let src1 = Input::Input(rt, 10)
   let src2 = Input::Input(rt, 20)
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => {
     if key == 1 {
       src1.get()
     } else {

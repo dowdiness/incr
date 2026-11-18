@@ -5,7 +5,7 @@
 ///
 /// The fixed ring-plus-tail graph includes both cyclic feedback and acyclic
 /// propagation while remaining small enough for stable repeated runs.
-fn benchmark_end_to_end_closed_epoch(worker_count : Int) -> Int {
+fn benchmark_end_to_end_closed_epoch(worker_count : Int32) -> Int32 {
   let engine = Engine(worker_count, scheduler_seed=7)
   let updates = [
     test_update(0, 1, 1),

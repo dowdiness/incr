@@ -3,7 +3,7 @@ test "proof loss rematerializes a surviving View with a new identity" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(7)
-  let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
+  let query = region.query((ctx, _key : Int32) => ctx.get(source.view()))
 
   let view = query.view(1)
   assert_eq(store.get(view), 7)
@@ -22,11 +22,11 @@ test "proof loss rematerializes a surviving View with a new identity" {
 
 ///|
 struct EqualKey {
-  value : Int
+  value : Int32
 }
 
 ///|
-fn EqualKey::EqualKey(value : Int) -> EqualKey {
+fn EqualKey::EqualKey(value : Int32) -> EqualKey {
   { value, }
 }
 
@@ -69,7 +69,7 @@ test "proof loss is equal-key shared, isolated, and absent-safe" {
 test "proof loss preserves unequal-key memo isolation" {
   let store = Store::Store()
   let region = store.region()
-  let query = region.query((_ctx, key : Int) => key * 2)
+  let query = region.query((_ctx, key : Int32) => key * 2)
   assert_eq(store.get(query.view(1)), 2)
   assert_eq(store.get(query.view(2)), 4)
   let other = query.core.memo.get(2).unwrap().memo_id
@@ -258,7 +258,7 @@ test "proof loss failure and cycle do not install stale fallback" {
 test "proof loss current cycle cleans active state and recovers" {
   let store = Store::Store()
   let region = store.region()
-  let recurse : Ref[View[Int]?] = Ref(None)
+  let recurse : Ref[View[Int32]?] = Ref(None)
   let enabled = Ref(false)
   let captured = Ref(None)
   let query = region.query((ctx, _key : Unit) => {

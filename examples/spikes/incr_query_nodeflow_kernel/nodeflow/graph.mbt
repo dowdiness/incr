@@ -7,16 +7,16 @@ priv struct NodeState {
 
 ///|
 priv struct GraphState {
-  graph : Int
-  next_node : Int
-  nodes : Map[Int, NodeState]
+  graph : Int32
+  next_node : Int32
+  nodes : Map[Int32, NodeState]
 }
 
 ///|
 priv struct GraphTransition {
   state : GraphState
   added : (NodeReference, Array[PortReference], Array[PortReference])?
-  removed : (Array[Int], Array[PortReference])?
+  removed : (Array[Int32], Array[PortReference])?
 }
 
 ///|
@@ -31,7 +31,7 @@ priv struct NodeSchema {
   kind : @application.NodeKind
   ports : Array[PortSchema]
   parameters : Array[@application.PortValueType]
-  actions : Int
+  actions : Int32
 }
 
 ///|
@@ -72,7 +72,7 @@ fn descriptor_schema(descriptor : @application.NodeDescriptor) -> NodeSchema {
 ///|
 fn descriptor_port_schema(
   descriptor : @application.NodeDescriptor,
-  ordinal : Int,
+  ordinal : Int32,
 ) -> PortSchema? {
   let ports = descriptor_schema(descriptor).ports
   if ordinal < 0 || ordinal >= ports.length() {
@@ -84,14 +84,14 @@ fn descriptor_port_schema(
 
 ///|
 fn descriptor_port_references(
-  graph : Int,
-  node : Int,
+  graph : Int32,
+  node : Int32,
   descriptor : @application.NodeDescriptor,
 ) -> (Array[PortReference], Array[PortReference]) {
   let inputs : Array[PortReference] = []
   let outputs : Array[PortReference] = []
   for ordinal, port in descriptor_schema(descriptor).ports {
-    let reference : PortReference = { graph, node, port: ordinal }
+    let reference : PortReference = { graph, node, port: ordinal, }
     match port.direction {
       PortDirection::Input => inputs.push(reference)
       PortDirection::Output => outputs.push(reference)
@@ -108,16 +108,16 @@ fn GraphState::apply(
   match edit {
     GraphEdit::AddNode(descriptor~) => {
       let id = self.next_node
-      let node = { graph: self.graph, node: id }
+      let node = { graph: self.graph, node: id, }
       let (inputs, outputs) = descriptor_port_references(
         self.graph,
         id,
         descriptor,
       )
       let nodes = self.nodes.copy()
-      nodes[id] = { descriptor, bindings: Map([]) }
+      nodes[id] = { descriptor, bindings: Map([]), }
       Ok({
-        state: { graph: self.graph, next_node: id + 1, nodes },
+        state: { graph: self.graph, next_node: id + 1, nodes, },
         added: Some((node, inputs, outputs)),
         removed: None,
       })
@@ -140,7 +140,7 @@ fn GraphState::apply(
                 Some(descriptor) => {
                   let nodes = self.nodes.copy()
                   nodes[parameter.node] = { ..current, descriptor, }
-                  Ok({ state: { ..self, nodes, }, added: None, removed: None })
+                  Ok({ state: { ..self, nodes, }, added: None, removed: None, })
                 }
               }
             }
@@ -205,10 +205,10 @@ fn GraphState::apply(
         bindings[change.target] = change.binding
         nodes[change.target.node] = { ..node, bindings, }
       }
-      Ok({ state: { ..self, nodes, }, added: None, removed: None })
+      Ok({ state: { ..self, nodes, }, added: None, removed: None, })
     }
     GraphEdit::RemoveNodes(nodes~) => {
-      let selected : Set[Int] = Set([])
+      let selected : Set[Int32] = Set([])
       for target in nodes {
         if target.graph != self.graph {
           return Err(MissingNode)
@@ -221,7 +221,7 @@ fn GraphState::apply(
           return Err(MissingNode)
         }
       }
-      let removed : Array[Int] = []
+      let removed : Array[Int32] = []
       for node_id, _ in self.nodes {
         if selected.contains(node_id) {
           removed.push(node_id)

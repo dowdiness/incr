@@ -42,8 +42,8 @@ test "panic new_rule: non-relation cell_id in inputs aborts" {
 test "panic new_rule: input relation from another runtime aborts" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let input_b : Relation[Int] = Relation::Relation(rt_b)
-  let output_a : Relation[Int] = Relation::Relation(rt_a)
+  let input_b : Relation[Int32] = Relation::Relation(rt_b)
+  let output_a : Relation[Int32] = Relation::Relation(rt_a)
   rt_a.new_rule([input_b.id()], [output_a.id()], () => ()) |> ignore
 }
 
@@ -51,17 +51,17 @@ test "panic new_rule: input relation from another runtime aborts" {
 test "panic new_rule: output relation from another runtime aborts" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let input_a : Relation[Int] = Relation::Relation(rt_a)
-  let output_b : Relation[Int] = Relation::Relation(rt_b)
+  let input_a : Relation[Int32] = Relation::Relation(rt_a)
+  let output_b : Relation[Int32] = Relation::Relation(rt_b)
   rt_a.new_rule([input_a.id()], [output_b.id()], () => ()) |> ignore
 }
 
 ///|
 test "new_rule: classifies declaration roles" {
   let rt = Runtime::Runtime()
-  let input_only : Relation[Int] = Relation::Relation(rt)
-  let output_only : Relation[Int] = Relation::Relation(rt)
-  let both : Relation[Int] = Relation::Relation(rt)
+  let input_only : Relation[Int32] = Relation::Relation(rt)
+  let output_only : Relation[Int32] = Relation::Relation(rt)
+  let both : Relation[Int32] = Relation::Relation(rt)
   let input_only_rule = rt.new_rule([input_only.id()], [], () => ())
   let output_only_rule = rt.new_rule([], [output_only.id()], () => ())
   let both_rule = rt.new_rule([both.id()], [both.id()], () => ())
@@ -93,7 +93,7 @@ test "new_rule: classifies declaration roles" {
 ///|
 test "new_rule: declaration query skips disposed rules in registration order" {
   let rt = Runtime::Runtime()
-  let relation : Relation[Int] = Relation::Relation(rt)
+  let relation : Relation[Int32] = Relation::Relation(rt)
   let first = rt.new_rule([relation.id()], [], () => ())
   let second = rt.new_rule([relation.id()], [], () => ())
   rt.dispose_rule(first)
@@ -110,8 +110,8 @@ test "new_rule: declaration query skips disposed rules in registration order" {
 ///|
 test "new_rule: declaration arrays are snapshotted" {
   let rt = Runtime::Runtime()
-  let input : Relation[Int] = Relation::Relation(rt)
-  let output : Relation[Int] = Relation::Relation(rt)
+  let input : Relation[Int32] = Relation::Relation(rt)
+  let output : Relation[Int32] = Relation::Relation(rt)
   let input_ids = [input.id()]
   let output_ids = [output.id()]
   rt.new_rule(input_ids, output_ids, () => ()) |> ignore
@@ -126,7 +126,7 @@ test "new_rule: declaration arrays are snapshotted" {
 ///|
 test "panic new_rule: disposed input relation aborts" {
   let rt = Runtime::Runtime()
-  let input : Relation[Int] = Relation::Relation(rt)
+  let input : Relation[Int32] = Relation::Relation(rt)
   input.dispose()
   rt.new_rule([input.id()], [], () => ()) |> ignore
 }
@@ -134,7 +134,7 @@ test "panic new_rule: disposed input relation aborts" {
 ///|
 test "panic new_rule: disposed output relation aborts" {
   let rt = Runtime::Runtime()
-  let output : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  let output : MapRelation[Int32, String] = MapRelation::MapRelation(rt)
   output.dispose()
   rt.new_rule([], [output.id()], () => ()) |> ignore
 }
@@ -142,7 +142,7 @@ test "panic new_rule: disposed output relation aborts" {
 ///|
 test "relation: iter reads from current (post-fixpoint)" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let _ = rel.insert(10)
   let _ = rel.insert(20)
   rt.fixpoint()
@@ -207,7 +207,7 @@ test "fixpoint: semi-naive recursion preserves delta frontier across iterations"
 ///|
 test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   rel.insert(1) |> ignore
   rel.insert(2) |> ignore
@@ -221,7 +221,7 @@ test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
 ///|
 test "fixpoint: pull memo depending on relation contains recomputes after fixpoint" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let mut compute_count = 0
   let m = Derived(rt, () => {
     compute_count = compute_count + 1
@@ -238,7 +238,7 @@ test "fixpoint: pull memo depending on relation contains recomputes after fixpoi
 ///|
 test "panic fixpoint: Memo::get() inside rule body aborts" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   // Pre-verify the memo so the fast-path would otherwise return stale data
   inspect(m.read_or_abort(), content="0")
@@ -254,7 +254,7 @@ test "panic fixpoint: Memo::get() inside rule body aborts" {
 test "panic fixpoint: Derived::read_or_abort() inside rule body aborts" {
   // The permissive read path also aborts during fixpoint (InFixpoint guard).
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   inspect(m.read_or_abort(), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
@@ -267,7 +267,7 @@ test "panic fixpoint: Derived::read_or_abort() inside rule body aborts" {
 ///|
 test "panic fixpoint: HybridMemo::get() inside rule body aborts" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let h = ReachableDerived(rt, () => {
     rel.iter().fold(init=0, (acc, x) => acc + x)
   })
@@ -283,7 +283,7 @@ test "panic fixpoint: HybridMemo::get() inside rule body aborts" {
 test "panic relation: iter cross-runtime read aborts inside memo" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let rel_b : Relation[Int] = Relation::Relation(rt_b)
+  let rel_b : Relation[Int32] = Relation::Relation(rt_b)
   let memo_a = Derived(rt_a, () => {
     rel_b.iter().fold(init=0, (acc, x) => acc + x)
   })
@@ -294,7 +294,7 @@ test "panic relation: iter cross-runtime read aborts inside memo" {
 test "panic relation: contains cross-runtime read aborts inside memo" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let rel_b : Relation[Int] = Relation::Relation(rt_b)
+  let rel_b : Relation[Int32] = Relation::Relation(rt_b)
   let memo_a = Derived(rt_a, () => rel_b.contains(1))
   let _ = memo_a.read_or_abort()
 }
@@ -302,7 +302,7 @@ test "panic relation: contains cross-runtime read aborts inside memo" {
 ///|
 test "fixpoint: terminates when no new facts derived" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let _ = rt.new_rule([rel.id()], [rel.id()], () => ()) // no-op rule
   rel.insert(1) |> ignore
   rt.fixpoint() // must not loop forever
@@ -312,13 +312,13 @@ test "fixpoint: terminates when no new facts derived" {
 ///|
 test "fixpoint: relation created during rule execution converges in same call" {
   let rt = Runtime::Runtime()
-  let seed : Relation[Int] = Relation::Relation(rt)
-  let derived_ref : Ref[Relation[Int]?] = { val: None }
+  let seed : Relation[Int32] = Relation::Relation(rt)
+  let derived_ref : Ref[Relation[Int32]?] = { val: None, }
   let _ = rt.new_rule([seed.id()], [], () => {
     let derived = match derived_ref.val {
       Some(rel) => rel
       None => {
-        let rel : Relation[Int] = Relation::Relation(rt)
+        let rel : Relation[Int32] = Relation::Relation(rt)
         derived_ref.val = Some(rel)
         rel
       }
@@ -339,7 +339,7 @@ test "fixpoint: relation created during rule execution converges in same call" {
 ///|
 test "panic fixpoint: re-entrant call inside rule body aborts" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rt.new_rule([rel.id()], [], () => rt.fixpoint()) |> ignore
   rel.insert(1) |> ignore
   rt.fixpoint()
@@ -348,7 +348,7 @@ test "panic fixpoint: re-entrant call inside rule body aborts" {
 ///|
 test "panic fixpoint: aborts inside a batch" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rel.insert(1) |> ignore
   rt.core.batch.depth = 1
   rt.fixpoint()
@@ -357,7 +357,7 @@ test "panic fixpoint: aborts inside a batch" {
 ///|
 test "get_changed_at: relation changed_at updated by fixpoint" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let rev_before = rt.core.revision.current_revision
   rel.insert(1) |> ignore
   rt.fixpoint()
@@ -374,7 +374,7 @@ test "get_changed_at: relation changed_at updated by fixpoint" {
 ///|
 test "get_changed_at: relation duplicate frontier preserves changed_at" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rel.insert(1) |> ignore
   rt.fixpoint()
   let changed_at_before = rt.get_changed_at(rel.id())
@@ -398,7 +398,7 @@ test "get_changed_at: relation duplicate frontier preserves changed_at" {
 /// before any on_change callback fires.
 test "fixpoint: push EagerDerived downstream of Relation recomputes before on_change" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   // EagerDerived reads the relation's current set; depends on rel's CellId.
   let r = EagerDerived::EagerDerived(rt, () => {
     rel.iter().fold(init=0, (acc, x) => acc + x)
@@ -416,7 +416,7 @@ test "fixpoint: push EagerDerived downstream of Relation recomputes before on_ch
 ///|
 test "fixpoint: disposed relation frontier is skipped" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rel.dispose()
   rel.delta.val.add(42)
   let changed_ids = @kernel.run_fixpoint(rt.core, rt.datalog)
@@ -428,7 +428,7 @@ test "fixpoint: disposed relation frontier is skipped" {
 ///|
 test "fixpoint: disposed map relation frontier is skipped" {
   let rt = Runtime::Runtime()
-  let rel : MapRelation[String, Int] = MapRelation::MapRelation(rt)
+  let rel : MapRelation[String, Int32] = MapRelation::MapRelation(rt)
   rel.dispose()
   rel.delta.val.set("injected", 42)
   let changed_ids = @kernel.run_fixpoint(rt.core, rt.datalog)

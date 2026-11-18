@@ -15,7 +15,7 @@ using @shared {type CellRef, trait CellOps, trait Committable}
 ///
 /// Each Runtime gets a unique ID to prevent CellIds from different
 /// runtimes being incorrectly queried against each other.
-let next_runtime_id : Ref[Int] = { val: 0 }
+let next_runtime_id : Ref[Int32] = { val: 0, }
 
 ///|
 /// Tracks the runtime currently executing a memo computation.
@@ -26,7 +26,7 @@ let next_runtime_id : Ref[Int] = { val: 0 }
 /// plain `Ref` is safe here. If parallel execution is ever introduced
 /// (e.g. native threads or shared-memory WASM), this must be replaced with a
 /// thread-local or an atomic.
-let current_computing_runtime_id : Ref[RuntimeId?] = { val: None }
+let current_computing_runtime_id : Ref[RuntimeId?] = { val: None, }
 
 ///|
 /// Allocates a fresh runtime id and advances the global counter.
@@ -67,14 +67,21 @@ pub fn set_current_computing_runtime_id(v : RuntimeId?) -> Unit {
 /// orthogonal — batches compose with any propagation phase (e.g.
 /// commit_batch temporarily raises batch.depth during callbacks
 /// while the propagation phase is Idle).
+#derive(Eq, Debug)
 pub(all) enum PropagationPhase {
   Idle
   PushPropagating
   InFixpoint
   GarbageCollecting
-} derive(Eq, Debug)
+}
+
+///|
 pub extend PropagationPhase with Eq::{not_equal, equal}
+
+///|
 pub extend PropagationPhase with Debug::{to_repr}
+
+///|
 pub extend PropagationPhase with Show::{output, to_string}
 
 ///|
@@ -101,7 +108,7 @@ pub fn ActiveQuery::ActiveQuery(cell_id : CellId) -> ActiveQuery {
 ///|
 /// Creates a new active query with an empty dependency set.
 pub fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
-  { cell_id, dependencies: [], seen: @hashset.HashSet([]) }
+  { cell_id, dependencies: [], seen: @hashset.HashSet([]), }
 }
 
 ///|
@@ -136,7 +143,7 @@ pub fn BatchFrame::BatchFrame() -> BatchFrame {
 
 ///|
 pub fn BatchFrame::new() -> BatchFrame {
-  { undo_entries: [], undo_ids: @hashset.HashSet([]) }
+  { undo_entries: [], undo_ids: @hashset.HashSet([]), }
 }
 
 ///|
@@ -147,7 +154,7 @@ pub fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 ///|
 /// Batch update management: deferred signal writes and rollback.
 pub(all) struct BatchState {
-  mut depth : Int
+  mut depth : Int32
   pending : Array[&Committable]
   frames : Array[BatchFrame]
   mut max_durability : Durability
@@ -171,8 +178,8 @@ pub(all) struct RevisionState {
 pub(all) struct PullState {
   inputs : Array[@pull.PullInputData]
   memos : Array[@pull.MemoData]
-  free_inputs : Array[Int]
-  free_memos : Array[Int]
+  free_inputs : Array[Int32]
+  free_memos : Array[Int32]
 }
 
 ///|
@@ -180,12 +187,12 @@ pub(all) struct PullState {
 pub(all) struct PushState {
   reactives : Array[@push.PushReactiveData]
   effects : Array[@push.PushEffectData]
-  free_reactives : Array[Int]
-  free_effects : Array[Int]
+  free_reactives : Array[Int32]
+  free_effects : Array[Int32]
   /// Count of live push cells (reactives + effects only).
   /// HybridMemo does NOT contribute to this count — it relies on
   /// verified_at staleness detection rather than push propagation.
-  mut node_count : Int
+  mut node_count : Int32
 }
 
 ///|
@@ -206,10 +213,10 @@ pub(all) struct DatalogState {
 pub(all) struct RuntimeCore {
   runtime_id : RuntimeId
   revision : RevisionState
-  mut next_cell_id : Int
+  mut next_cell_id : Int32
   tracking : TrackingState
   batch : BatchState
-  mut callback_depth : Int
+  mut callback_depth : Int32
   /// Composable runtime-global on-change listeners. The `set_on_change`
   /// singleton API maps onto the registry's reserved slot; `add_on_change_listener`
   /// appends additive listeners. Fired (as a snapshot) by `fire_on_change`.
@@ -217,14 +224,14 @@ pub(all) struct RuntimeCore {
   /// Monotonic counter for `ListenerId` allocation, shared across both the
   /// on-change and derived-event registries so every listener id is unique
   /// within this runtime.
-  mut next_listener_id : Int
+  mut next_listener_id : Int32
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
   mut phase : PropagationPhase
   /// Reference counts for observed cells. Key = observed CellId,
   /// value = number of live Watch handles. on_unobserve fires only
   /// when count reaches 0.
-  gc_root_counts : @hashmap.HashMap[CellId, Int]
+  gc_root_counts : @hashmap.HashMap[CellId, Int32]
 }
 
 ///|
@@ -245,8 +252,8 @@ pub fn RuntimeCore::RuntimeCore() -> RuntimeCore {
       ),
     },
     next_cell_id: 0,
-    tracking: { stack: [] },
-    batch: { depth: 0, pending: [], frames: [], max_durability: Low },
+    tracking: { stack: [], },
+    batch: { depth: 0, pending: [], frames: [], max_durability: Low, },
     callback_depth: 0,
     on_change_listeners: ListenerRegistry::new(),
     next_listener_id: 0,

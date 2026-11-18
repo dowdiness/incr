@@ -6,19 +6,20 @@
 ///|
 /// A positional divisor makes the radix encoding explicit for each canonical
 /// directed edge.
+#derive(Eq, Debug)
 priv struct ExhaustiveEncodedEdge {
   edge : Edge
-  divisor : Int
-} derive(Eq, Debug)
+  divisor : Int32
+}
 
 ///|
 /// Matrix A uses row-major two-node edges with ternary source multiplicities.
 fn exhaustive_matrix_a_edges() -> Array[ExhaustiveEncodedEdge] {
   [
-    { edge: { from: 0, to: 0 }, divisor: 1 },
-    { edge: { from: 0, to: 1 }, divisor: 3 },
-    { edge: { from: 1, to: 0 }, divisor: 9 },
-    { edge: { from: 1, to: 1 }, divisor: 27 },
+    { edge: { from: 0, to: 0, }, divisor: 1, },
+    { edge: { from: 0, to: 1, }, divisor: 3, },
+    { edge: { from: 1, to: 0, }, divisor: 9, },
+    { edge: { from: 1, to: 1, }, divisor: 27, },
   ]
 }
 
@@ -26,15 +27,15 @@ fn exhaustive_matrix_a_edges() -> Array[ExhaustiveEncodedEdge] {
 /// Matrix B uses row-major three-node edges with Boolean source presence.
 fn exhaustive_matrix_b_edges() -> Array[ExhaustiveEncodedEdge] {
   [
-    { edge: { from: 0, to: 0 }, divisor: 1 },
-    { edge: { from: 0, to: 1 }, divisor: 2 },
-    { edge: { from: 0, to: 2 }, divisor: 4 },
-    { edge: { from: 1, to: 0 }, divisor: 8 },
-    { edge: { from: 1, to: 1 }, divisor: 16 },
-    { edge: { from: 1, to: 2 }, divisor: 32 },
-    { edge: { from: 2, to: 0 }, divisor: 64 },
-    { edge: { from: 2, to: 1 }, divisor: 128 },
-    { edge: { from: 2, to: 2 }, divisor: 256 },
+    { edge: { from: 0, to: 0, }, divisor: 1, },
+    { edge: { from: 0, to: 1, }, divisor: 2, },
+    { edge: { from: 0, to: 2, }, divisor: 4, },
+    { edge: { from: 1, to: 0, }, divisor: 8, },
+    { edge: { from: 1, to: 1, }, divisor: 16, },
+    { edge: { from: 1, to: 2, }, divisor: 32, },
+    { edge: { from: 2, to: 0, }, divisor: 64, },
+    { edge: { from: 2, to: 1, }, divisor: 128, },
+    { edge: { from: 2, to: 2, }, divisor: 256, },
   ]
 }
 
@@ -42,8 +43,8 @@ fn exhaustive_matrix_b_edges() -> Array[ExhaustiveEncodedEdge] {
 /// Positive digits become signed source admissions while zero digits remain
 /// absent, preserving canonical descriptor order without a mutable builder.
 fn exhaustive_encoded_updates(
-  graph_code : Int,
-  radix : Int,
+  graph_code : Int32,
+  radix : Int32,
   edges : ArrayView[ExhaustiveEncodedEdge],
 ) -> Array[SourceUpdate] {
   edges.filter_map(encoded => {
@@ -59,21 +60,23 @@ fn exhaustive_encoded_updates(
 ///|
 /// Batching modes pin the three representative shell layouts independently of
 /// logical source contents.
+#derive(Eq, Debug)
 priv enum ExhaustiveBatching {
   CanonicalBatch
   PerUpdateBatch
   ReversedBatch
-} derive(Eq, Debug)
+}
 
 ///|
 /// A configuration couples worker cardinality, deterministic scheduling, and
 /// epoch-zero batching so each semantic case exercises one exact shell shape.
+#derive(Eq, Debug)
 priv struct ExhaustiveConfiguration {
-  worker_count : Int
-  scheduler_seed : Int?
+  worker_count : Int32
+  scheduler_seed : Int32?
   batching : ExhaustiveBatching
   label : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// The bounded matrix keeps the prescribed N=1/2/4 configurations in stable
@@ -118,12 +121,13 @@ fn exhaustive_batches(
 ///|
 /// Canonical worker snapshots own sorted copies of mutable arrangements and
 /// reachability so rejection checks cannot observe hash traversal or aliasing.
+#derive(Eq, Debug)
 priv struct ExhaustiveWorkerSnapshot {
   worker : WorkerId
   edges : Array[WeightedEdge]
   reachable : Array[Reach]
   closed_epoch : Epoch?
-} derive(Eq, Debug)
+}
 
 ///|
 /// Local mutation is confined to owned snapshot builders because nested worker
@@ -135,14 +139,14 @@ fn exhaustive_worker_snapshots(
     let edges : Array[WeightedEdge] = []
     worker.edge_by_from.each((from, by_target) => {
       by_target.each((to, weight) => {
-        edges.push({ edge: { from, to }, weight: weight.0 })
+        edges.push({ edge: { from, to, }, weight: weight.0, })
       })
     })
     edges.sort()
     let reachable : Array[Reach] = []
     worker.reachable.each(reach => reachable.push(reach))
     reachable.sort()
-    { worker: worker.id, edges, reachable, closed_epoch: worker.closed_epoch }
+    { worker: worker.id, edges, reachable, closed_epoch: worker.closed_epoch, }
   })
 }
 
@@ -168,7 +172,7 @@ fn[T : Eq + Debug] exhaustive_assert_equal(
 fn exhaustive_compare_epoch(
   engine : Engine,
   oracle : Oracle,
-  epoch : Int,
+  epoch : Int32,
   batches : Array[Array[SourceUpdate]],
   case_label : String,
 ) -> Result[Publication, ProtocolError] raise {

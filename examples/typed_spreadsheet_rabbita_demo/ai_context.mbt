@@ -6,7 +6,7 @@
 pub fn Model::ai_context_snapshot(
   self : Model,
   region? : Array[String],
-  max_cells? : Int = 64,
+  max_cells~ : Int32 = 64,
 ) -> @demo.AiContextSnapshot {
   let source = match region {
     Some(requested) => requested
@@ -35,7 +35,7 @@ pub fn Model::ai_context_snapshot(
 pub fn Model::ai_context_json(
   self : Model,
   region? : Array[String],
-  max_cells? : Int = 64,
+  max_cells~ : Int32 = 64,
 ) -> String {
   self.ai_context_snapshot(region?, max_cells~).to_json().stringify(indent=2)
 }
@@ -85,7 +85,7 @@ fn Model::ai_context_cell(self : Model, cell : String) -> @demo.AiContextCell {
 ///|
 fn Model::latest_ai_context_history(
   self : Model,
-  max_items : Int,
+  max_items : Int32,
 ) -> (@demo.AiContextTrace?, @demo.AiContextEvidence?) {
   match self.last_step {
     Some(step) => {

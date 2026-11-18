@@ -25,7 +25,7 @@ fn restoration_publication_error(
 
 ///|
 fn close_restoration_nodes(
-  nodes : Map[Int, RuntimeNode],
+  nodes : Map[Int32, RuntimeNode],
 ) -> Unit raise GraphRestorationError {
   let entries = nodes.to_array()
   entries.sort_by((a, b) => a.0.compare(b.0))
@@ -74,7 +74,7 @@ fn validate_document(
   if wire.next_node < 0 {
     return Err(InvalidFrontier)
   }
-  let nodes : Map[Int, RestorationNodeIndexEntry] = Map(
+  let nodes : Map[Int32, RestorationNodeIndexEntry] = Map(
     [],
     capacity=wire.nodes.length(),
   )
@@ -85,12 +85,12 @@ fn validate_document(
     if nodes.contains(node.id) {
       return Err(DuplicateNode)
     }
-    nodes[node.id] = { descriptor: node.descriptor, schema: None }
+    nodes[node.id] = { descriptor: node.descriptor, schema: None, }
   }
   for node in wire.nodes {
     if !node.bindings.is_empty() {
       let schema = nodes.get(node.id).unwrap().get_schema()
-      let targets : Set[Int] = Set([])
+      let targets : Set[Int32] = Set([])
       for entry in node.bindings {
         let target = entry.0
         let binding = entry.1
@@ -144,12 +144,12 @@ pub fn Nodeflow::restore(
   let store = @incr_query.Store::Store(
     max_active_queries=NODEFLOW_MAX_ACTIVE_QUERIES,
   )
-  let nodes : Map[Int, RuntimeNode] = Map([])
+  let nodes : Map[Int32, RuntimeNode] = Map([])
   let outputs : Map[PortReference, RuntimeOutput] = Map([])
   let ordered = wire.nodes.copy()
   ordered.sort_by((a, b) => a.id.compare(b.id))
   for node in ordered {
-    let reference : NodeReference = { graph: wire.graph, node: node.id }
+    let reference : NodeReference = { graph: wire.graph, node: node.id, }
     let runtime = make_runtime_node(store, reference, node.descriptor) catch {
       error => {
         close_restoration_nodes(nodes)
@@ -174,7 +174,7 @@ pub fn Nodeflow::restore(
     lifecycle: Ref(RuntimeLifecycle::Open),
   }
   let restored = {
-    state: { graph: wire.graph, next_node: wire.next_node, nodes: Map([]) },
+    state: { graph: wire.graph, next_node: wire.next_node, nodes: Map([]), },
     runtime,
   }
   let result : Result[Unit, Unit] = store.transaction(tx => {
@@ -219,15 +219,15 @@ pub fn Nodeflow::restore(
     }
   }
   ignore(result)
-  let semantic_nodes : Map[Int, NodeState] = Map([])
+  let semantic_nodes : Map[Int32, NodeState] = Map([])
   for node in ordered {
     let bindings : Map[PortReference, BindingTarget] = Map([])
     for entry in node.bindings {
       let target = entry.0
       let binding = entry.1
-      bindings[{ graph: wire.graph, node: node.id, port: target }] = binding
+      bindings[{ graph: wire.graph, node: node.id, port: target, }] = binding
     }
-    semantic_nodes[node.id] = { descriptor: node.descriptor, bindings }
+    semantic_nodes[node.id] = { descriptor: node.descriptor, bindings, }
   }
   restored.state = {
     graph: wire.graph,
@@ -242,5 +242,5 @@ pub fn Nodeflow::restore(
     }
   }
   reserve_graph_id(wire.graph)
-  Ok(GraphRestoration::{ graph: restored, snapshot })
+  Ok(GraphRestoration::{ graph: restored, snapshot, })
 }

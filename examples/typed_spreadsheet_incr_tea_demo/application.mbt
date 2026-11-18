@@ -18,12 +18,13 @@ enum ApplicationLifecycleError {
 }
 
 ///|
+#derive(Eq, Debug)
 enum ApplicationRemoteError {
   ProjectionFailed
   MutationNotLanded
   SynchronizationFailed(String)
   Disposed
-} derive(Eq, Debug)
+}
 
 ///|
 struct DispatchOutcome {
@@ -68,7 +69,7 @@ fn SessionTransport::SessionTransport(
   publish : (@container.SyncMessage) -> Unit,
   stop : () -> Unit,
 ) -> SessionTransport {
-  { bind, publish, stop }
+  { bind, publish, stop, }
 }
 
 ///|
@@ -129,9 +130,9 @@ fn resolve_typed_sheet_hosts(
 ///|
 struct RegionRenderStats {
   label : String
-  view_recomputes : Int
-  patch_attempts : Int
-  skipped_patches : Int
+  view_recomputes : Int32
+  patch_attempts : Int32
+  skipped_patches : Int32
 }
 
 ///|
@@ -280,7 +281,7 @@ fn acquire_ai_context_snapshot(
   state : Ref[SheetState],
   cache : Ref[@demo.AiContextSnapshot?],
   dirty : Ref[Bool],
-  capture_count : Ref[Int],
+  capture_count : Ref[Int32],
 ) -> @demo.AiContextSnapshot {
   match cache.val {
     Some(snapshot) if !dirty.val => snapshot
@@ -299,7 +300,7 @@ fn publish_cached_ai_context(
   state : Ref[SheetState],
   cache : Ref[@demo.AiContextSnapshot?],
   dirty : Ref[Bool],
-  capture_count : Ref[Int],
+  capture_count : Ref[Int32],
   publisher : AiContextPublisher,
 ) -> Unit {
   let snapshot = acquire_ai_context_snapshot(state, cache, dirty, capture_count)
@@ -317,7 +318,7 @@ struct TypedSheetApplication {
   publisher : AiContextPublisher
   ai_context_cache : Ref[@demo.AiContextSnapshot?]
   ai_context_dirty : Ref[Bool]
-  ai_context_capture_count : Ref[Int]
+  ai_context_capture_count : Ref[Int32]
   transport : SessionTransport?
   collaboration : Ref[ApplicationCollaborationResult]
   mut lifecycle : ApplicationLifecycle
@@ -476,7 +477,7 @@ fn TypedSheetApplication::dispatch(
       guard self.prog_grid.dispatch(msg) else {
         abort("TypedSheetApplication program disposed before its owner")
       }
-      Ok({ authority_changed: self.state.val.adapter.version() != before })
+      Ok({ authority_changed: self.state.val.adapter.version() != before, })
     }
   }
 }
@@ -686,7 +687,7 @@ fn TypedSheetApplication::snapshot(
     drafts: ReadOnlyArray::from_array(
       state.drafts
       .peek()
-      .map(draft => CellDraft::{ cell: draft.cell, text: draft.text }),
+      .map(draft => CellDraft::{ cell: draft.cell, text: draft.text, }),
     ),
     editing_cell: state.editing_cell.peek(),
     error: state.error.peek(),
