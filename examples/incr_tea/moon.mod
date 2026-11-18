@@ -7,7 +7,7 @@ preferred_target = "js"
 import {
   "moonbitlang/regexp@0.3.6",
   "moonbit-community/prettyprinter@0.4.11",
-  "dowdiness/incr@0.15.1",
+  "dowdiness/incr@0.16.0",
   "dowdiness/incr_tea@0.1.0",
   "moonbit-community/rabbita@0.17.0",
   "mizchi/luna@0.25.1",

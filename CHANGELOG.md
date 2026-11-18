@@ -4,27 +4,30 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
-### Fixed
+## [v0.16.0] - 2026-11-18
 
-- Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
-  imports, qualifying trait calls, and using scoped cleanup for callback and
-  batch failures. Recompute failure hooks retain their ordering and error value.
-- Pin repository CI to MoonBit 0.10.21+06da1ed44 (checksum-verified) for the
-  current dependency graph and collection APIs.
-- Restore the full `ReadError` API documentation by keeping its explicit `Show`
-  method promotion separate from the enum's doc comment.
+### Breaking
+
+- Remove `Runtime::batch_result` and the `@incr.batch_result` helper. They only
+  re-encoded the raised `Error` of `batch` as `Result[Unit, Error]`, which the
+  `result_error_return` lint flags and which carries no more type information
+  than `raise`. Use `try Ok(rt.batch(f)) catch { e => Err(e) }`, or handle the
+  error directly.
+- Raise the minimum supported compiler to MoonBit 0.10.21 (CI pins
+  0.10.21+06da1ed44, checksum-verified) and remove older-compiler compatibility
+  jobs. Historical K1/K2 evidence pins remain unchanged.
 
 ### Changed
 
-- Type the engine's pull-verification and recompute error channel: internal
-  `raise Error` becomes the closed `PullError { Cycle(CycleError),
-  Defect(Failure) }`, so every read-boundary catch is exhaustive and a cycle
-  can no longer be mistaken for a compute defect. No public API change.
-
-- Raise the currently supported minimum compiler to MoonBit 0.10.21 and remove
-  older-compiler compatibility jobs. Historical K1/K2 evidence pins remain
-  unchanged.
-- Upgrade `moonbitlang/quickcheck` to 0.15.1 in `incr`, `dataflow`, and the Incr Query testkit.
+- Type the engine's pull-verification and recompute error channel with the
+  closed internal `PullError { Cycle(CycleError), Defect(Failure) }` instead of
+  `Result[_, CycleError] raise Failure`. Cycles become `ReadError::Cycle` only
+  at the read boundary, and every read-boundary catch is exhaustive. No other
+  public API change.
+- Remove the unused `read_result`/`get_strict_result` compatibility projections;
+  their tests now cover `read_honest`/`get_strict_honest`.
+- Upgrade `moonbitlang/quickcheck` to 0.15.1 in `incr`, `dataflow`, and the Incr
+  Query testkit.
 - Update example dependencies: `moonbit-community/rabbita` 0.17.0,
   `moonbitlang/async` 0.22.9, `dowdiness/btree` 0.3.0, and
   `dowdiness/event-graph-walker` 0.10.0. Rabbita's void `input` element no
@@ -32,23 +35,18 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Handle the `DuplicateKey` case of `@json.parse` in the Nodeflow spike and the
   typed-spreadsheet register codec. Default parsing still accepts duplicate
   keys, so the codec keeps its existing root duplicate-field preflight.
-- Replace the engine's internal `Result[_, CycleError] raise Failure` pull
-  verification and recompute channel with raised errors; cycles are converted
-  to `ReadError::Cycle` only at the read boundary. Remove the unused
-  `read_result`/`get_strict_result` compatibility projections (their tests now
-  cover `read_honest`/`get_strict_honest`).
-
-### Removed
-
-- **Breaking:** Remove `Runtime::batch_result` and the `batch_result` facade
-  helper. They only re-encoded the raised `Error` of `batch` as
-  `Result[Unit, Error]`, which the `result_error_return` lint flags and which
-  carries no more type information than `raise`. Use
-  `try Ok(rt.batch(f)) catch { e => Err(e) }`, or handle the error directly.
-- Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
-  Chromium on the `ubuntu-latest` 26.04 image.
 - Select modern-manifest releases of transitive regexp, prettyprinter, and
   btree dependencies for MoonBit 0.10.21 workspace resolution.
+- Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
+  Chromium on the `ubuntu-latest` 26.04 image.
+
+### Fixed
+
+- Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
+  imports, qualifying trait calls, and using scoped cleanup for callback and
+  batch failures. Recompute failure hooks retain their ordering and error value.
+- Restore the full `ReadError` API documentation by keeping its explicit `Show`
+  method promotion separate from the enum's doc comment.
 
 ## [v0.15.1] - 2026-08-27
 
@@ -569,7 +567,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.16.0...HEAD
+[v0.16.0]: https://github.com/dowdiness/incr/compare/v0.15.1...v0.16.0
 [v0.14.2]: https://github.com/dowdiness/incr/compare/v0.14.1...v0.14.2
 [v0.14.1]: https://github.com/dowdiness/incr/compare/v0.14.0...v0.14.1
 [v0.14.0]: https://github.com/dowdiness/incr/compare/v0.13.0...v0.14.0
