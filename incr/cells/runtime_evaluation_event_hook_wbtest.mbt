@@ -116,6 +116,50 @@ test "runtime_eval: derived catchable abort reports abort summary" {
 }
 
 ///|
+test "runtime_eval: compute failure surfaces as PullError::Defect with its payload" {
+  let rt = Runtime()
+  let derived : Derived[Int32] = Derived(rt, () => {
+    raise Failure("defect payload")
+  })
+  let mut payload = ""
+  try derived.force_recompute() catch {
+    PullError::Defect(e) => payload = e.to_string()
+    PullError::Cycle(_) => payload = "unexpected cycle"
+  } noraise {
+    _ => payload = "unexpected success"
+  }
+  inspect(payload.contains("defect payload"), content="true")
+  rt.drain_pending_events_direct()
+}
+
+///|
+test "runtime_eval: cycle surfaces as PullError::Cycle without an abort summary or state change" {
+  let rt = Runtime()
+  let events = collect_runtime_eval_events(rt)
+  let derived : Derived[Int32] = Derived(rt, () => 1)
+  let data = rt.get_memo_data(derived.id())
+  data.in_progress = true
+  Tracker::push_tracking(rt, derived.id())
+  let mut cycle = false
+  try derived.force_recompute() catch {
+    PullError::Cycle(_) => cycle = true
+    PullError::Defect(_) => ()
+  } noraise {
+    _ => ()
+  }
+  inspect(cycle, content="true")
+  // A cycle is detected before any recompute state is entered, so the
+  // pre-existing in_progress flag and tracking frame stay untouched and no
+  // after-abort hook fires.
+  inspect(data.in_progress, content="true")
+  inspect(rt.core.tracking.stack.length(), content="1")
+  data.in_progress = false
+  ignore(Tracker::pop_tracking(rt))
+  rt.drain_pending_events_direct()
+  inspect(events.length(), content="0")
+}
+
+///|
 test "runtime_eval: direct drain flushes abort with active tracking frame" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
