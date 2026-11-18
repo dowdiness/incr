@@ -2,47 +2,53 @@
 const K1_6_LIFETIME_SEED : UInt64 = 0x6A1602
 
 ///|
+#derive(Eq, Debug)
 priv struct LifetimeRecipe {
   left : Int32
   right : Int32
   next_left : Int32
   next_right : Int32
   recovery : Int32
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum LifetimeObservation {
   Value(Int32)
   CrossStore
   ClosedRegion
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum LifetimeOperation {
   Read
   SetBoth
   CrossStoreAtomic
   Close
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Debug)
 priv struct LifetimeCase {
   recipe : LifetimeRecipe
   operations : Array[LifetimeOperation]
-} derive(Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum RecoveryOperation {
   Read
   SetFailure
   SetRecovery
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Debug)
 priv struct RecoveryCase {
   recipe : LifetimeRecipe
   operations : Array[RecoveryOperation]
-} derive(Debug)
+}
 
 ///|
 fn lifetime_recipe(draw : Int32) -> LifetimeRecipe {
@@ -308,10 +314,11 @@ fn first_recovery_operation(case : RecoveryCase) -> Int32 raise {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum LifetimeShrinkPhase {
   Suffix
   Values
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct LifetimeShrinkCandidate {

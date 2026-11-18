@@ -5,6 +5,7 @@ const K1_6_SEED : UInt64 = 0x6A1601
 const K1_6_CASES : Int32 = 64
 
 ///|
+#derive(Debug)
 priv struct ProofRecipe {
   base : Int32
   selector : Int32
@@ -16,9 +17,10 @@ priv struct ProofRecipe {
   keep_suffix : Bool
   atomic_writes : Int32
   graph_simplified : Bool
-} derive(Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum ProofOperation {
   SetBase(Int32)
   SetSelector(Int32)
@@ -26,14 +28,15 @@ priv enum ProofOperation {
   SetUnrelated(Int32)
   Read
   DropProof
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Debug)
 priv struct GraphRecipe {
   scenario : @model.Scenario
   initial : Array[@model.SourceInit]
   operations : Array[ProofOperation]
-} derive(Debug)
+}
 
 ///|
 fn bounded_value(draw : Int32, offset : Int32) -> Int32 {
@@ -357,13 +360,14 @@ fn first_proof_operation(graph : GraphRecipe) -> Int32 raise {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ProofShrinkPhase {
   Suffix
   UnrelatedOperations
   AtomicWrites
   Graph
   Values
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ProofShrinkCandidate {
