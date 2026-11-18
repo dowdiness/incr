@@ -14,8 +14,8 @@ is delegated to the [validation index](README.md).
 K2 is complete: public-consumer evidence merged as `93eb59b6`, executable
 documentation as `9360816f`, and distribution evidence as `3007f5ff`. The
 accepted disposition recommends a separate alpha publication commission. Active
-repository automation now uses exact MoonBit 0.10.15+943464bfa, satisfying the K2
-packager prerequisite. MoonBit 0.10.15 is the currently supported minimum;
+repository automation now uses exact MoonBit 0.10.21+06da1ed44, satisfying the K2
+packager prerequisite. MoonBit 0.10.21 is the currently supported minimum;
 there is no separate older-compiler compatibility job.
 The [updated sibling-product ADR](../../../docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md)
 is the durable decision record.

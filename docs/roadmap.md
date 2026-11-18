@@ -27,7 +27,7 @@ K1 and K2 are complete and accepted, with evidence indexed by
 separate alpha publication commission after one prerequisite: standardize
 active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
 preserving historical evidence pins.
-Active repository automation now uses exact MoonBit 0.10.15+943464bfa through
+Active repository automation now uses exact MoonBit 0.10.21+06da1ed44 through
 its checksum-verified local installer, satisfying that prerequisite. MoonBit
 0.10.15 is the currently supported minimum; older compilers are not supported.
 Repository-wide validation exposed the `examples/incr_tea` transitive

@@ -69,8 +69,8 @@ and is not replaced. [Plan 016 at final disposition](https://github.com/dowdines
 records accepted K2 evidence. The
 [updated sibling-product ADR](https://github.com/dowdiness/incr/blob/main/docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md)
 recommends a separate alpha publication commission. Active repository automation
-now uses exact MoonBit 0.10.15+943464bfa, satisfying the K2 packager prerequisite.
-MoonBit 0.10.15 is the currently supported minimum.
+now uses exact MoonBit 0.10.21+06da1ed44, satisfying the K2 packager prerequisite.
+MoonBit 0.10.21 is the currently supported minimum.
 Actual publication, registry mutation, version release, Canopy production
 integration, Mount, Program/Port/Formula,
 public debug/explain, public or automatic eviction/LRU, and parallel evaluation

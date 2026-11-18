@@ -32,7 +32,7 @@ interfaces had zero delta in K1.6.
   packager is standardized on MoonBit 0.10.9 or newer. Automation must use an
   exact verified toolchain pin rather than a floating version range.
 - Retain the historical MoonBit 0.10.4 compatibility evidence. As of
-  2026-10-13, MoonBit 0.10.15 is the currently supported minimum; active CI
+  2026-10-13, MoonBit 0.10.21 is the currently supported minimum; active CI
   uses that toolchain for both packaging and consumption, without a separate
   older-compiler compatibility job.
 - Do not authorize publication, registry mutation, version release, or Canopy
@@ -79,7 +79,7 @@ MoonBit 0.10.9 packaged the accepted candidate correctly.
   Time-bound raw K2.3 command output is removed after the accepted hashes are
   preserved in the [K2.3 validation record](../../incr_query/kernel/evidence/k2-3-validation.md)
   and the toolchain constraint is preserved here and in the package policy.
-- Active repository automation uses exact MoonBit 0.10.15+943464bfa through
+- Active repository automation uses exact MoonBit 0.10.21+06da1ed44 through
   the checksum-verified repository-local installer, satisfying the K2 packager
   prerequisite. Historical K1/K2 evidence pins remain unchanged; K2.3 retains
   its original MoonBit 0.10.4 compatibility result as historical evidence,
@@ -92,8 +92,8 @@ MoonBit 0.10.9 packaged the accepted candidate correctly.
 
 ## Maintenance update — 2026-10-13
 
-MoonBit 0.10.15 is the currently supported minimum. This supersedes the interim
+MoonBit 0.10.21 is the currently supported minimum. This supersedes the interim
 0.10.8 compatibility job introduced after the original K2 MoonBit 0.10.4
 archives returned HTTP 403. CI uses one exact, checksum-verified
-0.10.15+943464bfa toolchain; historical compatibility results remain evidence,
+0.10.21+06da1ed44 toolchain; historical compatibility results remain evidence,
 not a commitment to support older compilers.

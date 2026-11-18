@@ -11,7 +11,7 @@ examples, while keeping caller-contract violations in a separate package.
 **Disposition:** Retained at K2 closure as executable product documentation.
 
 **Status:** K2 is complete and the K2 packager prerequisite is satisfied by
-exact MoonBit 0.10.15+943464bfa. MoonBit 0.10.15 is the currently supported
+exact MoonBit 0.10.21+06da1ed44. MoonBit 0.10.21 is the currently supported
 minimum. Incr Query remains unpublished until a separate commission explicitly
 authorizes publication. This guide uses the post-K2 typed-raise interface.
 
