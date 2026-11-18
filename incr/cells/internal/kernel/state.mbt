@@ -8,7 +8,7 @@ using @incr_types {
 }
 
 ///|
-using @shared {type CellRef, trait CellOps, trait Committable}
+using @shared {type CellRef, trait CellOps, trait Committable, type PullError}
 
 ///|
 /// Global counter for assigning unique IDs to Runtime instances.

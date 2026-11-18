@@ -177,8 +177,8 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   let m2 : Derived[Int32] = Derived(rt, () => raise Failure("inner abort"))
   let m1 = Derived(rt, () => {
     let _ = m2.get_result_inner() catch {
-      Failure::Failure(_) as e => raise e
-      e => abort("unexpected error: " + e.to_string())
+      PullError::Defect(e) => raise e
+      PullError::Cycle(e) => abort("unexpected cycle: " + e.format_path())
     }
     0
   })

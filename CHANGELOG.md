@@ -16,6 +16,11 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- Type the engine's pull-verification and recompute error channel: internal
+  `raise Error` becomes the closed `PullError { Cycle(CycleError),
+  Defect(Failure) }`, so every read-boundary catch is exhaustive and a cycle
+  can no longer be mistaken for a compute defect. No public API change.
+
 - Raise the currently supported minimum compiler to MoonBit 0.10.21 and remove
   older-compiler compatibility jobs. Historical K1/K2 evidence pins remain
   unchanged.

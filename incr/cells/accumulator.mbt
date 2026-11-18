@@ -213,7 +213,7 @@ impl @shared.SlotSnapshot for SlotMeta with fn push_revised_at_for(
 fn Runtime::ensure_computed_untracked(
   self : Runtime,
   cell_id : CellId,
-) -> Unit raise Error {
+) -> Unit raise PullError {
   if self.is_cell_disposed(cell_id) {
     return
   }

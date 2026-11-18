@@ -43,9 +43,8 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::read_honest(
 ) -> Result[V, ReadError] {
   let entry = self.get_or_create_entry(key)
   let result : Result[V, ReadError] = Ok(entry.get_result_inner()) catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
-      Err(ReadError::cycle(e))
-    e => {
+    PullError::Cycle(e) => Err(ReadError::cycle(e))
+    PullError::Defect(e) => {
       self.rt.drain_pending_events_direct()
       abort("DerivedMap compute raised: " + e.to_string())
     }

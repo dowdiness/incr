@@ -208,7 +208,7 @@ pub fn EvaluationStrategies::pull_verify(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   cell_id : CellId,
-) -> Unit raise Error {
+) -> Unit raise PullError {
   self.pull_rebuilder.pull_verify(core, pull, slot_snapshots, cell_id)
 }
 
@@ -292,7 +292,7 @@ fn PullRebuilderStrategy::pull_verify(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   cell_id : CellId,
-) -> Unit raise Error {
+) -> Unit raise PullError {
   match self {
     DefaultPullRebuilder => pull_verify(core, pull, slot_snapshots, cell_id)
     TracingPullRebuilder(recorder) => {

@@ -63,9 +63,8 @@ fn[T : Eq] ReachableDerived::read_honest(
     return Err(ReadError::disposed(self.cell_id))
   }
   let result : Result[T, ReadError] = Ok(self.read_result_inner()) catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
-      Err(ReadError::cycle(e))
-    e => {
+    PullError::Cycle(e) => Err(ReadError::cycle(e))
+    PullError::Defect(e) => {
       self.rt.drain_pending_events_direct()
       abort("ReachableDerived compute raised: " + e.to_string())
     }
@@ -80,7 +79,7 @@ fn[T : Eq] ReachableDerived::read_honest(
 /// Internal: ReachableDerived verification logic shared by Result and aborting reads.
 fn[T : Eq] ReachableDerived::read_result_inner(
   self : ReachableDerived[T],
-) -> T raise Error {
+) -> T raise PullError {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("ReachableDerived::get called on a disposed reachable derived cell")
   }
@@ -123,9 +122,8 @@ fn[T : Eq] ReachableDerived::read_result_inner(
 ///|
 fn[T : Eq] ReachableDerived::read_permissive(self : ReachableDerived[T]) -> T {
   self.read_result_inner() catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
-      abort(e.format_path())
-    e => {
+    PullError::Cycle(e) => abort(e.format_path())
+    PullError::Defect(e) => {
       self.rt.drain_pending_events_direct()
       abort("ReachableDerived compute raised: " + e.to_string())
     }
@@ -136,7 +134,7 @@ fn[T : Eq] ReachableDerived::read_permissive(self : ReachableDerived[T]) -> T {
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 fn[T : Eq] ReachableDerived::force_recompute(
   self : ReachableDerived[T],
-) -> T raise Error {
+) -> T raise PullError {
   let new_value = self.rt.memo_force_recompute(
     self.cell_id,
     self.compute,
@@ -152,7 +150,7 @@ fn[T : Eq] ReachableDerived::force_recompute(
 /// Stored as the type-erased `compute` closure in `MemoData`.
 fn[T : Eq] ReachableDerived::recompute_inner(
   self : ReachableDerived[T],
-) -> Bool raise Error {
+) -> Bool raise PullError {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   ignore(self.force_recompute())

@@ -26,13 +26,15 @@ fn[T] Runtime::memo_force_recompute(
   compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> T raise Error {
+) -> T raise PullError {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
-    raise @kernel.construct_cycle_error(
-      self.core,
-      @kernel.collect_tracking_path(self.core),
-      cell.meta.cell_id,
+    raise PullError::Cycle(
+      @kernel.construct_cycle_error(
+        self.core,
+        @kernel.collect_tracking_path(self.core),
+        cell.meta.cell_id,
+      ),
     )
   }
   cell.in_progress = true
@@ -47,7 +49,7 @@ fn[T] Runtime::memo_force_recompute(
     compute_fn() catch {
       Failure::Failure(_) as e => {
         self.dispatch_after_abort_hooks(cell_id, e)
-        raise e
+        raise PullError::Defect(e)
       }
     }
   }
@@ -87,13 +89,15 @@ fn[T] Runtime::static_memo_force_recompute(
   compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> T raise Error {
+) -> T raise PullError {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
-    raise @kernel.construct_cycle_error(
-      self.core,
-      @kernel.collect_in_progress_path(self.pull),
-      cell.meta.cell_id,
+    raise PullError::Cycle(
+      @kernel.construct_cycle_error(
+        self.core,
+        @kernel.collect_in_progress_path(self.pull),
+        cell.meta.cell_id,
+      ),
     )
   }
   cell.in_progress = true
@@ -107,7 +111,7 @@ fn[T] Runtime::static_memo_force_recompute(
       Failure::Failure(_) as e => {
         self.leave_static_recompute()
         self.dispatch_after_abort_hooks(cell_id, e)
-        raise e
+        raise PullError::Defect(e)
       }
     }
   }
@@ -232,7 +236,7 @@ fn[T] Derived::_create_static(
 ///|
 /// Internal: the core verification logic. Does NOT check tracking context.
 /// Aborts during fixpoint (see InFixpoint guard below).
-fn[T] Derived::get_result_inner(self : Derived[T]) -> T raise Error {
+fn[T] Derived::get_result_inner(self : Derived[T]) -> T raise PullError {
   self.get_result_inner_impl(record_dependency=true)
 }
 
@@ -240,7 +244,7 @@ fn[T] Derived::get_result_inner(self : Derived[T]) -> T raise Error {
 fn[T] Derived::get_result_inner_impl(
   self : Derived[T],
   record_dependency~ : Bool,
-) -> T raise Error {
+) -> T raise PullError {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Derived::get called on a disposed derived cell")
   }
@@ -302,9 +306,8 @@ fn[T] Derived::read_honest_impl(
   let result : Result[T, ReadError] = Ok(
     self.get_result_inner_impl(record_dependency~),
   ) catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
-      Err(ReadError::cycle(e))
-    e => {
+    PullError::Cycle(e) => Err(ReadError::cycle(e))
+    PullError::Defect(e) => {
       self.rt.drain_pending_events_direct()
       abort("Derived compute raised: " + e.to_string())
     }
@@ -318,9 +321,8 @@ fn[T] Derived::read_honest_impl(
 ///|
 fn[T] Derived::read_permissive(self : Derived[T]) -> T {
   self.get_result_inner() catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
-      abort(e.format_path())
-    e => {
+    PullError::Cycle(e) => abort(e.format_path())
+    PullError::Defect(e) => {
       self.rt.drain_pending_events_direct()
       abort("Derived compute raised: " + e.to_string())
     }
@@ -329,7 +331,7 @@ fn[T] Derived::read_permissive(self : Derived[T]) -> T {
 
 ///|
 /// Force recomputation: delegates to the dynamic or static memo recompute helper.
-fn[T] Derived::force_recompute(self : Derived[T]) -> T raise Error {
+fn[T] Derived::force_recompute(self : Derived[T]) -> T raise PullError {
   let new_value = if self.is_static {
     self.rt.static_memo_force_recompute(
       self.cell_id,
@@ -352,7 +354,7 @@ fn[T] Derived::force_recompute(self : Derived[T]) -> T raise Error {
 ///|
 /// Internal: recompute and return whether the value changed.
 /// This is the closure stored in CellMeta for type-erased recomputation.
-fn[T] Derived::recompute_inner(self : Derived[T]) -> Bool raise Error {
+fn[T] Derived::recompute_inner(self : Derived[T]) -> Bool raise PullError {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   ignore(self.force_recompute())

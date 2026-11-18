@@ -9,6 +9,10 @@ import {
 // Values
 
 // Errors
+pub(all) suberror PullError {
+  Cycle(@types.CycleError)
+  Defect(Failure)
+}
 
 // Types and methods
 pub(all) struct CellMeta {

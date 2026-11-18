@@ -15,4 +15,4 @@ pub using @incr_types {
 }
 
 ///|
-using @shared {type CellRef}
+using @shared {type CellRef, type PullError}
