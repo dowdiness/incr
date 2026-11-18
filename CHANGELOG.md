@@ -9,17 +9,28 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
   imports, qualifying trait calls, and using scoped cleanup for callback and
   batch failures. Recompute failure hooks retain their ordering and error value.
-- Pin repository CI to MoonBit 0.10.15+943464bfa for the current dependency
-  graph and collection APIs.
+- Pin repository CI to MoonBit 0.10.21+06da1ed44 (checksum-verified) for the
+  current dependency graph and collection APIs.
 - Restore the full `ReadError` API documentation by keeping its explicit `Show`
   method promotion separate from the enum's doc comment.
 
 ### Changed
 
-- Raise the currently supported minimum compiler to MoonBit 0.10.15 and remove
+- Raise the currently supported minimum compiler to MoonBit 0.10.21 and remove
   older-compiler compatibility jobs. Historical K1/K2 evidence pins remain
   unchanged.
-- Upgrade `moonbitlang/quickcheck` to 0.15.0 in `incr`, `dataflow`, and the Incr Query testkit.
+- Upgrade `moonbitlang/quickcheck` to 0.15.1 in `incr`, `dataflow`, and the Incr Query testkit.
+- Update example dependencies: `moonbit-community/rabbita` 0.17.0,
+  `moonbitlang/async` 0.22.9, `dowdiness/btree` 0.3.0, and
+  `dowdiness/event-graph-walker` 0.10.0. Rabbita's void `input` element no
+  longer takes a children argument.
+- Handle the `DuplicateKey` case of `@json.parse` in the Nodeflow spike and the
+  typed-spreadsheet register codec. Default parsing still accepts duplicate
+  keys, so the codec keeps its existing root duplicate-field preflight.
+- Disable the `result_error_return` migration lint in the engine packages whose
+  cycle and read outcomes are intentionally returned as `Result` data.
+- Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
+  Chromium on the `ubuntu-latest` 26.04 image.
 - Select modern-manifest releases of transitive regexp, prettyprinter, and
   btree dependencies for MoonBit 0.10.15 workspace resolution.
 
