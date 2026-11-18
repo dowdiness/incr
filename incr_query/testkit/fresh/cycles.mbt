@@ -1,9 +1,10 @@
 ///|
 /// Fresh's typed identity keeps Query equality and key equality together.
+#derive(Eq, Hash)
 priv struct FreshInvocation {
   query_id : @model.QueryId
   key : Int32
-} derive(Eq, Hash)
+}
 
 ///|
 /// State owned entirely by the Fresh evaluator for one script replay.

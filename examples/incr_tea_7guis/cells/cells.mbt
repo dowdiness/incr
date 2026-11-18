@@ -10,9 +10,12 @@ priv struct Model {
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   SetCell(String, String)
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -24,7 +27,7 @@ priv struct App {
 ///|
 fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
-  let state = Ref({ cells: init_cells() })
+  let state = Ref({ cells: init_cells(), })
   let version = scope.input_field(0, label="7guis.cells.version")
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
@@ -42,14 +45,14 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view,
     label="7guis.cells.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
 fn init_cells() -> Array[CellEntry] {
   [
     for row in 1..<=4 => {
-      ["A", "B", "C", "D"].map(column => { id: "\{column}\{row}", text: "" })
+      ["A", "B", "C", "D"].map(column => { id: "\{column}\{row}", text: "", })
     }
   ].flatten()
 }
@@ -57,7 +60,7 @@ fn init_cells() -> Array[CellEntry] {
 ///|
 fn update_model(msg : Msg, model : Model) -> Model {
   match msg {
-    SetCell(id, text) => { cells: update_cell(model.cells, id, text) }
+    SetCell(id, text) => { cells: update_cell(model.cells, id, text), }
   }
 }
 

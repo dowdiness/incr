@@ -1,6 +1,6 @@
 ///|
 test "pull_input_data: can be constructed" {
-  let id = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 0 }
+  let id = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 0, }
   let data = PullInputData::{
     meta: {
       cell_id: id,

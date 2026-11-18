@@ -118,7 +118,7 @@ pub fn[T : Eq] Accumulator::Accumulator(
     has_buffer_for,
   }
   let slot_id = rt.register_accumulator_slot(meta)
-  { rt, slot_id, label, per_memo, prev_push_sets, push_revised_at }
+  { rt, slot_id, label, per_memo, prev_push_sets, push_revised_at, }
 }
 
 ///|
@@ -164,7 +164,7 @@ fn Runtime::register_accumulator_slot(
   self.accumulator_slots.push(meta)
   self.accumulator_snapshots.push(meta)
   self.check_accumulator_cache_invariant()
-  { runtime_id: self.core.runtime_id, id }
+  { runtime_id: self.core.runtime_id, id, }
 }
 
 ///|

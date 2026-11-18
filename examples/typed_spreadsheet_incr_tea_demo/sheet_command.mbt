@@ -11,28 +11,31 @@ using @domain {
 }
 
 ///|
+#derive(Eq, Debug)
 enum UiEffect {
   FocusInlineEditor(String)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct SheetPlan {
   command : SheetCommand?
   ui_effect : UiEffect?
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct SheetPlanningContext {
   sheet_id : @typed_spreadsheet.SheetId
   selected_cell : @typed_spreadsheet.CellId
   editing_cell : @typed_spreadsheet.CellId?
   drafts : ReadOnlyArray[CellDraft]
   generation : DocumentGeneration
-} derive(Eq, Debug)
+}
 
 ///|
 fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
-  let none = { command: None, ui_effect: None }
+  let none = { command: None, ui_effect: None, }
   match msg {
     UseExample(text) =>
       {
@@ -78,9 +81,9 @@ fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
       }
     }
     ResetSheet =>
-      { command: Some(ResetDocument(context.generation)), ui_effect: None }
+      { command: Some(ResetDocument(context.generation)), ui_effect: None, }
     BeginInlineEdit(address) =>
-      { command: None, ui_effect: Some(FocusInlineEditor(address)) }
+      { command: None, ui_effect: Some(FocusInlineEditor(address)), }
     BeginSelectedInlineEdit =>
       {
         command: None,

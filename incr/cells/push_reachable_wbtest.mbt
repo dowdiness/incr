@@ -11,7 +11,7 @@ test "push_reachable_count: new input starts at 0" {
 
 ///|
 /// Helper: read push_reachable_count from any cell via CellOps trait dispatch.
-fn get_count(rt : Runtime, id : CellId) -> Int {
+fn get_count(rt : Runtime, id : CellId) -> Int32 {
   rt.core.cell_ops[id.id].push_reachable_count()
 }
 
@@ -89,7 +89,7 @@ test "push_reachable_count: diamond dispose returns to 0" {
 ///|
 test "push_reachable_count: relation-to-reactive" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   let mut count = 0
   let r = EagerDerived::EagerDerived(rt, () => {
     count = count + 1
@@ -209,7 +209,7 @@ test "push_reachable_count: dropping one arm of a memo-internal diamond keeps th
     }
   })
   let candidate = Derived(rt, () => projected.get_or_abort())
-  let runs : Ref[Int] = { val: 0 }
+  let runs : Ref[Int32] = { val: 0, }
   // EagerDerived::EagerDerived computes eagerly, wiring the whole chain. Keep
   // it alive (no observe/unobserve cycle, which would suspend it).
   let fold = EagerDerived::EagerDerived(rt, () => {

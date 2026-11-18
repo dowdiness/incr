@@ -88,7 +88,7 @@ test "facade reachable derived: read returns cycle error" {
 ///|
 test "facade derived_map: read returns cycle error" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => key * 10)
   let entry = by_key.get_or_create_entry(1)
   let cell_id = entry.id()
   let meta = rt.get_memo_data(cell_id)
@@ -105,7 +105,7 @@ test "facade derived_map: read returns cycle error" {
 ///|
 test "facade derived_map: read_or falls back on read error" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap::DerivedMap(rt, (key : Int32) => key * 10)
 
   inspect(by_key.read_or(1, -1), content="10")
 
@@ -136,7 +136,7 @@ test "facade scope: target handles are disposed with scope" {
   let derived = scope.derived(() => input.get() + 1)
   let reachable = scope.reachable_derived(() => derived.read_or_abort() + 1)
   let eager = scope.eager_derived(() => input.get() * 10)
-  let by_key = scope.derived_map((key : Int) => input.get() + key)
+  let by_key = scope.derived_map((key : Int32) => input.get() + key)
 
   inspect(derived.read_or_abort(), content="2")
   inspect(reachable.read_or_abort(), content="3")
@@ -183,7 +183,7 @@ test "Derived::changed_at forwards to inner Memo" {
 ///|
 test "Derived::accumulated forwards through compute closure" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator(rt, label="diags")
+  let acc : Accumulator[Int32] = Accumulator(rt, label="diags")
   let producer = Derived::Derived(rt, () => {
     acc.push(7)
     acc.push(8)
@@ -203,7 +203,7 @@ test "Derived::accumulated forwards through compute closure" {
 ///|
 test "Derived::accumulated_peek forwards (untracked, defensive copy)" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator(rt)
+  let acc : Accumulator[Int32] = Accumulator(rt)
   let producer = Derived::Derived(rt, () => {
     acc.push(1)
     acc.push(2)

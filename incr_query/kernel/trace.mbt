@@ -1,16 +1,18 @@
 ///|
 /// The kind of one forward dependency in a successful Query invocation.
+#derive(Eq, Debug)
 priv enum DependencyKind {
   Source
   Query
-} derive(Eq, Debug)
+}
 
 ///|
 /// The result of asking one dependency whether its last value is available.
+#derive(Eq, Debug)
 priv enum Verification {
   Available(changed_at~ : ChangeEpoch)
   RecomputeRequired
-} derive(Eq, Debug)
+}
 
 ///|
 /// A typed-erased verifier retained by a last-successful memo trace.

@@ -23,12 +23,15 @@ fn Runtime::remove_read_root(self : Runtime, id : CellId) -> Unit {
 ///
 /// A `Watch` keeps its target reachable across `Runtime::gc()` and preserves
 /// read errors as values.
+#derive(Debug(ignore=[Runtime, Fn, CellId]))
 pub struct Watch[T] {
   priv runtime : Runtime
   priv target_id : CellId
   priv getter : () -> Result[T, ReadError]
   priv mut disposed : Bool
-} derive(Debug(ignore=[Runtime, Fn, CellId]))
+}
+
+///|
 pub extend Watch with Debug::{to_repr}
 
 ///|

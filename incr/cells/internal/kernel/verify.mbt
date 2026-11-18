@@ -6,8 +6,8 @@
 /// going through CellMeta.
 priv struct PullVerifyFrame {
   cell_id : CellId
-  memo_idx : Int
-  mut dep_cursor : Int
+  memo_idx : Int32
+  mut dep_cursor : Int32
   mut changed : Bool
 }
 
@@ -44,7 +44,7 @@ fn can_skip_dep_walk_by_durability(
 priv enum DependencyFreshness {
   DependencyUnchanged
   DependencyChanged
-  DependencyNeedsVerification(Int)
+  DependencyNeedsVerification(Int32)
 }
 
 ///|
@@ -72,10 +72,10 @@ fn enter_pull_frame(
   stack : Array[PullVerifyFrame],
   derived : @pull.MemoData,
   cell_id : CellId,
-  derived_idx : Int,
+  derived_idx : Int32,
 ) -> Unit {
   derived.in_progress = true
-  stack.push({ cell_id, memo_idx: derived_idx, dep_cursor: 0, changed: false })
+  stack.push({ cell_id, memo_idx: derived_idx, dep_cursor: 0, changed: false, })
 }
 
 ///|

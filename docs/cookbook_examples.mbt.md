@@ -15,9 +15,9 @@ lifetimes.
 test "docs cookbook: diamond dependencies recompute each branch once" {
   let rt = @incr.Runtime()
   let a = @incr.Input(rt, 10, label="a")
-  let b_runs : Ref[Int] = { val: 0 }
-  let c_runs : Ref[Int] = { val: 0 }
-  let d_runs : Ref[Int] = { val: 0 }
+  let b_runs : Ref[Int32] = { val: 0, }
+  let c_runs : Ref[Int32] = { val: 0, }
+  let d_runs : Ref[Int32] = { val: 0, }
 
   let b = @incr.Derived(
     rt,
@@ -65,9 +65,9 @@ test "docs cookbook: diamond dependencies recompute each branch once" {
 test "docs cookbook: layered derived values cache intermediate results" {
   let rt = @incr.Runtime()
   let raw = @incr.Input(rt, 21, label="raw")
-  let normalized_runs : Ref[Int] = { val: 0 }
-  let transformed_runs : Ref[Int] = { val: 0 }
-  let formatted_runs : Ref[Int] = { val: 0 }
+  let normalized_runs : Ref[Int32] = { val: 0, }
+  let transformed_runs : Ref[Int32] = { val: 0, }
+  let formatted_runs : Ref[Int32] = { val: 0, }
 
   let normalized = @incr.Derived(
     rt,
@@ -119,7 +119,7 @@ test "docs cookbook: layered derived values cache intermediate results" {
 ///|
 test "docs cookbook: computed defaults yield to explicit overrides" {
   let rt = @incr.Runtime()
-  let user_override : @incr.Input[Int?] = @incr.Input(
+  let user_override : @incr.Input[Int32?] = @incr.Input(
     rt,
     None,
     label="override",
@@ -165,7 +165,7 @@ test "docs cookbook: conditional dependencies follow the active branch" {
     "computed_value",
     label="expensive_source",
   )
-  let recomputes : Ref[Int] = { val: 0 }
+  let recomputes : Ref[Int32] = { val: 0, }
 
   let result = @incr.Derived(
     rt,
@@ -206,8 +206,8 @@ test "docs cookbook: conditional dependencies follow the active branch" {
 ```mbt check
 ///|
 priv struct CookbookVersioned {
-  value : Int
-  generation : Int
+  value : Int32
+  generation : Int32
 }
 
 ///|
@@ -219,16 +219,16 @@ impl Eq for CookbookVersioned with fn equal(self, other) -> Bool {
 test "docs cookbook: backdating respects custom equality" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 100, label="input")
-  let generation : Ref[Int] = { val: 0 }
-  let versioned_runs : Ref[Int] = { val: 0 }
-  let handler_runs : Ref[Int] = { val: 0 }
+  let generation : Ref[Int32] = { val: 0, }
+  let versioned_runs : Ref[Int32] = { val: 0, }
+  let handler_runs : Ref[Int32] = { val: 0, }
 
   let versioned = @incr.Derived(
     rt,
     () => {
       versioned_runs.val = versioned_runs.val + 1
       generation.val = generation.val + 1
-      { value: input.get() / 10, generation: generation.val }
+      { value: input.get() / 10, generation: generation.val, }
     },
     label="versioned",
   )
@@ -263,9 +263,9 @@ test "docs cookbook: backdating respects custom equality" {
 ```mbt check
 ///|
 priv enum CookbookStatus {
-  CookbookLoading(progress~ : Int)
-  CookbookReady(data~ : Int)
-  CookbookError(code~ : Int, message~ : String)
+  CookbookLoading(progress~ : Int32)
+  CookbookReady(data~ : Int32)
+  CookbookError(code~ : Int32, message~ : String)
 }
 
 ///|
@@ -299,8 +299,8 @@ test "docs cookbook: enum backdating can ignore incidental fields" {
   let rt = @incr.Runtime()
   let error_code = @incr.Input(rt, 404, label="error_code")
   let error_msg = @incr.Input(rt, "Not Found", label="error_msg")
-  let status_runs : Ref[Int] = { val: 0 }
-  let handler_runs : Ref[Int] = { val: 0 }
+  let status_runs : Ref[Int32] = { val: 0, }
+  let handler_runs : Ref[Int32] = { val: 0, }
 
   let status = @incr.Derived(
     rt,
@@ -347,7 +347,7 @@ test "docs cookbook: on_change batches committed changes" {
   let rt = @incr.Runtime()
   let a = @incr.Input(rt, 0, label="a")
   let b = @incr.Input(rt, 0, label="b")
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
 
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
@@ -390,7 +390,7 @@ test "docs cookbook: reading during batch sees the pre-batch value" {
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 10, label="x")
   let doubled = x.derived(v => v * 2, label="doubled")
-  let seen_inside_batch : Ref[Int] = { val: -1 }
+  let seen_inside_batch : Ref[Int32] = { val: -1, }
 
   inspect(doubled.read_or_abort(), content="20")
   rt.batch(() => {
@@ -413,7 +413,7 @@ suberror CookbookExternalRollbackError {
 priv struct CookbookExternalIndex {
   rt : @incr.Runtime
   rollback_token : @incr.InputField[Bool]
-  rows : Map[String, Int]
+  rows : Map[String, Int32]
 }
 
 ///|
@@ -430,7 +430,7 @@ fn CookbookExternalIndex::CookbookExternalIndex(
 ///|
 fn CookbookExternalIndex::restore_rows(
   self : CookbookExternalIndex,
-  previous_rows : Map[String, Int],
+  previous_rows : Map[String, Int32],
 ) -> Unit {
   self.rows.clear()
   for key, value in previous_rows {
@@ -442,7 +442,7 @@ fn CookbookExternalIndex::restore_rows(
 fn CookbookExternalIndex::put(
   self : CookbookExternalIndex,
   key : String,
-  value : Int,
+  value : Int32,
 ) -> Unit {
   let previous_rows = self.rows.copy()
   self.rows[key] = value
@@ -492,8 +492,8 @@ test "docs cookbook: extension-owned map rollback restores insertion and replace
 ///|
 test "docs cookbook: derived.get can recover from a cycle inside compute" {
   let rt = @incr.Runtime()
-  let derived_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let saw_cycle : Ref[Bool] = { val: false }
+  let derived_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let saw_cycle : Ref[Bool] = { val: false, }
 
   let derived = @incr.Derived(
     rt,
@@ -523,16 +523,18 @@ test "docs cookbook: derived.get can recover from a cycle inside compute" {
 
 ```mbt check
 ///|
+#derive(Eq)
 priv struct CookbookDiagnostic {
   code : String
   message : String
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum CookbookQuantityStatus {
-  QuantityOk(Int)
+  QuantityOk(Int32)
   QuantityDiagnostics(Array[CookbookDiagnostic])
-} derive(Eq)
+}
 
 ///|
 test "docs cookbook: custom domain diagnostics are cached as values" {
@@ -565,7 +567,7 @@ test "docs cookbook: custom domain diagnostics are cached as values" {
       rendered_runs.val += 1
       match s {
         QuantityOk(v) => "ok:" + v.to_string()
-        QuantityDiagnostics([{ code, message }, ..]) =>
+        QuantityDiagnostics([{ code, message, }, ..]) =>
           "diagnostic:" + code + ":" + message
         QuantityDiagnostics([]) => "diagnostic:<empty>"
       }
@@ -610,7 +612,7 @@ test "docs cookbook: Derived::fallible surfaces domain failure as a cached value
   let rt = @incr.Runtime()
   let n = @incr.Input(rt, 0, label="n")
   // The compute is noraise: a domain failure is *returned* as Err, never raised.
-  let parsed : @incr.Derived[Result[Int, String]] = @incr.Derived::fallible(
+  let parsed : @incr.Derived[Result[Int32, String]] = @incr.Derived::fallible(
     rt,
     () => {
       let v = n.get()
@@ -654,7 +656,7 @@ test "docs cookbook: Derived::fallible surfaces domain failure as a cached value
 ///|
 test "docs cookbook: aggregate computation updates affected totals" {
   let rt = @incr.Runtime()
-  let items : Array[@incr.Input[Int]] = [
+  let items : Array[@incr.Input[Int32]] = [
     @incr.Input(rt, 10, label="item_0"),
     @incr.Input(rt, 20, label="item_1"),
     @incr.Input(rt, 30, label="item_2"),
@@ -737,7 +739,7 @@ test "docs cookbook: accumulated invalidates when push set changes" {
     },
     label="checked_width",
   )
-  let report_runs : Ref[Int] = { val: 0 }
+  let report_runs : Ref[Int32] = { val: 0, }
   let report = @incr.Derived(
     rt,
     () => {
@@ -814,7 +816,7 @@ test "docs cookbook: derived event listener can enqueue compact log rows" {
   rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(e) =>
-        rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L })
+        rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L, })
       Completed(e) =>
         rows.push({
           phase: if e.backdated {
@@ -908,7 +910,7 @@ test "docs cookbook: memo changed_at shows backdating" {
 struct CookbookSourceFile {
   path : @incr.InputField[String]
   content : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|
@@ -921,7 +923,7 @@ fn CookbookSourceFile::CookbookSourceFile(
   rt : @incr.Runtime,
   path : String,
   content : String,
-  version? : Int = 0,
+  version~ : Int32 = 0,
 ) -> CookbookSourceFile {
   {
     path: @incr.InputField(rt, path, label="CookbookSourceFile.path"),
@@ -936,8 +938,8 @@ test "docs cookbook: input fields isolate field-specific dependencies" {
   let scope = @incr.Scope::new(rt)
   let file = CookbookSourceFile(rt, "/src/main.mbt", "hello")
   @incr.add_input_fields(scope, file)
-  let length_runs : Ref[Int] = { val: 0 }
-  let path_runs : Ref[Int] = { val: 0 }
+  let length_runs : Ref[Int32] = { val: 0, }
+  let path_runs : Ref[Int32] = { val: 0, }
 
   let content_length = @incr.Derived(
     rt,
@@ -1008,14 +1010,14 @@ test "docs cookbook: scope.add_watch keeps a target watch scoped" {
 priv struct CookbookSparseTable {
   rt : @incr.Runtime
   presence : Map[String, @incr.InputField[Bool]]
-  values : Map[String, @incr.InputField[Int]]
+  values : Map[String, @incr.InputField[Int32]]
 }
 
 ///|
 fn CookbookSparseTable::CookbookSparseTable(
   rt : @incr.Runtime,
 ) -> CookbookSparseTable {
-  { rt, presence: Map([]), values: Map([]) }
+  { rt, presence: Map([]), values: Map([]), }
 }
 
 ///|
@@ -1032,7 +1034,7 @@ fn CookbookSparseTable::presence_for(
 fn CookbookSparseTable::set(
   self : CookbookSparseTable,
   key : String,
-  value : Int,
+  value : Int32,
 ) -> Unit {
   match self.values.get(key) {
     Some(field) => field.set(value)
@@ -1055,7 +1057,7 @@ fn CookbookSparseTable::read_with_presence(
   self : CookbookSparseTable,
   key : String,
   presence : @incr.InputField[Bool],
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   if !presence.get() {
     Err("missing " + key)
   } else {
@@ -1071,7 +1073,7 @@ test "docs cookbook: sparse map presence anchors invalidate missing reads" {
   let rt = @incr.Runtime()
   let table = CookbookSparseTable(rt)
   let z9_presence = table.presence_for("Z9")
-  let runs : Ref[Int] = { val: 0 }
+  let runs : Ref[Int32] = { val: 0, }
   let z9_plus_one = @incr.Derived::fallible(
     rt,
     () => {
@@ -1197,11 +1199,11 @@ fn CookbookAuthoringPipeline::CookbookAuthoringPipeline(
     label="authoring.lowered",
   )
   let terminal_cell = scope.derived(
-    () => { lowered: lowered.get_or_abort() },
+    () => { lowered: lowered.get_or_abort(), },
     label="authoring.terminal",
   )
   let terminal_watch = scope.add_watch(terminal_cell.watch())
-  let last_good : Ref[String?] = { val: None }
+  let last_good : Ref[String?] = { val: None, }
   // Watch acquisition already primed the graph; read the initial value to seed
   // the last-good cache while preserving graph errors as values.
   match terminal_watch.read() {
@@ -1212,7 +1214,7 @@ fn CookbookAuthoringPipeline::CookbookAuthoringPipeline(
       }
     Err(_) => ()
   }
-  { scope, source, terminal_cell, terminal_watch, last_good }
+  { scope, source, terminal_cell, terminal_watch, last_good, }
 }
 
 ///|
@@ -1223,9 +1225,9 @@ fn CookbookAuthoringPipeline::snapshot(
   match terminal.lowered {
     Ok(graph) => {
       self.last_good.val = Some(graph)
-      { active: Some(graph), diagnostics: "" }
+      { active: Some(graph), diagnostics: "", }
     }
-    Err(diag) => { active: self.last_good.val, diagnostics: diag }
+    Err(diag) => { active: self.last_good.val, diagnostics: diag, }
   }
 }
 
@@ -1244,7 +1246,7 @@ fn CookbookAuthoringPipeline::open_inspector(
     label="authoring.inspector",
   )
   let watch = panel_scope.add_watch(inspector.watch())
-  { scope: panel_scope, watch }
+  { scope: panel_scope, watch, }
 }
 
 ///|
@@ -1331,7 +1333,7 @@ test "docs cookbook: long-lived authoring pipeline keeps last good result" {
 test "docs cookbook: mut capture semantics under skipped recompute and backdating" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 0, label="input")
-  let compute_count : Ref[Int] = { val: 0 }
+  let compute_count : Ref[Int32] = { val: 0, }
 
   // History-dependent state: each recompute increments a local counter.
   // This is NOT a cell — the side effect is local to the closure environment.

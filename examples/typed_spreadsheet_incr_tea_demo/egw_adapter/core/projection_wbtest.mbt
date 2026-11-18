@@ -233,9 +233,9 @@ test "projection malformed state separates observation good and diagnostic" {
         ProjectionDiagnostic::InvalidSource(
           "A1",
           "",
-          @demo.FormulaTextParseError::EmptyInput
-        )
-      )
+          @demo.FormulaTextParseError::EmptyInput,
+        ),
+      ),
     ) => ()
     _ => fail("empty source should only diagnose")
   }

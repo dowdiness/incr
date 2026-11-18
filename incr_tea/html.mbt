@@ -1,20 +1,26 @@
 ///|
 /// Pure id for direct attribute patch descriptors.
+#derive(Eq, Debug)
 #cfg(target="js")
 priv struct DirectAttrId {
   name : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// Static attribute data for the minimal Incremental TEA HTML subset.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct Attribute {
   priv name : String
   priv value : String
   priv direct : DirectAttrId?
   priv bool_value : Bool?
-} derive(Eq, Debug)
+}
+
+///|
 pub extend Attribute with Eq::{not_equal, equal}
+
+///|
 pub extend Attribute with Debug::{to_repr}
 
 ///|
@@ -25,10 +31,11 @@ fn DirectAttrId::DirectAttrId(name : String) -> DirectAttrId {
 
 ///|
 /// Pure id for direct text leaf patch descriptors.
+#derive(Eq, Debug)
 #cfg(target="js")
 priv struct DirectTextId {
   name : String
-} derive(Eq, Debug)
+}
 
 ///|
 #cfg(target="js")
@@ -38,11 +45,16 @@ fn DirectTextId::DirectTextId(name : String) -> DirectTextId {
 
 ///|
 /// Pure id for value payload events.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct ValueEventId {
   name : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend ValueEventId with Eq::{not_equal, equal}
+
+///|
 pub extend ValueEventId with Debug::{to_repr}
 
 ///|
@@ -68,11 +80,16 @@ pub fn ValuePayload::ValuePayload(value : String) -> ValuePayload {
 
 ///|
 /// Pure id for checkbox/radio checked-state payload events.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct CheckedInputId {
   name : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend CheckedInputId with Eq::{not_equal, equal}
+
+///|
 pub extend CheckedInputId with Debug::{to_repr}
 
 ///|
@@ -96,11 +113,16 @@ pub fn CheckedPayload::CheckedPayload(checked : Bool) -> CheckedPayload {
 
 ///|
 /// Pure id for keyboard payload events.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct KeyEventId {
   name : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend KeyEventId with Eq::{not_equal, equal}
+
+///|
 pub extend KeyEventId with Debug::{to_repr}
 
 ///|
@@ -133,30 +155,31 @@ pub fn KeyPayload::KeyPayload(
   shift_key : Bool,
   repeat : Bool,
 ) -> KeyPayload {
-  { key, code, alt_key, ctrl_key, meta_key, shift_key, repeat }
+  { key, code, alt_key, ctrl_key, meta_key, shift_key, repeat, }
 }
 
 ///|
 /// Pure DOM event actions stored in descriptors or returned by keyboard
 /// resolvers. The renderer applies them to the live event at the boundary.
+#derive(Eq, Debug)
 #cfg(target="js")
 priv struct EventActions {
   prevent_default : Bool
   stop_propagation : Bool
-} derive(Eq, Debug)
-
-///|
-#cfg(target="js")
-fn EventActions::EventActions(
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
-) -> EventActions {
-  { prevent_default, stop_propagation }
 }
 
 ///|
 #cfg(target="js")
-fn EventActions::action_mask(self : EventActions) -> Int {
+fn EventActions::EventActions(
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
+) -> EventActions {
+  { prevent_default, stop_propagation, }
+}
+
+///|
+#cfg(target="js")
+fn EventActions::action_mask(self : EventActions) -> Int32 {
   let prevent = if self.prevent_default { 1 } else { 0 }
   let stop = if self.stop_propagation { 2 } else { 0 }
   prevent + stop
@@ -179,8 +202,8 @@ pub struct KeyEventDispatch[Msg] {
 #cfg(target="js")
 pub fn[Msg] KeyEventDispatch::message(
   message : Msg,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> KeyEventDispatch[Msg] {
   {
     message: Some(message),
@@ -192,25 +215,30 @@ pub fn[Msg] KeyEventDispatch::message(
 /// Applies DOM event actions without dispatching a message.
 #cfg(target="js")
 pub fn[Msg] KeyEventDispatch::actions(
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> KeyEventDispatch[Msg] {
-  { message: None, actions: EventActions(prevent_default~, stop_propagation~) }
+  { message: None, actions: EventActions(prevent_default~, stop_propagation~), }
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] KeyEventDispatch::action_mask(self : KeyEventDispatch[Msg]) -> Int {
+fn[Msg] KeyEventDispatch::action_mask(self : KeyEventDispatch[Msg]) -> Int32 {
   self.actions.action_mask()
 }
 
 ///|
 /// Pure id for pointer payload events.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct PointerEventId {
   name : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend PointerEventId with Eq::{not_equal, equal}
+
+///|
 pub extend PointerEventId with Debug::{to_repr}
 
 ///|
@@ -223,14 +251,14 @@ pub fn PointerEventId::PointerEventId(name : String) -> PointerEventId {
 /// Browser-extracted pointer payload.
 #cfg(target="js")
 pub struct PointerPayload {
-  pointer_id : Int
+  pointer_id : Int32
   pointer_type : String
   client_x : Double
   client_y : Double
   offset_x : Double
   offset_y : Double
-  button : Int
-  buttons : Int
+  button : Int32
+  buttons : Int32
   alt_key : Bool
   ctrl_key : Bool
   meta_key : Bool
@@ -240,14 +268,14 @@ pub struct PointerPayload {
 ///|
 #cfg(target="js")
 pub fn PointerPayload::PointerPayload(
-  pointer_id : Int,
+  pointer_id : Int32,
   pointer_type : String,
   client_x : Double,
   client_y : Double,
   offset_x : Double,
   offset_y : Double,
-  button : Int,
-  buttons : Int,
+  button : Int32,
+  buttons : Int32,
   alt_key : Bool,
   ctrl_key : Bool,
   meta_key : Bool,
@@ -276,6 +304,7 @@ pub fn PointerPayload::PointerPayload(
 /// Payload variants carry only typed pure ids; the renderer extracts browser
 /// payload data and resolves `(id, payload) -> Msg` at the mount boundary. No
 /// closure or DOM event object is stored in cacheable `Html` view data.
+#derive(Eq, Debug)
 #cfg(target="js")
 priv enum EventSpec[Msg] {
   Const(Msg)
@@ -283,20 +312,25 @@ priv enum EventSpec[Msg] {
   CheckedInput(id~ : CheckedInputId)
   Key(id~ : KeyEventId)
   Pointer(id~ : PointerEventId)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Pure event descriptor stored in `Html` view data.
 ///
 /// The renderer turns descriptors into DOM listeners at the boundary; tracked
 /// view computations do not allocate or cache browser callback closures.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct EventBinding[Msg] {
   priv name : String
   priv spec : EventSpec[Msg]
   priv actions : EventActions
-} derive(Eq, Debug)
+}
+
+///|
 pub extend EventBinding with Eq::{not_equal, equal}
+
+///|
 pub extend EventBinding with Debug::{to_repr}
 
 ///|
@@ -304,14 +338,15 @@ pub extend EventBinding with Debug::{to_repr}
 fn[Msg] event_binding(
   name : String,
   spec : EventSpec[Msg],
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
-  { name, spec, actions: EventActions(prevent_default~, stop_propagation~) }
+  { name, spec, actions: EventActions(prevent_default~, stop_propagation~), }
 }
 
 ///|
 /// Private representation for cacheable HTML/VDOM values.
+#derive(Eq, Debug)
 #cfg(target="js")
 priv enum HtmlRepr[Msg] {
   Text(String)
@@ -320,7 +355,7 @@ priv enum HtmlRepr[Msg] {
     tag~ : String,
     attrs~ : Array[Attribute],
     events~ : Array[EventBinding[Msg]],
-    children~ : Array[Html[Msg]]
+    children~ : Array[Html[Msg]],
   )
   // Keyed element: children carry a stable business key so the renderer can
   // reuse DOM nodes across insert/remove/reorder. Ordered (not a Map) so the
@@ -329,26 +364,31 @@ priv enum HtmlRepr[Msg] {
     tag~ : String,
     attrs~ : Array[Attribute],
     events~ : Array[EventBinding[Msg]],
-    children~ : Array[(String, Html[Msg])]
+    children~ : Array[(String, Html[Msg])],
   )
-} derive(Eq, Debug)
+}
 
 ///|
 /// Minimal cacheable HTML/VDOM representation used by the renderer prototype.
 ///
 /// The representation is opaque so callers construct values through helpers
 /// that defensively copy arrays, preserving stable `Html : Eq` cache behavior.
+#derive(Eq, Debug)
 #cfg(target="js")
 pub struct Html[Msg] {
   priv repr : HtmlRepr[Msg]
-} derive(Eq, Debug)
+}
+
+///|
 pub extend Html with Eq::{not_equal, equal}
+
+///|
 pub extend Html with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
 pub fn attr(name : String, value : String) -> Attribute {
-  { name, value, direct: None, bool_value: None }
+  { name, value, direct: None, bool_value: None, }
 }
 
 ///|
@@ -358,7 +398,7 @@ fn direct_attr(
   name : String,
   fallback : String,
 ) -> Attribute {
-  { name, value: fallback, direct: Some(id), bool_value: None }
+  { name, value: fallback, direct: Some(id), bool_value: None, }
 }
 
 ///|
@@ -368,13 +408,13 @@ fn direct_attr(
 /// remains distinguishable from an omitted uncontrolled property.
 #cfg(target="js")
 pub fn prop_bool(name : String) -> Attribute {
-  { name, value: "", direct: None, bool_value: Some(true) }
+  { name, value: "", direct: None, bool_value: Some(true), }
 }
 
 ///|
 #cfg(target="js")
 fn prop_bool_value(name : String, value : Bool) -> Attribute {
-  { name, value: "", direct: None, bool_value: Some(value) }
+  { name, value: "", direct: None, bool_value: Some(value), }
 }
 
 ///|
@@ -398,21 +438,21 @@ pub fn aria_attr(name : String, value : String) -> Attribute {
 ///|
 #cfg(target="js")
 pub fn[Msg] text(value : String) -> Html[Msg] {
-  { repr: Text(value) }
+  { repr: Text(value), }
 }
 
 ///|
 #cfg(target="js")
 fn[Msg] direct_text(id~ : DirectTextId, fallback : String) -> Html[Msg] {
-  { repr: DirectText(id~, fallback~) }
+  { repr: DirectText(id~, fallback~), }
 }
 
 ///|
 #cfg(target="js")
 pub fn[Msg] on_click(
   message : Msg,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("click", Const(message), prevent_default~, stop_propagation~)
 }
@@ -422,8 +462,8 @@ pub fn[Msg] on_click(
 #cfg(target="js")
 pub fn[Msg] on_dblclick(
   message : Msg,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("dblclick", Const(message), prevent_default~, stop_propagation~)
 }
@@ -435,8 +475,8 @@ pub fn[Msg] on_dblclick(
 #cfg(target="js")
 pub fn[Msg] on_submit(
   message : Msg,
-  prevent_default? : Bool = true,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = true,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("submit", Const(message), prevent_default~, stop_propagation~)
 }
@@ -446,8 +486,8 @@ pub fn[Msg] on_submit(
 #cfg(target="js")
 pub fn[Msg] on_focus(
   message : Msg,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("focus", Const(message), prevent_default~, stop_propagation~)
 }
@@ -457,8 +497,8 @@ pub fn[Msg] on_focus(
 #cfg(target="js")
 pub fn[Msg] on_blur(
   message : Msg,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("blur", Const(message), prevent_default~, stop_propagation~)
 }
@@ -470,8 +510,8 @@ pub fn[Msg] on_blur(
 #cfg(target="js")
 pub fn[Msg] on_input(
   tag~ : String,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding(
     "input",
@@ -489,8 +529,8 @@ pub fn[Msg] on_input(
 #cfg(target="js")
 pub fn[Msg] on_change(
   tag~ : String,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding(
     "change",
@@ -507,8 +547,8 @@ pub fn[Msg] on_change(
 #cfg(target="js")
 pub fn[Msg] on_checked_change(
   tag~ : String,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding(
     "change",
@@ -524,8 +564,8 @@ pub fn[Msg] on_checked_change(
 #cfg(target="js")
 pub fn[Msg] on_keydown(
   id~ : KeyEventId,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding("keydown", Key(id~), prevent_default~, stop_propagation~)
 }
@@ -536,8 +576,8 @@ pub fn[Msg] on_keydown(
 #cfg(target="js")
 pub fn[Msg] on_pointer_down(
   id~ : PointerEventId,
-  prevent_default? : Bool = false,
-  stop_propagation? : Bool = false,
+  prevent_default~ : Bool = false,
+  stop_propagation~ : Bool = false,
 ) -> EventBinding[Msg] {
   event_binding(
     "pointerdown",
@@ -551,8 +591,8 @@ pub fn[Msg] on_pointer_down(
 #cfg(target="js")
 pub fn[Msg] node(
   tag : String,
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   {
@@ -568,8 +608,8 @@ pub fn[Msg] node(
 ///|
 #cfg(target="js")
 pub fn[Msg] div(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("div", attrs~, events~, children)
@@ -578,8 +618,8 @@ pub fn[Msg] div(
 ///|
 #cfg(target="js")
 pub fn[Msg] article(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("article", attrs~, events~, children)
@@ -588,8 +628,8 @@ pub fn[Msg] article(
 ///|
 #cfg(target="js")
 pub fn[Msg] p(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("p", attrs~, events~, children)
@@ -598,8 +638,8 @@ pub fn[Msg] p(
 ///|
 #cfg(target="js")
 pub fn[Msg] span(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("span", attrs~, events~, children)
@@ -608,8 +648,8 @@ pub fn[Msg] span(
 ///|
 #cfg(target="js")
 pub fn[Msg] h2(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("h2", attrs~, events~, children)
@@ -618,8 +658,8 @@ pub fn[Msg] h2(
 ///|
 #cfg(target="js")
 pub fn[Msg] h3(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("h3", attrs~, events~, children)
@@ -628,8 +668,8 @@ pub fn[Msg] h3(
 ///|
 #cfg(target="js")
 pub fn[Msg] button(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   label : String,
 ) -> Html[Msg] {
   node("button", attrs~, events~, [text(label)])
@@ -640,8 +680,8 @@ pub fn[Msg] button(
 /// `on_input`, `on_keydown`, or `on_pointer_down`.
 #cfg(target="js")
 pub fn[Msg] input(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
 ) -> Html[Msg] {
   node("input", attrs~, events~, [])
 }
@@ -649,8 +689,8 @@ pub fn[Msg] input(
 ///|
 #cfg(target="js")
 pub fn[Msg] ul(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("ul", attrs~, events~, children)
@@ -659,8 +699,8 @@ pub fn[Msg] ul(
 ///|
 #cfg(target="js")
 pub fn[Msg] li(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
   node("li", attrs~, events~, children)
@@ -673,8 +713,8 @@ pub fn[Msg] li(
 #cfg(target="js")
 pub fn[Msg] keyed_node(
   tag : String,
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],
 ) -> Html[Msg] {
   {
@@ -690,8 +730,8 @@ pub fn[Msg] keyed_node(
 ///|
 #cfg(target="js")
 pub fn[Msg] keyed_ul(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],
 ) -> Html[Msg] {
   keyed_node("ul", attrs~, events~, children)
@@ -700,8 +740,8 @@ pub fn[Msg] keyed_ul(
 ///|
 #cfg(target="js")
 pub fn[Msg] keyed_ol(
-  attrs? : Array[Attribute] = [],
-  events? : Array[EventBinding[Msg]] = [],
+  attrs~ : Array[Attribute] = [],
+  events~ : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],
 ) -> Html[Msg] {
   keyed_node("ol", attrs~, events~, children)

@@ -1,5 +1,6 @@
 ///|
 /// Errors returned by the tiny demo formula text parser.
+#derive(Eq, Debug)
 pub(all) enum FormulaTextParseError {
   /// The edit text was empty after trimming whitespace.
   EmptyInput
@@ -9,8 +10,12 @@ pub(all) enum FormulaTextParseError {
   InvalidCellReference(String)
   /// The formula shape is outside the demo grammar.
   UnsupportedFormula(String)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend FormulaTextParseError with Eq::{not_equal, equal}
+
+///|
 pub extend FormulaTextParseError with Debug::{to_repr}
 
 ///|
@@ -198,9 +203,9 @@ fn is_a1_address(address : StringView) -> Bool {
   let mut letters = 0
   let mut digits = 0
   for ch in address {
-    if ch is ('A'..='Z') && digits == 0 {
+    if ch is ('A'..<='Z') && digits == 0 {
       letters += 1
-    } else if ch is ('0'..='9') && letters > 0 {
+    } else if ch is ('0'..<='9') && letters > 0 {
       if digits == 0 && ch == '0' {
         return false
       }
@@ -228,7 +233,7 @@ fn parse_int_formula(
 }
 
 ///|
-fn parse_int(text : StringView) -> Result[Int, FormulaTextParseError] {
+fn parse_int(text : StringView) -> Result[Int32, FormulaTextParseError] {
   let input = text.trim()
   try @string.parse_int(input) catch {
     _ => Err(FormulaTextParseError::InvalidInteger(input.to_owned()))

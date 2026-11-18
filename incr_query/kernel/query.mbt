@@ -4,9 +4,10 @@ type ChangeEpoch = Int32
 
 ///|
 /// Identity is local to one QueryCore; it is never shared through a registry.
+#derive(Eq, Debug)
 priv struct MemoId {
   value : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 /// A last-successful value for one typed Query key.

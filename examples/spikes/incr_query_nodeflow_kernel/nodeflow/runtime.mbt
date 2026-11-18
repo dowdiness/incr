@@ -26,59 +26,60 @@ priv enum RuntimeOutput {
 priv enum RuntimeNode {
   Number(
     @incr_query.Region,
-    @incr_query.Source[Int],
-    @incr_query.View[NumberEvaluation]
+    @incr_query.Source[Int32],
+    @incr_query.View[NumberEvaluation],
   )
   Boolean(@incr_query.Region, @incr_query.Source[Bool], @incr_query.View[Bool])
   Add(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
     @incr_query.Source[NumberBinding],
-    Ref[Int],
-    @incr_query.View[NumberEvaluation]
+    Ref[Int32],
+    @incr_query.View[NumberEvaluation],
   )
   Multiply(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
     @incr_query.Source[NumberBinding],
-    Ref[Int],
-    @incr_query.View[NumberEvaluation]
+    Ref[Int32],
+    @incr_query.View[NumberEvaluation],
   )
   SafeDivide(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
     @incr_query.Source[NumberBinding],
-    Ref[Int],
-    @incr_query.View[NumberEvaluation]
+    Ref[Int32],
+    @incr_query.View[NumberEvaluation],
   )
   Display(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
     @incr_query.View[NumberEvaluation],
     @incr_query.View[DisplayActionPreparation],
-    Ref[Int]
+    Ref[Int32],
   )
   OptionalOffset(
     @incr_query.Region,
-    @incr_query.Source[Int],
+    @incr_query.Source[Int32],
     @incr_query.Source[NumberBinding],
     @incr_query.Source[NumberBinding],
-    Ref[Int],
-    @incr_query.View[NumberEvaluation]
+    Ref[Int32],
+    @incr_query.View[NumberEvaluation],
   )
 }
 
 ///|
+#derive(Eq)
 priv enum RuntimeLifecycle {
   Open
   Quarantined
   Closed
-} derive(Eq)
+}
 
 ///|
 priv struct NodeflowRuntime {
   store : @incr_query.Store
-  nodes : Map[Int, RuntimeNode]
+  nodes : Map[Int32, RuntimeNode]
   outputs : Map[PortReference, RuntimeOutput]
   lifecycle : Ref[RuntimeLifecycle]
 }
@@ -229,7 +230,7 @@ fn make_display_runtime(
 fn make_math_runtime(
   region : @incr_query.Region,
   node : NodeReference,
-  operation : Int,
+  operation : Int32,
 ) -> RuntimeNode raise GraphPublicationError {
   let left = region.source(NumberBinding::Unbound) catch {
     error => fail_runtime_setup(region, error)
@@ -334,10 +335,10 @@ fn runtime_output(node : RuntimeNode) -> RuntimeOutput {
 ///|
 fn RuntimeNode::runtime_binding(
   self : RuntimeNode,
-  port : Int,
+  port : Int32,
   target : BindingTarget,
   outputs : Map[PortReference, RuntimeOutput],
-) -> (Int, NumberBinding)? {
+) -> (Int32, NumberBinding)? {
   match self {
     RuntimeNode::Add(_, _, _, _, _)
     | RuntimeNode::Multiply(_, _, _, _, _)
@@ -368,7 +369,7 @@ fn RuntimeNode::record_invocation(self : RuntimeNode) -> Unit {
 
 ///|
 #warnings("-unused_value")
-fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int {
+fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int32 {
   match self {
     RuntimeNode::Add(_, _, _, count, _)
     | RuntimeNode::Multiply(_, _, _, count, _)
@@ -386,7 +387,7 @@ fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int {
 
 ///|
 #warnings("-unused_value")
-fn RuntimeNode::action_invocation_count(self : RuntimeNode) -> Int {
+fn RuntimeNode::action_invocation_count(self : RuntimeNode) -> Int32 {
   match self {
     RuntimeNode::Display(_, _, _, _, count) => count.val
     _ => 0

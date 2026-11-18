@@ -11,32 +11,35 @@ pub struct EvaluationStrategies {
 
 ///|
 /// Counter snapshot captured by an internal tracing strategy bundle.
+#derive(Debug)
 pub(all) struct EvaluationTraceSummary {
-  derived_pull_verification_count : Int
-  derived_rebuild_count : Int
-  derived_rebuild_abort_count : Int
-  eager_derived_evaluation_count : Int
-  effect_execution_count : Int
-  push_queue_skip_count : Int
-  push_propagation_count : Int
-  changed_source_count : Int
-  fixpoint_run_count : Int
-} derive(Debug)
+  derived_pull_verification_count : Int32
+  derived_rebuild_count : Int32
+  derived_rebuild_abort_count : Int32
+  eager_derived_evaluation_count : Int32
+  effect_execution_count : Int32
+  push_queue_skip_count : Int32
+  push_propagation_count : Int32
+  changed_source_count : Int32
+  fixpoint_run_count : Int32
+}
+
+///|
 pub extend EvaluationTraceSummary with Debug::{to_repr}
 
 ///|
 /// Internal recorder used by tracing strategy bundles.
 pub struct EvaluationTraceRecorder {
   priv events : Array[RuntimeEvaluationEvent]
-  priv mut derived_pull_verification_count : Int
-  priv mut derived_rebuild_count : Int
-  priv mut derived_rebuild_abort_count : Int
-  priv mut eager_derived_evaluation_count : Int
-  priv mut effect_execution_count : Int
-  priv mut push_queue_skip_count : Int
-  priv mut push_propagation_count : Int
-  priv mut changed_source_count : Int
-  priv mut fixpoint_run_count : Int
+  priv mut derived_pull_verification_count : Int32
+  priv mut derived_rebuild_count : Int32
+  priv mut derived_rebuild_abort_count : Int32
+  priv mut eager_derived_evaluation_count : Int32
+  priv mut effect_execution_count : Int32
+  priv mut push_queue_skip_count : Int32
+  priv mut push_propagation_count : Int32
+  priv mut changed_source_count : Int32
+  priv mut fixpoint_run_count : Int32
 }
 
 ///|
@@ -164,7 +167,10 @@ priv enum PushSchedulerStrategy {
 ///|
 /// Returns the default strategy bundle that preserves current behavior.
 pub fn EvaluationStrategies::default() -> EvaluationStrategies {
-  { pull_rebuilder: DefaultPullRebuilder, push_scheduler: DefaultPushScheduler }
+  {
+    pull_rebuilder: DefaultPullRebuilder,
+    push_scheduler: DefaultPushScheduler,
+  }
 }
 
 ///|

@@ -37,8 +37,8 @@ priv struct EditorDemoModel {
   nodes_by_id : @hashmap.HashMap[String, EditorNode]
   order : @incr.InputField[Array[String]]
   selected_id : @incr.InputField[String]
-  viewport_revision : @incr.InputField[Int]
-  diagnostic_revision : @incr.InputField[Int]
+  viewport_revision : @incr.InputField[Int32]
+  diagnostic_revision : @incr.InputField[Int32]
 }
 
 ///|
@@ -126,7 +126,7 @@ fn EditorDemoModel::rename_selected(self : EditorDemoModel) -> Unit {
 fn EditorDemoModel::move_selected_down(self : EditorDemoModel) -> Unit {
   let selected = self.selected_id.peek()
   let next_order = self.order.peek().copy()
-  let selected_index : Int? = for index, id in next_order {
+  let selected_index : Int32? = for index, id in next_order {
     if id == selected {
       break Some(index)
     }

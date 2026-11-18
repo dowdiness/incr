@@ -1,16 +1,18 @@
 ///|
+#derive(Eq)
 priv struct MachineViewRow {
-  id : Int
-  incarnation : Int
+  id : Int32
+  incarnation : Int32
   text : String
   validation : MachineValidation
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct MachineView {
   rows : ReadOnlyArray[MachineViewRow]
-  selected_id : Int?
-} derive(Eq)
+  selected_id : Int32?
+}
 
 ///|
 priv struct MachineProgramObserver {
@@ -21,7 +23,7 @@ priv struct MachineProgramObserver {
 
 ///|
 fn MachineProgramObserver::MachineProgramObserver() -> MachineProgramObserver {
-  { enabled: true, decisions: [], issued: [] }
+  { enabled: true, decisions: [], issued: [], }
 }
 
 ///|

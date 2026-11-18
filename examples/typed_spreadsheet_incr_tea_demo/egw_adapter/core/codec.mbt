@@ -18,7 +18,7 @@ pub fn encode_register(register : CellRegister) -> String {
 // duplicate-key detection without parsing values or becoming a second decoder.
 
 ///|
-fn root_member_count(text : String) -> Int {
+fn root_member_count(text : String) -> Int32 {
   let mut quoted = false
   let mut escaped = false
   let mut depth = 0

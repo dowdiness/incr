@@ -14,7 +14,7 @@ struct GeneratedRun {
 ///|
 /// A five-node domain deliberately forces collisions and cycles from short
 /// generated inputs; Euclidean remainder keeps arbitrary signed seeds valid.
-fn generated_node(value : Int) -> Int {
+fn generated_node(value : Int32) -> Int32 {
   let remainder = value % 5
   if remainder < 0 {
     remainder + 5
@@ -26,7 +26,7 @@ fn generated_node(value : Int) -> Int {
 ///|
 /// The small signed range forces cancellation, duplicate support, and invalid
 /// retractions instead of letting generation collapse to insert-only traces.
-fn generated_diff(value : Int) -> Int {
+fn generated_diff(value : Int32) -> Int32 {
   match generated_node(value) {
     0 => 1
     1 => -1
@@ -39,7 +39,7 @@ fn generated_diff(value : Int) -> Int {
 ///|
 /// A duplicate edge and cycle are forced into the first epoch because random
 /// generation alone could miss the two central set-semantics risks.
-fn generated_trace(values : ArrayView[Int]) -> Array[Array[SourceUpdate]] {
+fn generated_trace(values : ArrayView[Int32]) -> Array[Array[SourceUpdate]] {
   let epochs : Array[Array[SourceUpdate]] = []
   for epoch in 0..<5 {
     let updates : Array[SourceUpdate] = []
@@ -69,8 +69,8 @@ fn generated_trace(values : ArrayView[Int]) -> Array[Array[SourceUpdate]] {
 /// epoch consolidation, rather than staging boundaries, defines semantics.
 fn generated_batches(
   updates : Array[SourceUpdate],
-  mode : Int,
-  choices : ArrayView[Int],
+  mode : Int32,
+  choices : ArrayView[Int32],
 ) -> Array[Array[SourceUpdate]] {
   match mode {
     0 => [updates.copy()]
@@ -97,10 +97,10 @@ fn generated_batches(
 /// comparison alone could miss transient work, invalid weights, or mutation on
 /// rejection.
 fn run_generated_trace(
-  worker_count : Int,
-  scheduler_seed : Int?,
-  batch_mode : Int,
-  values : Array[Int],
+  worker_count : Int32,
+  scheduler_seed : Int32?,
+  batch_mode : Int32,
+  values : Array[Int32],
 ) -> GeneratedRun {
   let engine = test_engine_with_seed(worker_count, scheduler_seed)
   let oracle = Oracle()
@@ -135,14 +135,14 @@ fn run_generated_trace(
     }
     outcomes.push(actual)
   }
-  { outcomes, trace: engine.trace_snapshot(), valid }
+  { outcomes, trace: engine.trace_snapshot(), valid, }
 }
 
 ///|
 /// Several worker-count, batching, and scheduling combinations probe whether
 /// execution choices leak into semantics; the matrix is representative rather
 /// than exhaustive. Repeating one seeded configuration separately pins replay.
-fn generated_trace_property(values : Array[Int]) -> Bool {
+fn generated_trace_property(values : Array[Int32]) -> Bool {
   let scheduler_seed = values.fold(init=17, (seed, value) => {
     (seed * 31 + value) % 100000
   })

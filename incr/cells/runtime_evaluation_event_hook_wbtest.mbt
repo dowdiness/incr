@@ -36,7 +36,7 @@ test "runtime_eval: derived rebuild drains after typed cache is written" {
   let rt = Runtime()
   let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() + 1)
-  let listener_reads : Array[Int] = []
+  let listener_reads : Array[Int32] = []
   let events : Array[@kernel.RuntimeEvaluationEvent] = []
   rt.runtime_evaluation_event_hook.listener = Some(fn(event) {
     events.push(event)
@@ -96,7 +96,7 @@ test "runtime_eval: derived backdated rebuild reports backdated disposition" {
 test "runtime_eval: derived catchable abort reports abort summary" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
-  let derived : Derived[Int] = Derived(rt, () => raise Failure("derived boom"))
+  let derived : Derived[Int32] = Derived(rt, () => raise Failure("derived boom"))
   let mut failed = false
   try derived.force_recompute() catch {
     _ => failed = true
@@ -120,7 +120,7 @@ test "runtime_eval: direct drain flushes abort with active tracking frame" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
   let outer = Derived(rt, () => 0)
-  let derived : Derived[Int] = Derived(rt, () => raise Failure("nested boom"))
+  let derived : Derived[Int32] = Derived(rt, () => raise Failure("nested boom"))
   rt.begin_tracking(outer.id())
   let mut failed = false
   try derived.force_recompute() catch {
@@ -150,7 +150,7 @@ test "runtime_eval: input set emits eager derived, effect, and pass summaries" {
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let eager = EagerDerived::EagerDerived(rt, () => source.get() + 1)
-  let effect_log : Array[Int] = []
+  let effect_log : Array[Int32] = []
   let _effect = Effect::Effect(rt, () => effect_log.push(source.get()))
   events.clear()
   source.set(1)
@@ -215,7 +215,7 @@ test "runtime_eval: queue skip and pass summary report stale entry" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
+  let r2_ref : Ref[EagerDerived[Int32]?] = { val: None, }
   let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = source.get()
     if v > 0 {
@@ -261,8 +261,8 @@ test "runtime_eval: queue skip keeps original cell id after slot reuse" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
-  let replacement_ref : Ref[EagerDerived[Int]?] = { val: None }
+  let r2_ref : Ref[EagerDerived[Int32]?] = { val: None, }
+  let replacement_ref : Ref[EagerDerived[Int32]?] = { val: None, }
   let mut replacement_runs = 0
   let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = source.get()

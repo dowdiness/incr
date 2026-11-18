@@ -22,7 +22,7 @@ fn wb_bind(
     graph
     .apply(
       GraphEdit::BindingChangeSet(changes=[
-        { target, binding: BindingTarget::Bound(provider) },
+        { target, binding: BindingTarget::Bound(provider), },
       ]),
       ObservationDemand::empty(),
     )

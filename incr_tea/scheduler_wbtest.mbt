@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 enum SchedulerMsg {
   Start
   FollowUp
@@ -6,16 +7,25 @@ enum SchedulerMsg {
   Second
   Third
   Atomic
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SchedulerMsg with Eq::{not_equal, equal}
+
+///|
 pub extend SchedulerMsg with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 struct SchedulerView {
-  count : Int
+  count : Int32
   title : String
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SchedulerView with Eq::{not_equal, equal}
+
+///|
 pub extend SchedulerView with Debug::{to_repr}
 
 ///|
@@ -79,7 +89,7 @@ test "scheduler: update returns Cmd" {
 
 ///|
 test "scheduler: Cmd::message enqueues follow-up after current batch commits" {
-  let changes : Ref[Int] = Ref(0)
+  let changes : Ref[Int32] = Ref(0)
   let runtime = @incr.Runtime(on_change=() => changes.val = changes.val + 1)
   let scope = @incr.Scope::new(runtime)
   let count = scope.input_field(0, label="scheduler.message.count")
@@ -336,8 +346,8 @@ test "scheduler: Cmd::after_flush can enqueue follow-up messages" {
 ///|
 test "program mount registration transition releases exactly one id" {
   let registrations : Array[ProgramMountRegistration] = [
-    { id: 7, schedule: () => () },
-    { id: 8, schedule: () => () },
+    { id: 7, schedule: () => (), },
+    { id: 8, schedule: () => (), },
   ]
   let (after_first, found_first, last_first) = release_program_mount(
     registrations, 7,

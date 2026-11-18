@@ -80,7 +80,7 @@ test "facade input: derive propagates label" {
 test "facade input: derived_no_backdate accepts non-Eq output" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 3)
-  let derived = input.derived_no_backdate(fn(v) { (x : Int) => x + v })
+  let derived = input.derived_no_backdate(fn(v) { (x : Int32) => x + v })
 
   inspect(derived.read_or_abort()(10), content="13")
   input.set(4)
@@ -178,7 +178,7 @@ test "facade derived: map accepts non-Eq output" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 3)
   let source = @incr.Derived(rt, () => input.get())
-  let mapped = source.map_no_backdate(v => (x : Int) => x + v)
+  let mapped = source.map_no_backdate(v => (x : Int32) => x + v)
 
   inspect(mapped.read_or_abort()(10), content="13")
   input.set(4)
@@ -261,7 +261,7 @@ test "facade derived: map2 accepts non-Eq output" {
   let right_input = @incr.Input(rt, 3)
   let left = @incr.Derived(rt, () => left_input.get())
   let right = @incr.Derived(rt, () => right_input.get())
-  let total = left.map2_no_backdate(right, (a, b) => (x : Int) => x + a + b)
+  let total = left.map2_no_backdate(right, (a, b) => (x : Int32) => x + a + b)
 
   inspect(total.read_or_abort()(10), content="15")
   right_input.set(4)
@@ -350,7 +350,7 @@ test "facade derived: map3 accepts non-Eq output" {
   let second = @incr.Derived(rt, () => second_input.get())
   let third = @incr.Derived(rt, () => third_input.get())
   let total = first.map3_no_backdate(second, third, (a, b, c) => {
-    (x : Int) => x + a + b + c
+    (x : Int32) => x + a + b + c
   })
 
   inspect(total.read_or_abort()(10), content="16")
@@ -468,7 +468,7 @@ test "facade derived: watch reads outside graph and keeps target alive" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1)
   let derived = @incr.Derived(rt, () => input.get() + 1)
-  let watch : @incr.Watch[Int] = derived.watch()
+  let watch : @incr.Watch[Int32] = derived.watch()
 
   inspect(watch.read_or_abort(), content="2")
   rt.gc()
@@ -648,7 +648,7 @@ test "panic facade eager derived: get outside tracked context aborts" {
 test "facade derived_map: read cache and fallback helpers" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
-  let by_key = @incr.DerivedMap(rt, (key : Int) => input.get() + key)
+  let by_key = @incr.DerivedMap(rt, (key : Int32) => input.get() + key)
 
   inspect(by_key.has_cached(2), content="false")
   match by_key.read(2) {
@@ -668,7 +668,7 @@ test "facade derived_map: read cache and fallback helpers" {
 test "facade derived_map: strict get works inside tracked context" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
-  let by_key = @incr.DerivedMap(rt, (key : Int) => input.get() + key)
+  let by_key = @incr.DerivedMap(rt, (key : Int32) => input.get() + key)
   let view = @incr.Derived(rt, () => {
     match by_key.get(1) {
       Ok(value) => value * 2
@@ -684,7 +684,7 @@ test "facade derived_map: strict get works inside tracked context" {
 ///|
 test "panic facade derived_map: get outside tracked context aborts" {
   let rt = @incr.Runtime()
-  let by_key = @incr.DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = @incr.DerivedMap(rt, (key : Int32) => key * 10)
 
   ignore(by_key.get(1))
 }
@@ -692,7 +692,7 @@ test "panic facade derived_map: get outside tracked context aborts" {
 ///|
 test "facade map_relation: insert get iter and delta_iter" {
   let rt = @incr.Runtime()
-  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+  let map : @incr.MapRelation[String, Int32] = @incr.MapRelation(rt)
 
   inspect(map.insert("a", 1), content="true")
   inspect(map.insert("b", 2), content="true")
@@ -711,8 +711,8 @@ test "facade map_relation: insert get iter and delta_iter" {
 ///|
 test "facade map_relation: id participates in rules" {
   let rt = @incr.Runtime()
-  let edges : @incr.Relation[(Int, Int)] = @incr.Relation(rt)
-  let weights : @incr.MapRelation[(Int, Int), Int] = @incr.MapRelation(rt)
+  let edges : @incr.Relation[(Int32, Int32)] = @incr.Relation(rt)
+  let weights : @incr.MapRelation[(Int32, Int32), Int32] = @incr.MapRelation(rt)
 
   ignore(edges.insert((1, 2)))
   ignore(
@@ -729,7 +729,7 @@ test "facade map_relation: id participates in rules" {
 ///|
 test "facade map_relation: dispose marks relation disposed" {
   let rt = @incr.Runtime()
-  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+  let map : @incr.MapRelation[String, Int32] = @incr.MapRelation(rt)
 
   inspect(map.is_disposed(), content="false")
   map.dispose()
@@ -739,7 +739,7 @@ test "facade map_relation: dispose marks relation disposed" {
 ///|
 test "panic facade map_relation: get after dispose aborts" {
   let rt = @incr.Runtime()
-  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+  let map : @incr.MapRelation[String, Int32] = @incr.MapRelation(rt)
 
   map.dispose()
   ignore(map.get("a"))
@@ -753,12 +753,12 @@ struct FacadeContext {
 ///|
 struct FacadeInputFields {
   path : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|
 fn FacadeContext::FacadeContext() -> FacadeContext {
-  { rt: @incr.Runtime() }
+  { rt: @incr.Runtime(), }
 }
 
 ///|
@@ -781,7 +781,7 @@ test "facade runtime context: creates target handles" {
     derived.read_or_abort() + 1
   })
   let eager = @incr.create_eager_derived(ctx, () => input.get() * 10)
-  let by_key = @incr.create_derived_map(ctx, (key : Int) => input.get() + key)
+  let by_key = @incr.create_derived_map(ctx, (key : Int32) => input.get() + key)
 
   inspect(field.get(), content="4")
   inspect(derived.read_or_abort(), content="7")
@@ -799,7 +799,7 @@ test "facade scope: creates target handles" {
   let derived = scope.derived(() => input.get() + field.get())
   let reachable = scope.reachable_derived(() => derived.read_or_abort() + 1)
   let eager = scope.eager_derived(() => input.get() * 10)
-  let by_key = scope.derived_map((key : Int) => input.get() + key)
+  let by_key = scope.derived_map((key : Int32) => input.get() + key)
 
   inspect(field.get(), content="5")
   inspect(derived.read_or_abort(), content="7")
@@ -857,7 +857,7 @@ test "facade input_field_owner: add_input_fields registers fields" {
 test "facade scope: derived_map read after dispose returns Err" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let by_key = scope.derived_map((key : Int) => key * 2)
+  let by_key = scope.derived_map((key : Int32) => key * 2)
 
   inspect(by_key.read_or_abort(5), content="10")
   scope.dispose()
@@ -917,7 +917,7 @@ test "facade derived: derived_no_backdate accepts non-Eq output" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 3)
   let derived = @incr.Derived::derived_no_backdate(rt, fn() {
-    (x : Int) => x + input.get()
+    (x : Int32) => x + input.get()
   })
 
   inspect(derived.read_or_abort()(10), content="13")

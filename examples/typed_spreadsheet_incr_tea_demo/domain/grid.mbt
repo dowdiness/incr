@@ -1,12 +1,12 @@
 ///|
 /// Number of columns in the canonical worksheet grid.
-pub fn grid_column_count() -> Int {
+pub fn grid_column_count() -> Int32 {
   50
 }
 
 ///|
 /// Number of rows in the canonical worksheet grid.
-pub fn grid_row_count() -> Int {
+pub fn grid_row_count() -> Int32 {
   50
 }
 

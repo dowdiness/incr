@@ -15,9 +15,9 @@ test "verify: cycle path includes all traversed cells" {
   // When b.get_result() is called, verification walks B→C→B,
   // and the path should contain both B and C cell IDs.
   let rt = Runtime::Runtime()
-  let b_ref : Ref[Derived[Int]?] = { val: None }
-  let c_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_path : Ref[Array[CellId]?] = { val: None }
+  let b_ref : Ref[Derived[Int32]?] = { val: None, }
+  let c_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_path : Ref[Array[CellId]?] = { val: None, }
 
   // Create memo B that depends on C
   let b = Derived::Derived(rt, () => {
@@ -76,8 +76,8 @@ test "verify: self-cycle path shows cell twice" {
   // When computing M for the first time, it recursively tries to get M
   // (which is in_progress), producing path = [M, M]
   let rt = Runtime::Runtime()
-  let captured_path : Ref[Array[CellId]?] = { val: None }
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let captured_path : Ref[Array[CellId]?] = { val: None, }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
 
   let d = Derived::Derived(rt, () => {
     match d_ref.val {

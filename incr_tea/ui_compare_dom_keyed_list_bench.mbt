@@ -9,7 +9,7 @@ priv struct UiCompareIncrKeyedListHarness {
 #cfg(target="js")
 fn ui_compare_incr_keyed_list_program(
   runtime : @incr.Runtime,
-  n : Int,
+  n : Int32,
 ) -> Program[UiCompareKeyedListMsg, Html[UiCompareKeyedListMsg]] {
   let scope = @incr.Scope::new(runtime)
   let baseline = dom_bench_make_items(n)
@@ -65,13 +65,13 @@ fn ui_compare_incr_keyed_list_program(
 #cfg(target="js")
 fn UiCompareIncrKeyedListHarness::UiCompareIncrKeyedListHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
 ) -> UiCompareIncrKeyedListHarness {
   let runtime = @incr.Runtime()
   let program = ui_compare_incr_keyed_list_program(runtime, n)
   let root = DomBenchRoot(program, host, KeyedDomPatch)
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -79,7 +79,7 @@ fn UiCompareIncrKeyedListHarness::UiCompareIncrKeyedListHarness(
 fn UiCompareIncrKeyedListHarness::measure_operation(
   self : UiCompareIncrKeyedListHarness,
   operation : DomBenchOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.name()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -108,9 +108,9 @@ fn UiCompareIncrKeyedListHarness::dispose(
 #cfg(target="js")
 fn ui_compare_incr_run_keyed_list(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = dom_bench_operation(operation)
   let size = dom_bench_positive(n, 64)

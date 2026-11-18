@@ -2,12 +2,12 @@
 /// Mutable instrumentation counters for mounted watched HTML roots.
 #cfg(target="js")
 pub struct RenderStats {
-  priv mut view_recomputes : Int
-  priv mut patch_attempts : Int
-  priv mut skipped_patches : Int
-  priv mut frame_flushes : Int
-  priv mut inactive_skipped_flushes : Int
-  priv mut activation_flushes : Int
+  priv mut view_recomputes : Int32
+  priv mut patch_attempts : Int32
+  priv mut skipped_patches : Int32
+  priv mut frame_flushes : Int32
+  priv mut inactive_skipped_flushes : Int32
+  priv mut activation_flushes : Int32
 }
 
 ///|
@@ -25,37 +25,37 @@ pub fn RenderStats::RenderStats() -> RenderStats {
 
 ///|
 /// Number of mounted view-root recomputes observed by renderer instrumentation.
-pub fn RenderStats::view_recomputes(self : RenderStats) -> Int {
+pub fn RenderStats::view_recomputes(self : RenderStats) -> Int32 {
   self.view_recomputes
 }
 
 ///|
 /// Number of DOM patch attempts performed for changed `Html` values.
-pub fn RenderStats::patch_attempts(self : RenderStats) -> Int {
+pub fn RenderStats::patch_attempts(self : RenderStats) -> Int32 {
   self.patch_attempts
 }
 
 ///|
 /// Number of flush reads skipped because the `Html` value was unchanged.
-pub fn RenderStats::skipped_patches(self : RenderStats) -> Int {
+pub fn RenderStats::skipped_patches(self : RenderStats) -> Int32 {
   self.skipped_patches
 }
 
 ///|
 /// Number of animation-frame flush callbacks completed by the renderer.
-pub fn RenderStats::frame_flushes(self : RenderStats) -> Int {
+pub fn RenderStats::frame_flushes(self : RenderStats) -> Int32 {
   self.frame_flushes
 }
 
 ///|
 /// Number of mounted roots skipped because they were marked inactive.
-pub fn RenderStats::inactive_skipped_flushes(self : RenderStats) -> Int {
+pub fn RenderStats::inactive_skipped_flushes(self : RenderStats) -> Int32 {
   self.inactive_skipped_flushes
 }
 
 ///|
 /// Number of catch-up flushes performed when inactive roots were activated.
-pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
+pub fn RenderStats::activation_flushes(self : RenderStats) -> Int32 {
   self.activation_flushes
 }
 
@@ -68,9 +68,9 @@ pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
 #cfg(target="js")
 pub(all) struct RootStats {
   label : String
-  view_recomputes : Int
-  patch_attempts : Int
-  skipped_patches : Int
+  view_recomputes : Int32
+  patch_attempts : Int32
+  skipped_patches : Int32
 }
 
 ///|
@@ -110,9 +110,9 @@ priv struct WatchedHtmlRoot[Msg] {
 fn[Msg] WatchedHtmlRoot::WatchedHtmlRoot(
   program : Program[Msg, Html[Msg]],
   stats : RenderStats,
-  label? : String = "",
+  label~ : String = "",
 ) -> WatchedHtmlRoot[Msg] {
-  { program, label, stats, last_view: None }
+  { program, label, stats, last_view: None, }
 }
 
 ///|

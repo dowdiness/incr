@@ -13,9 +13,9 @@ test "cycle path: simple two-cell cycle" {
   let rt = Runtime::Runtime()
   let a = Input::Input(rt, 0)
 
-  let b_ref : Ref[Derived[Int]?] = { val: None }
-  let c_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_path : Ref[Array[CellId]?] = { val: None }
+  let b_ref : Ref[Derived[Int32]?] = { val: None, }
+  let c_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_path : Ref[Array[CellId]?] = { val: None, }
 
   let b = Derived::Derived(rt, () => {
     match c_ref.val {
@@ -66,8 +66,8 @@ test "cycle path: simple two-cell cycle" {
 ///|
 test "cycle path: format_path produces readable output" {
   let rt = Runtime::Runtime()
-  let self_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_formatted : Ref[String] = { val: "" }
+  let self_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_formatted : Ref[String] = { val: "", }
 
   let d = Derived::Derived(rt, () => {
     match self_ref.val {
@@ -98,12 +98,12 @@ test "cycle path: format_path produces readable output" {
 ///|
 test "cycle path: long cycle is truncated" {
   let rt = Runtime::Runtime()
-  let captured_path : Ref[Array[CellId]?] = { val: None }
-  let captured_formatted : Ref[String] = { val: "" }
+  let captured_path : Ref[Array[CellId]?] = { val: None, }
+  let captured_formatted : Ref[String] = { val: "", }
 
   // Create a cycle: memo[0]→memo[24]→...→memo[1]→memo[0]
-  let memos : Array[Derived[Int]] = []
-  let memos_ref : Ref[Array[Derived[Int]]?] = { val: None }
+  let memos : Array[Derived[Int32]] = []
+  let memos_ref : Ref[Array[Derived[Int32]]?] = { val: None, }
 
   for i = 0; i < 25; i = i + 1 {
     let idx = i
@@ -165,8 +165,8 @@ test "cycle path: long cycle is truncated" {
 ///|
 test "format_path uses label when available" {
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_formatted : Ref[String] = { val: "" }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_formatted : Ref[String] = { val: "", }
 
   let d = Derived::Derived(
     rt,

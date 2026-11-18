@@ -101,7 +101,7 @@ test "scope: hybrid_memo creates cell and registers for disposal" {
 test "scope: effect creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let ran : Ref[Int] = { val: 0 }
+  let ran : Ref[Int32] = { val: 0, }
   let sig = scope.input(1)
   let eff = scope.effect(fn() { ran.val = ran.val + sig.get() })
   inspect(ran.val, content="1")
@@ -114,7 +114,7 @@ test "scope: reactive creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.input(3)
-  let r : EagerDerived[Int] = scope.eager_derived(fn() { sig.get() * 3 })
+  let r : EagerDerived[Int32] = scope.eager_derived(fn() { sig.get() * 3 })
   inspect(read_reactive_for_test(r), content="9")
   scope.dispose()
   inspect(r.is_disposed(), content="true")
@@ -184,8 +184,8 @@ test "scope: watch disposed before owned cells" {
   let sig = scope.input(10)
   let m = scope.derived(fn() { sig.get() * 2 })
   let watch = scope.add_watch(m.watch())
-  let watch_disposed_during_hook : Ref[Bool] = { val: false }
-  let cell_disposed_during_hook : Ref[Bool] = { val: true }
+  let watch_disposed_during_hook : Ref[Bool] = { val: false, }
+  let cell_disposed_during_hook : Ref[Bool] = { val: true, }
   scope.on_dispose(fn() {
     watch_disposed_during_hook.val = watch.is_disposed()
     cell_disposed_during_hook.val = m.is_disposed()

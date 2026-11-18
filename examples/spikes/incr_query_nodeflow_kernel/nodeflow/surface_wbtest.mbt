@@ -80,8 +80,8 @@ test "one atomic binding edit refreshes the demanded root once" {
   let result = graph
     .apply(
       GraphEdit::BindingChangeSet(changes=[
-        { target: add.inputs[0], binding: Bound(one.outputs[0]) },
-        { target: add.inputs[1], binding: Bound(two.outputs[0]) },
+        { target: add.inputs[0], binding: Bound(one.outputs[0]), },
+        { target: add.inputs[1], binding: Bound(two.outputs[0]), },
       ]),
       ObservationDemand::empty().request(add.outputs[0]),
     )

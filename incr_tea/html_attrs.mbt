@@ -12,7 +12,7 @@ pub struct Attrs {
 ///|
 #cfg(target="js")
 pub fn Attrs::build() -> Attrs {
-  { values: [] }
+  { values: [], }
 }
 
 ///|

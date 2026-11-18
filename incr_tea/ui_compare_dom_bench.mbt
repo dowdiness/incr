@@ -6,9 +6,9 @@
 fn ui_compare_incr_run(
   suite : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   match suite {
     "counter" =>

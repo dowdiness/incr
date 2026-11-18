@@ -10,6 +10,7 @@ const SCENARIO_COUNT : Int32 = 21
 const CASE_COUNT : Int32 = 84
 
 ///|
+#derive(Debug)
 priv struct Recipe {
   family : Int32
   operation_limit : Int32
@@ -19,7 +20,7 @@ priv struct Recipe {
   key : Int32
   value_salt : Int32
   cycle_depth : Int32
-} derive(Debug)
+}
 
 ///|
 fn value(salt : Int32, offset : Int32) -> Int32 {
@@ -397,6 +398,7 @@ fn generated_recipes() -> Array[Recipe] {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ShrinkPhase {
   Suffix
   UnrelatedOperations
@@ -405,7 +407,7 @@ priv enum ShrinkPhase {
   Keys
   Values
   CyclePath
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ShrinkCandidate {
@@ -563,10 +565,11 @@ priv struct GeneratedCutoff {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum CutoffShrinkPhase {
   Suffix
   Values
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct CutoffShrinkCandidate {

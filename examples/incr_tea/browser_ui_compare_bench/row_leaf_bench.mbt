@@ -111,7 +111,7 @@ priv struct RabbitaRowLeafHarness {
 ///|
 fn RabbitaRowLeafHarness::RabbitaRowLeafHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> RabbitaRowLeafHarness {
   let baseline = ui_compare_make_items(n)
   let initial : RabbitaRowLeafModel = {
@@ -124,25 +124,25 @@ fn RabbitaRowLeafHarness::RabbitaRowLeafHarness(
     model=initial,
     update=(msg, model) => {
       match msg {
-        RabbitaRowTextUpdate => { ..model, row_text_hot: !model.row_text_hot }
+        RabbitaRowTextUpdate => { ..model, row_text_hot: !model.row_text_hot, }
         RabbitaRowClassUpdate =>
-          { ..model, row_class_hot: !model.row_class_hot }
+          { ..model, row_class_hot: !model.row_class_hot, }
         RabbitaHotLeafTextUpdate =>
-          { ..model, hot_leaf_hot: !model.hot_leaf_hot }
+          { ..model, hot_leaf_hot: !model.hot_leaf_hot, }
       }
     },
     view=ui_compare_rabbita_row_leaf_view,
   )
   let app = @rabbita.new(cell)
   app.mount(ui_compare_host_id(host))
-  { host, app }
+  { host, app, }
 }
 
 ///|
 fn RabbitaRowLeafHarness::measure_operation(
   self : RabbitaRowLeafHarness,
   operation : UiCompareRowLeafOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -164,8 +164,8 @@ fn RabbitaRowLeafHarness::dispose(self : RabbitaRowLeafHarness) -> Unit {
 ///|
 fn ui_compare_rabbita_measure_row_leaf(
   operation : UiCompareRowLeafOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = RabbitaRowLeafHarness(host, n)
@@ -228,8 +228,8 @@ fn ui_compare_luna_leaf_label(
 ///|
 fn ui_compare_luna_locality_row(
   id : String,
-  idx : Int,
-  hot_index : Int,
+  idx : Int32,
+  hot_index : Int32,
   row_text_hot : @signals.Signal[Bool],
   row_class_hot : @signals.Signal[Bool],
   hot_leaf_hot : @signals.Signal[Bool],
@@ -260,7 +260,7 @@ fn ui_compare_luna_locality_row(
 }
 
 ///|
-fn ui_compare_luna_row_leaf_node(n : Int) -> @luna_dom.DomNode {
+fn ui_compare_luna_row_leaf_node(n : Int32) -> @luna_dom.DomNode {
   let ids = ui_compare_make_item_ids(n)
   let hot_index = ui_compare_row_leaf_hot_index(ids.length())
   let row_text_hot = @luna.signal(false)
@@ -301,19 +301,19 @@ priv struct LunaRowLeafHarness {
 ///|
 fn LunaRowLeafHarness::LunaRowLeafHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> LunaRowLeafHarness {
   let (_, dispose) = @luna.create_root_with_dispose(fn() {
     @luna_dom.render_to(host, ui_compare_luna_row_leaf_node(n))
   })
-  { host, dispose }
+  { host, dispose, }
 }
 
 ///|
 fn LunaRowLeafHarness::measure_operation(
   self : LunaRowLeafHarness,
   operation : UiCompareRowLeafOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -335,8 +335,8 @@ fn LunaRowLeafHarness::dispose(self : LunaRowLeafHarness) -> Unit {
 ///|
 fn ui_compare_luna_measure_row_leaf(
   operation : UiCompareRowLeafOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = LunaRowLeafHarness(host, n)
@@ -353,9 +353,9 @@ fn ui_compare_luna_measure_row_leaf(
 fn ui_compare_adjacent_run_row_leaf(
   system : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_row_leaf_operation(operation)
   let size = ui_compare_positive(n, 64)

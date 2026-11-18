@@ -3,13 +3,24 @@
 ///
 /// Same value always maps to the same `InternId` within a table. IDs are
 /// monotonically increasing and can be used as array indices or `MemoMap` keys.
+#derive(Eq, Debug, Compare)
 pub struct InternId {
-  index : Int
-} derive(Eq, Debug, Compare)
+  index : Int32
+}
+
+///|
 pub extend InternId with Eq::{not_equal, equal}
+
+///|
 pub extend InternId with Debug::{to_repr}
+
+///|
 pub extend InternId with Show::{output, to_string}
+
+///|
 pub extend InternId with Hash::{hash, hash_combine}
+
+///|
 pub extend InternId with Compare::{compare, op_lt, op_le, op_ge, op_gt}
 
 ///|
@@ -41,7 +52,7 @@ pub struct InternTable[T] {
 
 ///|
 pub fn[T : Hash + Eq] InternTable::new() -> InternTable[T] {
-  { to_id: @hashmap.HashMap([]), values: [] }
+  { to_id: @hashmap.HashMap([]), values: [], }
 }
 
 ///|
@@ -53,7 +64,7 @@ pub fn[T : Hash + Eq] InternTable::intern(
   match self.to_id.get(value) {
     Some(id) => id
     None => {
-      let id = InternId::{ index: self.values.length() }
+      let id = InternId::{ index: self.values.length(), }
       self.values.push(value)
       self.to_id.set(value, id)
       id
@@ -71,6 +82,6 @@ pub fn[T] InternTable::get(self : InternTable[T], id : InternId) -> T {
 
 ///|
 /// Returns the number of unique values interned so far.
-pub fn[T] InternTable::len(self : InternTable[T]) -> Int {
+pub fn[T] InternTable::len(self : InternTable[T]) -> Int32 {
   self.values.length()
 }

@@ -15,12 +15,12 @@ fn TraceBenchFixture::dispose(self : TraceBenchFixture) -> Unit {
 }
 
 ///|
-fn trace_bench_address(prefix : String, index : Int) -> String {
+fn trace_bench_address(prefix : String, index : Int32) -> String {
   prefix + index.to_string()
 }
 
 ///|
-fn trace_bench_formula(source : CellId, offset : Int) -> Formula {
+fn trace_bench_formula(source : CellId, offset : Int32) -> Formula {
   Formula::add(
     Formula::cell_ref(source),
     Formula::literal(CellValue::from_int(offset)),
@@ -48,8 +48,8 @@ fn trace_bench_prime(sheet : Worksheet, formula_ids : Array[CellId]) -> Unit {
 
 ///|
 fn trace_bench_sparse_affected_fixture(
-  formula_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  sheet_number : Int32,
 ) -> TraceBenchFixture {
   let rt = @incr.Runtime()
   let sheet = Worksheet(rt, SheetId(sheet_number))
@@ -68,13 +68,13 @@ fn trace_bench_sparse_affected_fixture(
     trace_bench_install_formula(sheet, target, formula)
   }
   trace_bench_prime(sheet, formula_ids)
-  { sheet, source_ids, formula_ids }
+  { sheet, source_ids, formula_ids, }
 }
 
 ///|
 fn trace_bench_shared_source_fixture(
-  formula_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  sheet_number : Int32,
 ) -> TraceBenchFixture {
   let rt = @incr.Runtime()
   let sheet = Worksheet(rt, SheetId(sheet_number))
@@ -88,13 +88,13 @@ fn trace_bench_shared_source_fixture(
     trace_bench_install_formula(sheet, target, trace_bench_formula(source, i))
   }
   trace_bench_prime(sheet, formula_ids)
-  { sheet, source_ids, formula_ids }
+  { sheet, source_ids, formula_ids, }
 }
 
 ///|
 fn trace_bench_visible_formula_ids(
   formula_ids : Array[CellId],
-  visible_count : Int,
+  visible_count : Int32,
 ) -> Array[CellId] {
   let visible : Array[CellId] = []
   for i in 0..<visible_count {
@@ -106,8 +106,8 @@ fn trace_bench_visible_formula_ids(
 ///|
 fn trace_bench_global_noop(
   b : @bench.T,
-  formula_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  sheet_number : Int32,
 ) -> Unit {
   let fixture = trace_bench_sparse_affected_fixture(formula_count, sheet_number)
   let source = fixture.source_ids[0]
@@ -123,8 +123,8 @@ fn trace_bench_global_noop(
 ///|
 fn trace_bench_global_one_affected(
   b : @bench.T,
-  formula_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  sheet_number : Int32,
 ) -> Unit {
   let fixture = trace_bench_sparse_affected_fixture(formula_count, sheet_number)
   let source = fixture.source_ids[0]
@@ -142,8 +142,8 @@ fn trace_bench_global_one_affected(
 ///|
 fn trace_bench_global_shared_source(
   b : @bench.T,
-  formula_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  sheet_number : Int32,
 ) -> Unit {
   let fixture = trace_bench_shared_source_fixture(formula_count, sheet_number)
   let source = fixture.source_ids[0]
@@ -161,9 +161,9 @@ fn trace_bench_global_shared_source(
 ///|
 fn trace_bench_bounded_one_affected(
   b : @bench.T,
-  formula_count : Int,
-  visible_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  visible_count : Int32,
+  sheet_number : Int32,
 ) -> Unit {
   let fixture = trace_bench_sparse_affected_fixture(formula_count, sheet_number)
   let source = fixture.source_ids[0]
@@ -185,9 +185,9 @@ fn trace_bench_bounded_one_affected(
 ///|
 fn trace_bench_bounded_shared_source(
   b : @bench.T,
-  formula_count : Int,
-  visible_count : Int,
-  sheet_number : Int,
+  formula_count : Int32,
+  visible_count : Int32,
+  sheet_number : Int32,
 ) -> Unit {
   let fixture = trace_bench_shared_source_fixture(formula_count, sheet_number)
   let source = fixture.source_ids[0]

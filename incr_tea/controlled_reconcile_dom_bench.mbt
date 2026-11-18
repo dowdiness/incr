@@ -50,7 +50,7 @@ extern "js" fn controlled_reconcile_bench_state_matches(
 ///|
 #cfg(target="js")
 extern "js" fn controlled_reconcile_bench_install_api(
-  run : (String, Int, Int, Int, Int) -> String,
+  run : (String, Int32, Int32, Int32, Int32) -> String,
 ) -> Unit =
   #| (run) => {
   #|   const toInt = (value, fallback) => {
@@ -102,7 +102,7 @@ fn controlled_reconcile_bench_mode(
 
 ///|
 #cfg(target="js")
-fn controlled_reconcile_bench_attrs(index : Int) -> Array[Attribute] {
+fn controlled_reconcile_bench_attrs(index : Int32) -> Array[Attribute] {
   let kind = match index % 4 {
     0 => "value"
     1 => "checked"
@@ -128,8 +128,8 @@ fn controlled_reconcile_bench_attrs(index : Int) -> Array[Attribute] {
 ///|
 #cfg(target="js")
 fn controlled_reconcile_bench_tree(
-  node_count : Int,
-  controlled_count : Int,
+  node_count : Int32,
+  controlled_count : Int32,
 ) -> Html[ControlledReconcileBenchMsg] {
   let children = Array::makei(node_count, index => {
     if index < controlled_count {
@@ -150,10 +150,11 @@ fn controlled_reconcile_bench_tree(
 }
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum ControlledReconcileBenchMsg {
-  Touch(Int)
-} derive(Eq)
+  Touch(Int32)
+}
 
 ///|
 #cfg(target="js")
@@ -164,14 +165,14 @@ priv struct ControlledReconcileBenchHarness {
     Html[ControlledReconcileBenchMsg],
   ]
   host : DomElement
-  mut touch_value : Int
+  mut touch_value : Int32
 }
 
 ///|
 #cfg(target="js")
 fn ControlledReconcileBenchHarness::new(
-  node_count : Int,
-  controlled_count : Int,
+  node_count : Int32,
+  controlled_count : Int32,
 ) -> ControlledReconcileBenchHarness {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)
@@ -200,7 +201,7 @@ fn ControlledReconcileBenchHarness::new(
     runtime,
   )
   ignore(renderer.mount(host, program))
-  { renderer, program, host, touch_value: 0 }
+  { renderer, program, host, touch_value: 0, }
 }
 
 ///|
@@ -208,7 +209,7 @@ fn ControlledReconcileBenchHarness::new(
 fn ControlledReconcileBenchHarness::measure_sample(
   self : ControlledReconcileBenchHarness,
   mode : ControlledReconcileBenchMode,
-  iterations : Int,
+  iterations : Int32,
 ) -> Array[Double] {
   let timings : Array[Double] = []
   for index in 0..<iterations {
@@ -252,7 +253,10 @@ fn ControlledReconcileBenchHarness::dispose(
 
 ///|
 #cfg(target="js")
-fn controlled_reconcile_bench_positive(value : Int, fallback : Int) -> Int {
+fn controlled_reconcile_bench_positive(
+  value : Int32,
+  fallback : Int32,
+) -> Int32 {
   guard value > 0 else { fallback }
   value
 }
@@ -261,9 +265,9 @@ fn controlled_reconcile_bench_positive(value : Int, fallback : Int) -> Int {
 #cfg(target="js")
 fn controlled_reconcile_bench_result_json(
   mode : ControlledReconcileBenchMode,
-  node_count : Int,
-  controlled_count : Int,
-  iterations : Int,
+  node_count : Int32,
+  controlled_count : Int32,
+  iterations : Int32,
   sample_means : Array[Double],
   operations : Array[Double],
 ) -> String {
@@ -278,10 +282,10 @@ fn controlled_reconcile_bench_result_json(
 #cfg(target="js")
 fn controlled_reconcile_bench_run(
   mode : String,
-  node_count : Int,
-  controlled_count : Int,
-  iterations : Int,
-  sample_count : Int,
+  node_count : Int32,
+  controlled_count : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let benchmark_mode = controlled_reconcile_bench_mode(mode)
   let nodes = node_count.max(0)

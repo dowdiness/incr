@@ -3,7 +3,7 @@
 
 ///|
 #cfg(target="js")
-const UI_COMPARE_ACTIVATION_TRIGGER_WORKSPACE_SIZE : Int = 256
+const UI_COMPARE_ACTIVATION_TRIGGER_WORKSPACE_SIZE : Int32 = 256
 
 ///|
 #cfg(target="js")
@@ -42,7 +42,7 @@ fn UiCompareActivationTriggerOwnership::mount_roots(
   self : UiCompareActivationTriggerOwnership,
   renderer : BrowserRenderer[UiCompareWorkspaceMsg],
   runtime : @incr.Runtime,
-  root_count : Int,
+  root_count : Int32,
 ) -> Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])] {
   match self {
     UiCompareActivationTriggerSharedProgram => {
@@ -98,7 +98,7 @@ priv struct UiCompareActivationTriggerBenchHarness {
 ///|
 #cfg(target="js")
 fn UiCompareActivationTriggerBenchHarness::UiCompareActivationTriggerBenchHarness(
-  root_count : Int,
+  root_count : Int32,
   ownership : UiCompareActivationTriggerOwnership,
 ) -> UiCompareActivationTriggerBenchHarness {
   let runtime = @incr.Runtime()
@@ -118,7 +118,7 @@ fn UiCompareActivationTriggerBenchHarness::UiCompareActivationTriggerBenchHarnes
   for pair in roots {
     pair.1.flush()
   }
-  { renderer, controller, roots, ownership }
+  { renderer, controller, roots, ownership, }
 }
 
 ///|
@@ -149,7 +149,7 @@ fn UiCompareActivationTriggerBenchHarness::deactivate_all(
 #cfg(target="js")
 fn UiCompareActivationTriggerBenchHarness::inactive_updates(
   self : UiCompareActivationTriggerBenchHarness,
-  update_count : Int,
+  update_count : Int32,
 ) -> Unit {
   for _ in 0..<update_count {
     self.ownership.click_action(self.roots, "hidden-mounted-update")
@@ -238,22 +238,22 @@ fn UiCompareActivationTriggerBenchHarness::dispose(
 ///|
 #cfg(target="js")
 extern "js" fn dom_activation_trigger_install_api(
-  setup : (Int, String) -> String,
+  setup : (Int32, String) -> String,
   reset : () -> Unit,
   deactivate_all : () -> Unit,
-  inactive_updates : (Int) -> Unit,
+  inactive_updates : (Int32) -> Unit,
   activate_one : () -> Unit,
   activate_all : () -> Unit,
   show_one : () -> Unit,
   show_all : () -> Unit,
   prewarm_one : () -> Unit,
   prewarm_all : () -> Unit,
-  host_count : () -> Int,
-  host : (Int) -> DomElement,
+  host_count : () -> Int32,
+  host : (Int32) -> DomElement,
   stats : () -> String,
   dispose : () -> Unit,
-  observe : (Int, () -> Unit) -> Int,
-  disconnect : (Int) -> Unit,
+  observe : (Int32, () -> Unit) -> Int32,
+  disconnect : (Int32) -> Unit,
 ) -> Unit =
   #| (setup, reset, deactivateAll, inactiveUpdates, activateOne, activateAll, showOne, showAll, prewarmOne, prewarmAll, hostCount, host, stats, dispose, observe, disconnect) => {
   #|   const toInt = (value, fallback) => {
@@ -295,9 +295,9 @@ fn ui_compare_activation_current(
 #cfg(target="js")
 fn ui_compare_incr_run_activation_trigger(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   abort(
     "activation-trigger-overhead is measured through window.__incrTeaActivationTriggerBench, not the generic UI compare bench API; requested operation=\{operation}, n=\{n}, iterations=\{iterations}, sample_count=\{sample_count}",

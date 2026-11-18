@@ -5,7 +5,7 @@
 /// Negating the level makes the lowest level sort highest in the heap,
 /// giving min-level-first (topological-order) dequeue semantics.
 priv struct PushEntry {
-  neg_level : Int
+  neg_level : Int32
   cell_ref : CellRef
   cell_id : CellId
 }
@@ -22,9 +22,9 @@ impl Compare for PushEntry with fn compare(self, other) {
 
 ///|
 priv struct PushPropagationCounters {
-  mut eager_derived_evaluation_count : Int
-  mut effect_execution_count : Int
-  mut skipped_queue_entry_count : Int
+  mut eager_derived_evaluation_count : Int32
+  mut effect_execution_count : Int32
+  mut skipped_queue_entry_count : Int32
 }
 
 ///|
@@ -42,7 +42,7 @@ fn PushPropagationCounters::new() -> PushPropagationCounters {
 /// Pull cells (signals and derived cells) are level 0 — they are inputs to the
 /// push graph. Push reactives use their stored `level`. Disposed cells
 /// and effects return 0 (effects are leaf nodes, not read by others).
-pub fn get_level(core : RuntimeCore, cell_id : CellId) -> Int {
+pub fn get_level(core : RuntimeCore, cell_id : CellId) -> Int32 {
   if cell_id.id < 0 || cell_id.id >= core.cell_ops.length() {
     return 0
   }
@@ -58,7 +58,7 @@ pub fn recompute_level(
   core : RuntimeCore,
   _cell_id : CellId,
   sources : Array[CellId],
-) -> Int {
+) -> Int32 {
   let mut max_level = 0
   for s in sources {
     let l = get_level(core, s)
@@ -185,14 +185,14 @@ fn emit_queue_skip(
   event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
   counters : PushPropagationCounters?,
   cell_id : CellId,
-  queued_level : Int,
-  current_level : Int,
+  queued_level : Int32,
+  current_level : Int32,
   reason : PushQueueSkipReason,
 ) -> Unit {
   match (event_sink, counters) {
     (Some(emit), Some(c)) => {
       c.skipped_queue_entry_count = c.skipped_queue_entry_count + 1
-      emit(PushQueueSkipped({ cell_id, queued_level, current_level, reason }))
+      emit(PushQueueSkipped({ cell_id, queued_level, current_level, reason, }))
     }
     _ => ()
   }
@@ -346,7 +346,7 @@ fn evaluate_push_reactive(
   pull : PullState,
   push : PushState,
   datalog : DatalogState,
-  idx : Int,
+  idx : Int32,
   update_queue : @priority_queue.PriorityQueue[PushEntry],
   bfs_worklist : Array[CellId],
   event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
@@ -418,7 +418,7 @@ fn execute_push_effect(
   pull : PullState,
   push : PushState,
   datalog : DatalogState,
-  idx : Int,
+  idx : Int32,
   event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
   counters : PushPropagationCounters?,
 ) -> Unit {
@@ -466,7 +466,7 @@ fn execute_push_effect(
 ///|
 fn finish_push_propagation(
   core : RuntimeCore,
-  changed_source_count : Int,
+  changed_source_count : Int32,
   event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
   counters : PushPropagationCounters?,
 ) -> Unit {

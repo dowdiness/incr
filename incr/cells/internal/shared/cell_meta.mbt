@@ -10,5 +10,5 @@ pub(all) struct CellMeta {
   mut changed_at : Revision
   mut durability : Durability
   subscribers : @hashset.HashSet[CellId]
-  mut push_reachable_count : Int
+  mut push_reachable_count : Int32
 }

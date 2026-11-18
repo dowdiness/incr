@@ -244,9 +244,9 @@ Cyclic dependencies are detected at runtime:
 ///|
 test "concepts: cycles surface through Result reads" {
   let rt = @incr.Runtime()
-  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let saw_cycle : Ref[Bool] = { val: false }
+  let a_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let b_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let saw_cycle : Ref[Bool] = { val: false, }
   let a = @incr.Derived(rt, () => {
     match b_ref.val.unwrap().get() {
       Ok(v) => v + 1

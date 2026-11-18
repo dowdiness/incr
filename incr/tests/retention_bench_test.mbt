@@ -1,5 +1,5 @@
 ///|
-fn bench_uncomputed_pull_fanout(b : @bench.T, n : Int) -> Unit raise {
+fn bench_uncomputed_pull_fanout(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -15,7 +15,7 @@ fn bench_uncomputed_pull_fanout(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_primed_pull_fanout_no_push(b : @bench.T, n : Int) -> Unit raise {
+fn bench_primed_pull_fanout_no_push(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -32,7 +32,7 @@ fn bench_primed_pull_fanout_no_push(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_primed_pull_fanout_distant_push(b : @bench.T, n : Int) -> Unit raise {
+fn bench_primed_pull_fanout_distant_push(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   let distant_root = @incr.Input(rt, 0, label="distant_root")
@@ -55,7 +55,7 @@ fn bench_primed_pull_fanout_distant_push(b : @bench.T, n : Int) -> Unit raise {
 ///|
 fn bench_primed_pull_fanout_same_root_live_push(
   b : @bench.T,
-  n : Int,
+  n : Int32,
 ) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
@@ -75,11 +75,14 @@ fn bench_primed_pull_fanout_same_root_live_push(
 }
 
 ///|
-fn bench_dynamic_subgraph_churn_same_root(b : @bench.T, n : Int) -> Unit raise {
+fn bench_dynamic_subgraph_churn_same_root(
+  b : @bench.T,
+  n : Int32,
+) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   let capture = Ref(true)
-  let current : Ref[@incr.Derived[Int]?] = Ref(None)
+  let current : Ref[@incr.Derived[Int32]?] = Ref(None)
   // Cell allocation inside compute is intentionally confined to setup. This
   // adversarial shape reproduces lifecycle orphaning without allocating in
   // the timed steady-state body.
@@ -107,7 +110,7 @@ fn bench_dynamic_subgraph_churn_same_root(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_abandoned_eager_fanout(b : @bench.T, n : Int) -> Unit raise {
+fn bench_abandoned_eager_fanout(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -123,10 +126,10 @@ fn bench_abandoned_eager_fanout(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_scan_disposed_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_scan_disposed_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
-  let stale : Array[@incr.Derived[Int]] = []
+  let stale : Array[@incr.Derived[Int32]] = []
   for i in 0..<n {
     let offset = i
     let derived = @incr.Derived(rt, () => root.get() + offset)
@@ -147,7 +150,7 @@ fn bench_scan_disposed_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_scan_gc_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_scan_gc_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -172,10 +175,10 @@ fn bench_scan_gc_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_disposed_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_disposed_pull_no_push_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
-  let stale : Array[@incr.Derived[Int]] = []
+  let stale : Array[@incr.Derived[Int32]] = []
   for i in 0..<n {
     let offset = i
     let derived = @incr.Derived(rt, () => root.get() + offset)
@@ -194,7 +197,7 @@ fn bench_disposed_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_gc_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_gc_pull_no_push_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -212,10 +215,10 @@ fn bench_gc_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_eager_disposed_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_eager_disposed_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
-  let abandoned : Array[@incr.EagerDerived[Int]] = []
+  let abandoned : Array[@incr.EagerDerived[Int32]] = []
   for i in 0..<n {
     let offset = i
     abandoned.push(@incr.EagerDerived(rt, () => root.get() + offset))
@@ -232,7 +235,7 @@ fn bench_eager_disposed_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_eager_gc_control(b : @bench.T, n : Int) -> Unit raise {
+fn bench_eager_gc_control(b : @bench.T, n : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for i in 0..<n {
@@ -250,7 +253,7 @@ fn bench_eager_gc_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_chain_depth(b : @bench.T, n : Int, depth : Int) -> Unit raise {
+fn bench_chain_depth(b : @bench.T, n : Int32, depth : Int32) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
   for chain in 0..<n {
@@ -274,14 +277,18 @@ fn bench_chain_depth(b : @bench.T, n : Int, depth : Int) -> Unit raise {
 
 ///|
 fn make_fan_in_fixture(
-  n : Int,
-) -> (@incr.Runtime, Array[@incr.Input[Int]], Array[@incr.EagerDerived[Int]]) raise {
+  n : Int32,
+) -> (
+  @incr.Runtime,
+  Array[@incr.Input[Int32]],
+  Array[@incr.EagerDerived[Int32]],
+) raise {
   let rt = @incr.Runtime()
-  let roots : Array[@incr.Input[Int]] = []
+  let roots : Array[@incr.Input[Int32]] = []
   for i in 0..<12 {
     roots.push(@incr.Input(rt, i, label="root_\{i}"))
   }
-  let outputs : Array[@incr.EagerDerived[Int]] = []
+  let outputs : Array[@incr.EagerDerived[Int32]] = []
   for output in 0..<n {
     let offset = output
     outputs.push(
@@ -301,7 +308,7 @@ fn make_fan_in_fixture(
 }
 
 ///|
-fn bench_fan_in_one_root(b : @bench.T, n : Int) -> Unit raise {
+fn bench_fan_in_one_root(b : @bench.T, n : Int32) -> Unit raise {
   let (_rt, roots, outputs) = make_fan_in_fixture(n)
   let mut value = 100
   b.bench(() => {
@@ -312,7 +319,7 @@ fn bench_fan_in_one_root(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
-fn bench_fan_in_all_roots_batch(b : @bench.T, n : Int) -> Unit raise {
+fn bench_fan_in_all_roots_batch(b : @bench.T, n : Int32) -> Unit raise {
   let (rt, roots, outputs) = make_fan_in_fixture(n)
   let mut value = 100
   b.bench(() => {

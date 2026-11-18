@@ -137,8 +137,8 @@ fn check_delta(
   stats : ReadOnlyArray[RegionRenderStats],
   baseline : ReadOnlyArray[RegionRenderStats],
   label : String,
-  patch_delta : Int,
-  skip_delta : Int,
+  patch_delta : Int32,
+  skip_delta : Int32,
 ) -> Unit {
   let row = row_by_label(stats, label)
   let base_row = row_by_label(baseline, label)

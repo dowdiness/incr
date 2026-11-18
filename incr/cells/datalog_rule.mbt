@@ -29,7 +29,7 @@ fn find_live_rule_declaration(
       } else {
         OutputOnly
       }
-      return Some({ rule_id: rule.meta.cell_id, role })
+      return Some({ rule_id: rule.meta.cell_id, role, })
     }
   }
   None
@@ -75,7 +75,7 @@ pub fn Runtime::new_rule(
   self.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = self.datalog.rules[idx]
   self.cell_lifecycle.push(lifecycle)
-  @incr_types.RuleId::{ id: cell_id }
+  @incr_types.RuleId::{ id: cell_id, }
 }
 
 ///|

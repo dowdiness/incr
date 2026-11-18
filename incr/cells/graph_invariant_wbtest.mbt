@@ -21,9 +21,10 @@
 
 ///|
 /// Random graph operation for pull/push invariant probing.
+#derive(Debug)
 enum GraphOp {
-  SetA(Int)
-  SetB(Int)
+  SetA(Int32)
+  SetB(Int32)
   ReadSum
   ReadDoubled
   ToggleFlag
@@ -33,28 +34,30 @@ enum GraphOp {
   SpawnDisposeEffect
   WatchSumDrop
   GcSweep
-  BatchSetA(Int, Int)
-  BatchSetBoth(Int, Int)
-  BatchSetAFail(Int, Int)
-  BatchSetBothFail(Int, Int)
-  BatchResultFail(Int)
-} derive(Debug)
+  BatchSetA(Int32, Int32)
+  BatchSetBoth(Int32, Int32)
+  BatchSetAFail(Int32, Int32)
+  BatchSetBothFail(Int32, Int32)
+  BatchResultFail(Int32)
+}
+
+///|
 pub extend GraphOp with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 struct GraphFixture {
   rt : Runtime
-  input_a : Input[Int]
-  input_b : Input[Int]
+  input_a : Input[Int32]
+  input_b : Input[Int32]
   flag : Input[Bool]
-  sum : Derived[Int]
-  doubled : Derived[Int]
-  pick : Derived[Int]
-  eager : EagerDerived[Int]
+  sum : Derived[Int32]
+  doubled : Derived[Int32]
+  pick : Derived[Int32]
+  eager : EagerDerived[Int32]
   sum_effect : Effect
-  sum_watch : Watch[Int]
-  eager_watch : Watch[Int]
-  pick_watch : Watch[Int]
+  sum_watch : Watch[Int32]
+  eager_watch : Watch[Int32]
+  pick_watch : Watch[Int32]
 }
 
 ///|
@@ -95,14 +98,14 @@ fn build_graph_fixture() -> GraphFixture {
 }
 
 ///|
-fn read_derived_if_alive(derived : Derived[Int]) -> Unit {
+fn read_derived_if_alive(derived : Derived[Int32]) -> Unit {
   if !derived.rt.is_cell_disposed(derived.id()) {
     ignore(derived.read_or_abort())
   }
 }
 
 ///|
-fn read_eager_if_alive(eager : EagerDerived[Int]) -> Unit {
+fn read_eager_if_alive(eager : EagerDerived[Int32]) -> Unit {
   if !eager.rt.is_cell_disposed(eager.id()) {
     ignore(eager.read())
   }
@@ -200,7 +203,7 @@ fn dispatch_tables_aligned(rt : Runtime) -> Bool {
 }
 
 ///|
-fn cell_id_for_slot(rt : Runtime, slot : Int) -> CellId? {
+fn cell_id_for_slot(rt : Runtime, slot : Int32) -> CellId? {
   if slot < 0 || slot >= rt.core.cell_index.length() {
     return None
   }
@@ -211,7 +214,7 @@ fn cell_id_for_slot(rt : Runtime, slot : Int) -> CellId? {
 }
 
 ///|
-fn push_reachable_count(rt : Runtime, id : CellId) -> Int {
+fn push_reachable_count(rt : Runtime, id : CellId) -> Int32 {
   rt.core.cell_ops[id.id].push_reachable_count()
 }
 

@@ -4,11 +4,12 @@
 /// `Html` value types are intentionally package-private.
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiCompareCounterMsg {
   UiCompareIncrement
   UiCompareTouchUnrelated
-} derive(Eq)
+}
 
 ///|
 #cfg(target="js")
@@ -19,22 +20,24 @@ priv enum UiCompareCounterOperation {
 }
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiCompareKeyedListMsg {
   UiCompareListPrepend
   UiCompareListRemoveFirst
   UiCompareListReverse
   UiCompareListReset
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiComparePanelMsg {
   UiComparePanelHiddenUpdate
   UiComparePanelOpen
   UiComparePanelVisibleUpdate
   UiComparePanelClose
-} derive(Eq)
+}
 
 ///|
 #cfg(target="js")
@@ -46,29 +49,32 @@ priv enum UiComparePanelOperation {
 }
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiCompareRowLeafOperation {
   UiCompareRowTextUpdate
   UiCompareRowClassUpdate
   UiCompareHotLeafTextUpdate
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiCompareWorkspaceMode {
   UiCompareWorkspaceCollapsed
   UiCompareWorkspaceHiddenMounted
   UiCompareWorkspaceVisible
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 priv enum UiCompareWorkspaceMsg {
   UiCompareWorkspaceSetCollapsed
   UiCompareWorkspaceSetHiddenMounted
   UiCompareWorkspaceSetVisible
   UiCompareWorkspaceEdit
-} derive(Eq)
+}
 
 ///|
 #cfg(target="js")
@@ -108,7 +114,7 @@ extern "js" fn ui_compare_dom_try_click_action(
 ///|
 #cfg(target="js")
 extern "js" fn ui_compare_dom_install_incr_api(
-  run : (String, String, Int, Int, Int) -> String,
+  run : (String, String, Int32, Int32, Int32) -> String,
 ) -> Unit =
   #| (run) => {
   #|   const toInt = (value, fallback) => {
@@ -320,7 +326,7 @@ fn UiCompareWorkspaceOperation::mode_action(
 
 ///|
 #cfg(target="js")
-fn ui_compare_row_leaf_hot_index(n : Int) -> Int {
+fn ui_compare_row_leaf_hot_index(n : Int32) -> Int32 {
   guard n > 0 else { 0 }
   n / 2
 }
@@ -331,8 +337,8 @@ fn ui_compare_result_json(
   system : String,
   suite : String,
   operation : String,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
   samples : Array[Double],
 ) -> String {
   let sample_json = samples.map(sample => "\{sample * 1000.0}").join(",")

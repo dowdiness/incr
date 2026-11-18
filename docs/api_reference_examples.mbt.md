@@ -21,7 +21,7 @@ suberror ApiRefBatchResultError {
 test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
   let rt = @incr.Runtime()
   let input = rt.input(0, label="input")
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   let result = rt.batch_result(fn() raise {
@@ -42,7 +42,7 @@ test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
 test "docs api-ref: Runtime on_change fires for committed changes" {
   let rt = @incr.Runtime()
   let input = rt.input(0, label="input")
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
 
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
@@ -68,7 +68,7 @@ test "docs api-ref: Runtime on_change fires for committed changes" {
 test "docs api-ref: InputField on_change fires before Runtime on_change" {
   let rt = @incr.Runtime()
   let price = @incr.InputField(rt, 100, label="price")
-  let log : Ref[String] = { val: "" }
+  let log : Ref[String] = { val: "", }
 
   price.on_change(new_price => {
     log.val = log.val + "cell:" + new_price.to_string() + ";"
@@ -97,7 +97,7 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
 test "docs api-ref: derived event listener records and can be cleared" {
   let rt = @incr.Runtime()
   let input = rt.input(1, label="input")
-  let events : Ref[Int] = { val: 0 }
+  let events : Ref[Int32] = { val: 0, }
 
   rt.on_derived_event(_evt => events.val = events.val + 1)
 
@@ -121,8 +121,8 @@ test "docs api-ref: derived event listener records and can be cleared" {
 test "docs api-ref: Input get tracks, peek is untracked" {
   let rt = @incr.Runtime()
   let count = rt.input(1, label="count")
-  let tracked_runs : Ref[Int] = { val: 0 }
-  let peek_runs : Ref[Int] = { val: 0 }
+  let tracked_runs : Ref[Int32] = { val: 0, }
+  let peek_runs : Ref[Int32] = { val: 0, }
 
   let tracked = @incr.Derived(
     rt,
@@ -170,7 +170,7 @@ test "docs api-ref: InputField exposes field identity and participates in derive
     durability=High,
     label="SourceFile.path",
   )
-  let read_count : Ref[Int] = { val: 0 }
+  let read_count : Ref[Int32] = { val: 0, }
   let extension = @incr.Derived(
     rt,
     () => {
@@ -235,9 +235,9 @@ test "docs api-ref: labels appear in cell_info and cycle errors" {
     None => abort("expected Derived cell_info")
   }
 
-  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let formatted : Ref[String] = { val: "" }
+  let a_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let b_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let formatted : Ref[String] = { val: "", }
   let a = @incr.Derived(
     rt,
     () => {
@@ -348,7 +348,7 @@ test "docs api-ref: derived map backdates equal output" {
   let count = rt.input(21, label="count")
   let source = count.derived(x => x, label="source")
   let tens = source.map(v => v / 10, label="tens")
-  let downstream_runs : Ref[Int] = { val: 0 }
+  let downstream_runs : Ref[Int32] = { val: 0, }
   let downstream = @incr.Derived(rt, () => {
     downstream_runs.val = downstream_runs.val + 1
     tens.get_or_abort()
@@ -390,9 +390,9 @@ test "docs api-ref: derived.watch survives gc and tracks updates" {
 test "docs api-ref: derived_map permissive and strict reads" {
   let rt = @incr.Runtime()
   let multiplier = rt.input(10, label="multiplier")
-  let by_id : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(
+  let by_id : @incr.DerivedMap[Int32, Int32] = @incr.DerivedMap(
     rt,
-    (id : Int) => id * multiplier.get(),
+    (id : Int32) => id * multiplier.get(),
     label="by_id",
   )
 
@@ -418,9 +418,9 @@ test "docs api-ref: derived_map permissive and strict reads" {
 ///|
 test "docs api-ref: derived_map clear_cache drops cached entries" {
   let rt = @incr.Runtime()
-  let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(rt, (key : Int) => {
-    key + 1
-  })
+  let by_key : @incr.DerivedMap[Int32, Int32] = @incr.DerivedMap(rt, (
+    key : Int32,
+  ) => key + 1)
 
   inspect(by_key.read_or_abort(1), content="2")
   inspect(by_key.read_or_abort(2), content="3")
@@ -434,9 +434,9 @@ test "docs api-ref: derived_map clear_cache drops cached entries" {
 ///|
 test "docs api-ref: derived_map read_or / read_or_else return the value on the happy path" {
   let rt = @incr.Runtime()
-  let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(rt, (key : Int) => {
-    key * 100
-  })
+  let by_key : @incr.DerivedMap[Int32, Int32] = @incr.DerivedMap(rt, (
+    key : Int32,
+  ) => key * 100)
 
   // No cycle — both fallback forms see Ok(value) and pass through.
   inspect(by_key.read_or(3, 999), content="300")
@@ -447,9 +447,9 @@ test "docs api-ref: derived_map read_or / read_or_else return the value on the h
 test "docs api-ref: derived_map sweep_cache prunes gc-disposed entries" {
   let rt = @incr.Runtime()
   let source = rt.input(10, label="source")
-  let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(
+  let by_key : @incr.DerivedMap[Int32, Int32] = @incr.DerivedMap(
     rt,
-    (key : Int) => source.get() + key,
+    (key : Int32) => source.get() + key,
     label="by_key",
   )
 
@@ -472,7 +472,7 @@ test "docs api-ref: scope collect maintains owned derived maps" {
   let scope = @incr.Scope::new(rt)
   let source = scope.input(10, label="source")
   let by_key = scope.derived_map(
-    (key : Int) => source.get() + key,
+    (key : Int32) => source.get() + key,
     label="by_key",
   )
   let terminal = scope.derived(() => by_key.get_or_abort(1), label="terminal")
@@ -547,7 +547,7 @@ test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell 
 test "docs api-ref: eager_derived recomputes eagerly and can be read from outside" {
   let rt = @incr.Runtime()
   let input = rt.input(4, label="input")
-  let runs : Ref[Int] = { val: 0 }
+  let runs : Ref[Int32] = { val: 0, }
   let eager = @incr.EagerDerived(rt, () => {
     runs.val = runs.val + 1
     input.get() * 3
@@ -586,7 +586,7 @@ never on current-error churn.
 ///|
 /// A toy fallible parse with hand-reasoned outcomes: `"1"` → `Ok(1)`, `"2"` →
 /// `Ok(2)`, anything else → `Err`.
-fn ad_doc_parse(src : String) -> Result[Int, String] {
+fn ad_doc_parse(src : String) -> Result[Int32, String] {
   match src {
     "1" => Ok(1)
     "2" => Ok(2)
@@ -814,7 +814,7 @@ test "docs api-ref: Scope::accumulator owns accumulator disposal" {
 ///|
 test "docs api-ref: map_relation staged values become visible after fixpoint" {
   let rt = @incr.Runtime()
-  let weights : @incr.MapRelation[(Int, Int), Int] = @incr.MapRelation(
+  let weights : @incr.MapRelation[(Int32, Int32), Int32] = @incr.MapRelation(
     rt,
     label="weights",
   )
@@ -877,8 +877,8 @@ test "docs api-ref: compatibility per-cell callbacks can be registered and clear
   let input = rt.input(1, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let watch = doubled.watch()
-  let input_log : Ref[String] = { val: "" }
-  let memo_log : Ref[String] = { val: "" }
+  let input_log : Ref[String] = { val: "", }
+  let memo_log : Ref[String] = { val: "", }
 
   input.on_change(value => input_log.val = value.to_string())
   doubled.on_change(value => memo_log.val = value.to_string())
@@ -915,7 +915,7 @@ impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
 ///|
 struct CompatTrackedFields {
   path : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|
@@ -925,7 +925,7 @@ impl @incr.InputFieldOwner for CompatTrackedFields with fn cell_ids(self) {
 
 ///|
 test "docs api-ref: create_input / create_derived / create_derived_map via context" {
-  let ctx : AppCtx = { rt: @incr.Runtime() }
+  let ctx : AppCtx = { rt: @incr.Runtime(), }
   let price = @incr.create_input(ctx, 100, label="price")
   let quantity = @incr.create_input(ctx, 2, label="quantity")
   let total = @incr.create_derived(
@@ -935,7 +935,7 @@ test "docs api-ref: create_input / create_derived / create_derived_map via conte
   )
   let by_id = @incr.create_derived_map(
     ctx,
-    (id : Int) => id * price.get(),
+    (id : Int32) => id * price.get(),
     label="by_id",
   )
 
@@ -948,7 +948,7 @@ test "docs api-ref: create_input / create_derived / create_derived_map via conte
 
 ///|
 test "docs api-ref: create_input_field / create_reachable_derived / create_eager_derived" {
-  let ctx : AppCtx = { rt: @incr.Runtime() }
+  let ctx : AppCtx = { rt: @incr.Runtime(), }
   let count = @incr.create_input(ctx, 1, label="count")
   let path_field = @incr.create_input_field(
     ctx,
@@ -973,7 +973,7 @@ test "docs api-ref: create_input_field / create_reachable_derived / create_eager
 
 ///|
 test "docs api-ref: batch helper commits one atomic update" {
-  let app : AppCtx = { rt: @incr.Runtime() }
+  let app : AppCtx = { rt: @incr.Runtime(), }
   let price = @incr.Input(app.rt, 100, label="price")
   let quantity = @incr.Input(app.rt, 2, label="quantity")
   let total = @incr.Derived(
@@ -981,7 +981,7 @@ test "docs api-ref: batch helper commits one atomic update" {
     () => price.get() * quantity.get(),
     label="total",
   )
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
   app.rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   @incr.batch(app, () => {
@@ -995,7 +995,7 @@ test "docs api-ref: batch helper commits one atomic update" {
 
 ///|
 test "docs api-ref: batch_result helper rolls back on Err" {
-  let app : AppCtx = { rt: @incr.Runtime() }
+  let app : AppCtx = { rt: @incr.Runtime(), }
   let price = @incr.Input(app.rt, 100, label="price")
   let quantity = @incr.Input(app.rt, 2, label="quantity")
   let total = @incr.Derived(
@@ -1022,7 +1022,7 @@ test "docs api-ref: batch_result helper rolls back on Err" {
 
 ///|
 test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map" {
-  let app : AppCtx = { rt: @incr.Runtime() }
+  let app : AppCtx = { rt: @incr.Runtime(), }
   let signal = @incr.create_input(
     app,
     10,
@@ -1036,7 +1036,7 @@ test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map
   )
   let by_key = @incr.create_derived_map(
     app,
-    (key : Int) => signal.get() + key,
+    (key : Int32) => signal.get() + key,
     label="compat_by_key",
   )
 
@@ -1064,7 +1064,7 @@ test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map
 
 ///|
 test "docs api-ref: compatibility create_accumulator captures memo pushes" {
-  let app : AppCtx = { rt: @incr.Runtime() }
+  let app : AppCtx = { rt: @incr.Runtime(), }
   let diags : @incr.Accumulator[String] = @incr.create_accumulator(
     app,
     label="diags",
@@ -1095,7 +1095,7 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
 
 ///|
 test "docs api-ref: compatibility create_input_field / create_scope / add_input_fields" {
-  let app : AppCtx = { rt: @incr.Runtime() }
+  let app : AppCtx = { rt: @incr.Runtime(), }
   let scope = @incr.create_scope(app)
   let tracked : CompatTrackedFields = {
     path: @incr.create_input_field(
@@ -1134,7 +1134,7 @@ test "docs api-ref: compatibility create_input_field / create_scope / add_input_
 ///|
 struct SourceFile {
   path : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|
@@ -1154,7 +1154,7 @@ test "docs api-ref: scope-owned target handles dispose together" {
     label="reachable",
   )
   let eager = scope.eager_derived(() => count.get() * 10)
-  let by_id = scope.derived_map((id : Int) => count.get() + id)
+  let by_id = scope.derived_map((id : Int32) => count.get() + id)
 
   count.set(7)
   inspect(path_field.get(), content="src/main.mbt")
@@ -1220,9 +1220,9 @@ cycle shapes.
 ///|
 test "docs api-ref: derived.get surfaces Err(ReadError::Cycle) inside compute" {
   let rt = @incr.Runtime()
-  let self_ref : Ref[@incr.Derived[Int]?] = { val: None }
-  let captured_formatted : Ref[String] = { val: "" }
-  let captured_len : Ref[Int] = { val: 0 }
+  let self_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
+  let captured_formatted : Ref[String] = { val: "", }
+  let captured_len : Ref[Int32] = { val: 0, }
 
   let m = @incr.Derived(
     rt,

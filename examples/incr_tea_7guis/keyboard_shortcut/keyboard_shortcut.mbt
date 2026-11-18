@@ -1,15 +1,18 @@
 ///|
 priv struct Model {
-  count : Int
+  count : Int32
   listening : Bool
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   Pressed
   ToggleListening
   Reset
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -21,7 +24,7 @@ priv struct App {
 ///|
 fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
-  let state = Ref({ count: 0, listening: true })
+  let state = Ref({ count: 0, listening: true, })
   let version = scope.input_field(0, label="7guis.keyboard_shortcut.version")
   let listening = scope.input_field(
     true,
@@ -55,15 +58,15 @@ fn App::App(runtime : @incr.Runtime) -> App {
     subscriptions,
     label="7guis.keyboard_shortcut.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
 fn update_model(msg : Msg, model : Model) -> Model {
   match msg {
-    Pressed => { ..model, count: model.count + 1 }
-    ToggleListening => { ..model, listening: !model.listening }
-    Reset => { ..model, count: 0 }
+    Pressed => { ..model, count: model.count + 1, }
+    ToggleListening => { ..model, listening: !model.listening, }
+    Reset => { ..model, count: 0, }
   }
 }
 

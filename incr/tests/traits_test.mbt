@@ -15,7 +15,7 @@ suberror TraitBatchError {
 
 ///|
 fn TestDb::TestDb() -> TestDb {
-  { rt: Runtime() }
+  { rt: Runtime(), }
 }
 
 ///|
@@ -206,7 +206,7 @@ test "trait: create_derived_map via RuntimeContext" {
   let source = @incr.create_input(db, 10)
   let by_key = @incr.create_derived_map(
     db,
-    (key : Int) => source.get() + key,
+    (key : Int32) => source.get() + key,
     label="by_key",
   )
   inspect(by_key.read_or_abort(1), content="11")

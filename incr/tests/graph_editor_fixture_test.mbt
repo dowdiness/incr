@@ -7,21 +7,21 @@
 
 ///|
 struct GraphNode {
-  id : Int
-  x : Int
-  y : Int
-  param : Int
+  id : Int32
+  x : Int32
+  y : Int32
+  param : Int32
 }
 
 ///|
 struct GraphEdge {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
 }
 
 ///|
 struct GraphDocument {
-  revision : Int
+  revision : Int32
   nodes : Array[GraphNode]
   edges : Array[GraphEdge]
 }
@@ -29,27 +29,27 @@ struct GraphDocument {
 ///|
 struct GraphDrag {
   active : Bool
-  node_id : Int
-  dx : Int
-  dy : Int
-  revision : Int
+  node_id : Int32
+  dx : Int32
+  dy : Int32
+  revision : Int32
 }
 
 ///|
 struct GraphViewport {
-  pan_x : Int
-  pan_y : Int
-  zoom_milli : Int
-  revision : Int
+  pan_x : Int32
+  pan_y : Int32
+  zoom_milli : Int32
+  revision : Int32
 }
 
 ///|
 struct GraphValidated {
   document : GraphDocument
-  node_count : Int
-  edge_count : Int
-  invalid_edges : Int
-  checksum : Int
+  node_count : Int32
+  edge_count : Int32
+  invalid_edges : Int32
+  checksum : Int32
 }
 
 ///|
@@ -62,19 +62,19 @@ impl Eq for GraphValidated with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphNormalizedNode {
-  id : Int
-  x : Int
-  y : Int
-  value : Int
-  degree : Int
+  id : Int32
+  x : Int32
+  y : Int32
+  value : Int32
+  degree : Int32
 }
 
 ///|
 struct GraphNormalized {
-  node_count : Int
-  edge_count : Int
+  node_count : Int32
+  edge_count : Int32
   nodes : Array[GraphNormalizedNode]
-  checksum : Int
+  checksum : Int32
 }
 
 ///|
@@ -86,10 +86,10 @@ impl Eq for GraphNormalized with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphLoweredNode {
-  id : Int
-  x : Int
-  y : Int
-  render_value : Int
+  id : Int32
+  x : Int32
+  y : Int32
+  render_value : Int32
 }
 
 ///|
@@ -102,9 +102,9 @@ impl Eq for GraphLoweredNode with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphLowered {
-  node_count : Int
+  node_count : Int32
   nodes : Array[GraphLoweredNode]
-  checksum : Int
+  checksum : Int32
 }
 
 ///|
@@ -114,8 +114,8 @@ impl Eq for GraphLowered with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphRender {
-  rendered_nodes : Int
-  render_checksum : Int
+  rendered_nodes : Int32
+  render_checksum : Int32
 }
 
 ///|
@@ -126,8 +126,8 @@ impl Eq for GraphRender with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphInspector {
-  node_id : Int
-  checksum : Int
+  node_id : Int32
+  checksum : Int32
 }
 
 ///|
@@ -137,12 +137,12 @@ impl Eq for GraphInspector with fn equal(self, other) -> Bool {
 
 ///|
 struct GraphRecomputeCounters {
-  mut validation : Int
-  mut normalization : Int
-  mut lowering : Int
-  mut lower_node : Int
-  mut render : Int
-  mut inspector : Int
+  mut validation : Int32
+  mut normalization : Int32
+  mut lowering : Int32
+  mut lower_node : Int32
+  mut render : Int32
+  mut inspector : Int32
 }
 
 ///|
@@ -159,12 +159,12 @@ fn GraphRecomputeCounters::GraphRecomputeCounters() -> GraphRecomputeCounters {
 
 ///|
 struct GraphRecomputeRecord {
-  validation : Int
-  normalization : Int
-  lowering : Int
-  lower_node : Int
-  render : Int
-  inspector : Int
+  validation : Int32
+  normalization : Int32
+  lowering : Int32
+  lower_node : Int32
+  render : Int32
+  inspector : Int32
 }
 
 ///|
@@ -202,12 +202,12 @@ fn GraphRecomputeRecord::summary(self : GraphRecomputeRecord) -> String {
 }
 
 ///|
-fn graph_mix(acc : Int, value : Int, index : Int) -> Int {
+fn graph_mix(acc : Int32, value : Int32, index : Int32) -> Int32 {
   (acc * 33 + value.abs() % 4093 * (index % 17 + 1) + 17) % 1000003
 }
 
 ///|
-fn graph_clamp_index(count : Int, requested : Int) -> Int {
+fn graph_clamp_index(count : Int32, requested : Int32) -> Int32 {
   if count <= 0 {
     0
   } else {
@@ -216,7 +216,7 @@ fn graph_clamp_index(count : Int, requested : Int) -> Int {
 }
 
 ///|
-fn graph_initial_document(node_count : Int) -> GraphDocument {
+fn graph_initial_document(node_count : Int32) -> GraphDocument {
   let nodes : Array[GraphNode] = []
   for i in 0..<node_count {
     nodes.push({
@@ -229,19 +229,19 @@ fn graph_initial_document(node_count : Int) -> GraphDocument {
   let edges : Array[GraphEdge] = []
   if node_count > 1 {
     for i in 0..<(node_count - 1) {
-      edges.push({ from: i, to: i + 1 })
+      edges.push({ from: i, to: i + 1, })
     }
   }
-  { revision: 0, nodes, edges }
+  { revision: 0, nodes, edges, }
 }
 
 ///|
-fn graph_idle_drag(revision : Int) -> GraphDrag {
-  { active: false, node_id: 0, dx: 0, dy: 0, revision }
+fn graph_idle_drag(revision : Int32) -> GraphDrag {
+  { active: false, node_id: 0, dx: 0, dy: 0, revision, }
 }
 
 ///|
-fn graph_drag_preview(frame : Int, node_count : Int) -> GraphDrag {
+fn graph_drag_preview(frame : Int32, node_count : Int32) -> GraphDrag {
   {
     active: true,
     node_id: graph_clamp_index(node_count, frame),
@@ -253,11 +253,11 @@ fn graph_drag_preview(frame : Int, node_count : Int) -> GraphDrag {
 
 ///|
 fn graph_initial_viewport() -> GraphViewport {
-  { pan_x: 0, pan_y: 0, zoom_milli: 1000, revision: 0 }
+  { pan_x: 0, pan_y: 0, zoom_milli: 1000, revision: 0, }
 }
 
 ///|
-fn graph_next_viewport(current : GraphViewport, step : Int) -> GraphViewport {
+fn graph_next_viewport(current : GraphViewport, step : Int32) -> GraphViewport {
   {
     pan_x: current.pan_x + step % 13,
     pan_y: current.pan_y - step % 11,
@@ -267,7 +267,7 @@ fn graph_next_viewport(current : GraphViewport, step : Int) -> GraphViewport {
 }
 
 ///|
-fn graph_edit_parameter(doc : GraphDocument, step : Int) -> GraphDocument {
+fn graph_edit_parameter(doc : GraphDocument, step : Int32) -> GraphDocument {
   let nodes = doc.nodes.copy()
   let edges = doc.edges.copy()
   if nodes.length() > 0 {
@@ -280,7 +280,7 @@ fn graph_edit_parameter(doc : GraphDocument, step : Int) -> GraphDocument {
       param: (node.param + step + 1) % 997,
     }
   }
-  { revision: doc.revision + 1, nodes, edges }
+  { revision: doc.revision + 1, nodes, edges, }
 }
 
 ///|
@@ -295,9 +295,9 @@ fn graph_add_node(doc : GraphDocument) -> GraphDocument {
     param: (id * 7 + 13) % 251,
   })
   if id > 0 {
-    edges.push({ from: id - 1, to: id })
+    edges.push({ from: id - 1, to: id, })
   }
-  { revision: doc.revision + 1, nodes, edges }
+  { revision: doc.revision + 1, nodes, edges, }
 }
 
 ///|
@@ -310,28 +310,28 @@ fn graph_delete_last_node(doc : GraphDocument) -> GraphDocument {
   let edges = doc.edges.filter(edge => {
     edge.from != deleted_id && edge.to != deleted_id
   })
-  { revision: doc.revision + 1, nodes, edges }
+  { revision: doc.revision + 1, nodes, edges, }
 }
 
 ///|
-fn graph_connect_edge(doc : GraphDocument, step : Int) -> GraphDocument {
+fn graph_connect_edge(doc : GraphDocument, step : Int32) -> GraphDocument {
   let nodes = doc.nodes.copy()
   let edges = doc.edges.copy()
   if nodes.length() > 1 {
     let from = graph_clamp_index(nodes.length(), step)
     let to = graph_clamp_index(nodes.length(), step + nodes.length() / 2 + 1)
     if from != to {
-      edges.push({ from, to })
+      edges.push({ from, to, })
     }
   }
-  { revision: doc.revision + 1, nodes, edges }
+  { revision: doc.revision + 1, nodes, edges, }
 }
 
 ///|
 fn graph_disconnect_edge(doc : GraphDocument) -> GraphDocument {
   let edges = doc.edges.copy()
   ignore(edges.pop())
-  { revision: doc.revision + 1, nodes: doc.nodes.copy(), edges }
+  { revision: doc.revision + 1, nodes: doc.nodes.copy(), edges, }
 }
 
 ///|
@@ -348,7 +348,7 @@ fn graph_move_nodes(doc : GraphDocument, drag : GraphDrag) -> GraphDocument {
       param: node.param,
     }
   }
-  { revision: doc.revision + 1, nodes, edges }
+  { revision: doc.revision + 1, nodes, edges, }
 }
 
 ///|
@@ -373,12 +373,12 @@ fn graph_validate(doc : GraphDocument) -> GraphValidated {
       node_count + i,
     )
   }
-  { document: doc, node_count, edge_count, invalid_edges, checksum }
+  { document: doc, node_count, edge_count, invalid_edges, checksum, }
 }
 
 ///|
 fn graph_normalize(validated : GraphValidated) -> GraphNormalized {
-  let degrees : Array[Int] = []
+  let degrees : Array[Int32] = []
   for _ in 0..<validated.node_count {
     degrees.push(0)
   }
@@ -399,7 +399,7 @@ fn graph_normalize(validated : GraphValidated) -> GraphNormalized {
         node.param * 7 + degree * 11 + validated.invalid_edges * 13 + i
       ) %
       997
-    nodes.push({ id: node.id, x: node.x, y: node.y, value, degree })
+    nodes.push({ id: node.id, x: node.x, y: node.y, value, degree, })
     checksum = graph_mix(checksum, value + degree, i)
   }
   {
@@ -413,16 +413,16 @@ fn graph_normalize(validated : GraphValidated) -> GraphNormalized {
 ///|
 fn graph_lower_node(
   normalized : GraphNormalized,
-  index : Int,
+  index : Int32,
 ) -> GraphLoweredNode {
   if normalized.node_count == 0 {
-    { id: -1, x: 0, y: 0, render_value: 0 }
+    { id: -1, x: 0, y: 0, render_value: 0, }
   } else {
     let safe_index = graph_clamp_index(normalized.node_count, index)
     let node = normalized.nodes[safe_index]
     let render_value = (node.value * 5 + node.degree * 23 + safe_index * 19) %
       8191
-    { id: node.id, x: node.x, y: node.y, render_value }
+    { id: node.id, x: node.x, y: node.y, render_value, }
   }
 }
 
@@ -435,7 +435,7 @@ fn graph_lower(normalized : GraphNormalized) -> GraphLowered {
     nodes.push(node)
     checksum = graph_mix(checksum, node.render_value + node.x + node.y, i)
   }
-  { node_count: normalized.node_count, nodes, checksum }
+  { node_count: normalized.node_count, nodes, checksum, }
 }
 
 ///|
@@ -443,8 +443,8 @@ fn graph_render_node(
   node : GraphLoweredNode,
   drag : GraphDrag,
   viewport : GraphViewport,
-  index : Int,
-) -> Int {
+  index : Int32,
+) -> Int32 {
   let dx = if drag.active && drag.node_id == node.id { drag.dx } else { 0 }
   let dy = if drag.active && drag.node_id == node.id { drag.dy } else { 0 }
   let screen_x = (node.x + dx + viewport.pan_x) * viewport.zoom_milli / 1000
@@ -466,15 +466,15 @@ fn graph_render_from_lowered(
       i,
     )
   }
-  { rendered_nodes: lowered.node_count, render_checksum: checksum }
+  { rendered_nodes: lowered.node_count, render_checksum: checksum, }
 }
 
 ///|
 fn graph_render_from_reader(
-  node_count : Int,
+  node_count : Int32,
   drag : GraphDrag,
   viewport : GraphViewport,
-  read_node : (Int) -> GraphLoweredNode,
+  read_node : (Int32) -> GraphLoweredNode,
 ) -> GraphRender {
   let mut checksum = graph_mix(0, node_count, 0)
   for i in 0..<node_count {
@@ -485,12 +485,12 @@ fn graph_render_from_reader(
       i,
     )
   }
-  { rendered_nodes: node_count, render_checksum: checksum }
+  { rendered_nodes: node_count, render_checksum: checksum, }
 }
 
 ///|
 fn graph_inspector_from_node(
-  requested : Int,
+  requested : Int32,
   node : GraphLoweredNode,
 ) -> GraphInspector {
   {
@@ -504,7 +504,7 @@ struct GraphEditorSetup {
   rt : @incr.Runtime
   scope : @incr.Scope
   document : @incr.Input[GraphDocument]
-  hover : @incr.Input[Int]
+  hover : @incr.Input[Int32]
   drag : @incr.Input[GraphDrag]
   viewport : @incr.Input[GraphViewport]
   counters : GraphRecomputeCounters
@@ -514,7 +514,7 @@ struct GraphEditorSetup {
 struct GraphEditorPipeline[T] {
   scope : @incr.Scope
   document : @incr.Input[GraphDocument]
-  hover : @incr.Input[Int]
+  hover : @incr.Input[Int32]
   drag : @incr.Input[GraphDrag]
   viewport : @incr.Input[GraphViewport]
   counters : GraphRecomputeCounters
@@ -523,7 +523,7 @@ struct GraphEditorPipeline[T] {
 
 ///|
 fn graph_editor_setup(
-  node_count : Int,
+  node_count : Int32,
   label_prefix : String,
 ) -> GraphEditorSetup {
   let rt = @incr.Runtime()
@@ -578,9 +578,9 @@ fn graph_editor_lowered_by_node(
   setup : GraphEditorSetup,
   normalized : @incr.Derived[GraphNormalized],
   label_prefix : String,
-) -> @incr.DerivedMap[Int, GraphLoweredNode] {
+) -> @incr.DerivedMap[Int32, GraphLoweredNode] {
   setup.scope.derived_map(
-    (index : Int) => {
+    (index : Int32) => {
       setup.counters.lower_node += 1
       graph_lower_node(normalized.get_or_abort(), index)
     },
@@ -608,7 +608,7 @@ fn[T] graph_finish_pipeline(
 
 ///|
 fn graph_editor_coarse_full_pipeline(
-  node_count : Int,
+  node_count : Int32,
 ) -> GraphEditorPipeline[GraphRender] {
   let setup = graph_editor_setup(node_count, "graph.coarse")
   let normalized = graph_editor_normalized(setup, "graph.coarse")
@@ -636,7 +636,7 @@ fn graph_editor_coarse_full_pipeline(
 
 ///|
 fn graph_editor_per_node_full_pipeline(
-  node_count : Int,
+  node_count : Int32,
 ) -> GraphEditorPipeline[GraphRender] {
   let setup = graph_editor_setup(node_count, "graph.per_node")
   let normalized = graph_editor_normalized(setup, "graph.per_node")
@@ -662,7 +662,7 @@ fn graph_editor_per_node_full_pipeline(
 
 ///|
 fn graph_editor_sparse_inspector_pipeline(
-  node_count : Int,
+  node_count : Int32,
 ) -> GraphEditorPipeline[GraphInspector] {
   let setup = graph_editor_setup(node_count, "graph.inspector")
   let normalized = graph_editor_normalized(setup, "graph.inspector")
@@ -704,7 +704,7 @@ fn[T] GraphEditorPipeline::dispose(self : GraphEditorPipeline[T]) -> Unit {
 ///|
 fn[T] GraphEditorPipeline::edit_parameter(
   self : GraphEditorPipeline[T],
-  step : Int,
+  step : Int32,
 ) -> Unit {
   self.document.force_set(graph_edit_parameter(self.document.peek(), step))
 }
@@ -722,7 +722,7 @@ fn[T] GraphEditorPipeline::delete_node(self : GraphEditorPipeline[T]) -> Unit {
 ///|
 fn[T] GraphEditorPipeline::connect_edge(
   self : GraphEditorPipeline[T],
-  step : Int,
+  step : Int32,
 ) -> Unit {
   self.document.force_set(graph_connect_edge(self.document.peek(), step))
 }
@@ -737,7 +737,7 @@ fn[T] GraphEditorPipeline::disconnect_edge(
 ///|
 fn[T] GraphEditorPipeline::pan_zoom(
   self : GraphEditorPipeline[T],
-  step : Int,
+  step : Int32,
 ) -> Unit {
   self.viewport.force_set(graph_next_viewport(self.viewport.peek(), step))
 }
@@ -745,7 +745,7 @@ fn[T] GraphEditorPipeline::pan_zoom(
 ///|
 fn[T] GraphEditorPipeline::drag_preview(
   self : GraphEditorPipeline[T],
-  frame : Int,
+  frame : Int32,
 ) -> Unit {
   self.drag.force_set(
     graph_drag_preview(frame, self.document.peek().nodes.length()),
@@ -764,7 +764,7 @@ fn[T] GraphEditorPipeline::commit_move_nodes(
 ///|
 fn[T] GraphEditorPipeline::set_hover(
   self : GraphEditorPipeline[T],
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   self.hover.set(node_id)
 }
@@ -783,7 +783,7 @@ fn[T] graph_delta_after(
 ///|
 test "graph editor: MoveNodes commit uses drag anchor only" {
   let doc = graph_initial_document(12)
-  let drag = { active: true, node_id: 5, dx: 3, dy: -2, revision: 1 }
+  let drag = { active: true, node_id: 5, dx: 3, dy: -2, revision: 1, }
   let moved = graph_move_nodes(doc, drag)
   let revision_delta = moved.revision - doc.revision
   let deltas = [

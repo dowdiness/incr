@@ -9,29 +9,41 @@
 /// If two logical sources use the same `(namespace, identity)` pair, they
 /// intentionally collide and share one live subscription. Use unique namespaces
 /// and identities for distinct subscriptions.
+#derive(Eq, Hash, Debug)
 pub struct SubKey {
   namespace_id : String
   identity : String
-} derive(Eq, Hash, Debug)
+}
+
+///|
 pub extend SubKey with Eq::{not_equal, equal}
+
+///|
 pub extend SubKey with Hash::{hash, hash_combine}
+
+///|
 pub extend SubKey with Debug::{to_repr}
 
 ///|
 pub fn SubKey::SubKey(namespace_id : String, identity : String) -> SubKey {
-  { namespace_id, identity }
+  { namespace_id, identity, }
 }
 
 ///|
 /// Desired subscription behavior for one key.
 ///
 /// More variants can be added alongside `Timer` as the platform evolves.
+#derive(Eq, Debug)
 pub(all) enum SubSpec[Msg] {
-  Timer(Int, Msg)
+  Timer(Int32, Msg)
   WindowKeydown(String, Msg)
   AnimationFrame(Msg)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend SubSpec with Eq::{not_equal, equal}
+
+///|
 pub extend SubSpec with Debug::{to_repr}
 
 ///|
@@ -45,20 +57,20 @@ priv type TimerHandleId
 
 ///|
 #cfg(not(target="js"))
-let next_timer_id : Ref[Int] = Ref(0)
+let next_timer_id : Ref[Int32] = Ref(0)
 
 ///|
 #cfg(not(target="js"))
-type TimerHandleId = Int
+type TimerHandleId = Int32
 
 ///|
-let next_timer_debug_id : Ref[Int] = Ref(0)
+let next_timer_debug_id : Ref[Int32] = Ref(0)
 
 ///|
 #cfg(target="js")
 extern "js" fn dom_set_interval(
   callback : () -> Unit,
-  interval_ms : Int,
+  interval_ms : Int32,
 ) -> TimerHandleId =
   #| (callback, intervalMs) => {
   #|   if (typeof window === "undefined" || window === null) {
@@ -71,7 +83,7 @@ extern "js" fn dom_set_interval(
 #cfg(not(target="js"))
 fn dom_set_interval(
   _callback : () -> Unit,
-  _interval_ms : Int,
+  _interval_ms : Int32,
 ) -> TimerHandleId {
   next_timer_id.val = next_timer_id.val + 1
   next_timer_id.val
@@ -99,14 +111,14 @@ priv type KeydownHandleId
 
 ///|
 #cfg(not(target="js"))
-let next_keydown_id : Ref[Int] = Ref(0)
+let next_keydown_id : Ref[Int32] = Ref(0)
 
 ///|
 #cfg(not(target="js"))
-type KeydownHandleId = Int
+type KeydownHandleId = Int32
 
 ///|
-let next_keydown_debug_id : Ref[Int] = Ref(0)
+let next_keydown_debug_id : Ref[Int32] = Ref(0)
 
 ///|
 #cfg(target="js")
@@ -168,16 +180,16 @@ priv type RafHandleId
 ///|
 /// Monotonic counter for non-JS rAF handle allocation.
 #cfg(not(target="js"))
-let next_raf_id : Ref[Int] = Ref(0)
+let next_raf_id : Ref[Int32] = Ref(0)
 
 ///|
 /// Non-JS stub: a rAF handle is a monotonic counter value.
 #cfg(not(target="js"))
-type RafHandleId = Int
+type RafHandleId = Int32
 
 ///|
 /// Debug counter incremented on each AnimationFrameSub construction, visible from wbtests.
-let next_raf_debug_id : Ref[Int] = Ref(0)
+let next_raf_debug_id : Ref[Int32] = Ref(0)
 
 ///| Starts a self-re-scheduling `requestAnimationFrame` loop.
 
@@ -244,7 +256,7 @@ fn dom_stop_raf_loop(_handle : RafHandleId) -> Unit {
 
 ///|
 priv struct TimerSub[Msg] {
-  mut interval_ms : Int
+  mut interval_ms : Int32
   message : Ref[Msg]
   mut timer_id : TimerHandleId
   dispatch : (Msg) -> Unit
@@ -266,7 +278,7 @@ fn[Msg] AnimationFrameSub::AnimationFrameSub(
   let message_ref = Ref(message)
   let handle = dom_start_raf_loop(() => dispatch(message_ref.val))
   next_raf_debug_id.val = next_raf_debug_id.val + 1
-  { message: message_ref, handle }
+  { message: message_ref, handle, }
 }
 
 ///|
@@ -300,19 +312,19 @@ priv struct SubscriptionsManager[Msg] {
 fn[Msg] SubscriptionsManager::SubscriptionsManager() -> SubscriptionsManager[
   Msg,
 ] {
-  { active: @hashmap.HashMap([]) }
+  { active: @hashmap.HashMap([]), }
 }
 
 ///|
 fn[Msg] TimerSub::TimerSub(
-  interval_ms : Int,
+  interval_ms : Int32,
   message : Msg,
   dispatch : (Msg) -> Unit,
 ) -> TimerSub[Msg] {
   let message_ref = Ref(message)
   let timer_id = dom_set_interval(() => dispatch(message_ref.val), interval_ms)
   next_timer_debug_id.val = next_timer_debug_id.val + 1
-  { interval_ms, message: message_ref, timer_id, dispatch }
+  { interval_ms, message: message_ref, timer_id, dispatch, }
 }
 
 ///|
@@ -321,7 +333,10 @@ fn[Msg] TimerSub::set_message(self : TimerSub[Msg], message : Msg) -> Unit {
 }
 
 ///|
-fn[Msg] TimerSub::set_interval(self : TimerSub[Msg], interval_ms : Int) -> Unit {
+fn[Msg] TimerSub::set_interval(
+  self : TimerSub[Msg],
+  interval_ms : Int32,
+) -> Unit {
   guard interval_ms != self.interval_ms else { return }
   dom_clear_interval(self.timer_id)
   let message = self.message
@@ -355,7 +370,7 @@ fn[Msg] KeydownSub::KeydownSub(
     dispatch(message_ref.val)
   })
   next_keydown_debug_id.val = next_keydown_debug_id.val + 1
-  { key_name, message: message_ref, listener_handle, dispatch }
+  { key_name, message: message_ref, listener_handle, dispatch, }
 }
 
 ///|
@@ -395,7 +410,7 @@ fn[Msg] ActiveSub::stop(self : ActiveSub[Msg]) -> Unit {
 
 ///|
 fn[Msg] SubscriptionsManager::start_timer(
-  interval_ms : Int,
+  interval_ms : Int32,
   on_tick : Msg,
   dispatch : (Msg) -> Unit,
 ) -> ActiveSub[Msg] {
@@ -406,7 +421,7 @@ fn[Msg] SubscriptionsManager::start_timer(
 fn[Msg] SubscriptionsManager::start_or_update_timer(
   self : SubscriptionsManager[Msg],
   key : SubKey,
-  interval_ms : Int,
+  interval_ms : Int32,
   on_tick : Msg,
   dispatch : (Msg) -> Unit,
 ) -> Unit {

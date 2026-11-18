@@ -13,7 +13,7 @@ isolation, keyed derived maps, accumulators, and reachable derived reads.
 test "docs concepts: same-value input set is a no-op" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 0, label="count")
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   inspect(count.get(), content="0")
@@ -68,8 +68,8 @@ test "docs concepts: derived get tracks inside and read works outside" {
 test "docs concepts: backdating skips unchanged downstream value" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 4, label="input")
-  let is_even_runs : Ref[Int] = { val: 0 }
-  let label_runs : Ref[Int] = { val: 0 }
+  let is_even_runs : Ref[Int32] = { val: 0, }
+  let label_runs : Ref[Int32] = { val: 0, }
   let is_even = @incr.Derived(
     rt,
     () => {
@@ -105,7 +105,7 @@ test "docs concepts: backdating skips unchanged downstream value" {
 test "docs concepts: batch revert produces no committed change" {
   let rt = @incr.Runtime()
   let counter = @incr.Input(rt, 0, label="counter")
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   rt.batch(() => {
@@ -122,8 +122,8 @@ test "docs concepts: high-durability derived stays cached when low input changes
   let rt = @incr.Runtime()
   let config = @incr.Input(rt, "production", durability=High, label="config")
   let user_input = @incr.Input(rt, "hello", label="user_input")
-  let config_runs : Ref[Int] = { val: 0 }
-  let processed_runs : Ref[Int] = { val: 0 }
+  let config_runs : Ref[Int32] = { val: 0, }
+  let processed_runs : Ref[Int32] = { val: 0, }
   let config_hash = @incr.Derived(
     rt,
     () => {
@@ -156,7 +156,7 @@ test "docs concepts: dynamic dependencies follow active branch" {
   let mode = @incr.Input(rt, "add", label="mode")
   let x = @incr.Input(rt, 10, label="x")
   let y = @incr.Input(rt, 20, label="y")
-  let result_runs : Ref[Int] = { val: 0 }
+  let result_runs : Ref[Int32] = { val: 0, }
   let result = @incr.Derived(
     rt,
     () => {
@@ -188,7 +188,7 @@ test "docs concepts: dynamic dependencies follow active branch" {
 struct ConceptsSourceFile {
   path : @incr.InputField[String]
   content : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|
@@ -206,8 +206,8 @@ test "docs concepts: input fields isolate field-specific dependencies" {
     version: @incr.InputField(rt, 0, label="version"),
   }
   @incr.add_input_fields(scope, file)
-  let word_count_runs : Ref[Int] = { val: 0 }
-  let is_test_runs : Ref[Int] = { val: 0 }
+  let word_count_runs : Ref[Int32] = { val: 0, }
+  let is_test_runs : Ref[Int32] = { val: 0, }
   let word_count = @incr.Derived(
     rt,
     () => {
@@ -240,7 +240,11 @@ test "docs concepts: input fields isolate field-specific dependencies" {
 test "docs concepts: derived maps cache per key and recompute lazily" {
   let rt = @incr.Runtime()
   let base = @incr.Input(rt, 10, label="base")
-  let by_id = @incr.DerivedMap(rt, (id : Int) => base.get() + id, label="by_id")
+  let by_id = @incr.DerivedMap(
+    rt,
+    (id : Int32) => base.get() + id,
+    label="by_id",
+  )
 
   inspect(by_id.read_or_abort(1), content="11")
   inspect(by_id.read_or_abort(2), content="12")

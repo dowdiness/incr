@@ -33,11 +33,12 @@ priv enum UiCompareRowLeafOperation {
 }
 
 ///|
+#derive(Eq)
 priv enum UiCompareWorkspaceMode {
   UiCompareWorkspaceCollapsed
   UiCompareWorkspaceHiddenMounted
   UiCompareWorkspaceVisible
-} derive(Eq)
+}
 
 ///|
 priv enum UiCompareWorkspaceOperation {
@@ -105,7 +106,7 @@ extern "js" fn ui_compare_try_click_action(
 
 ///|
 extern "js" fn ui_compare_install_adjacent_api(
-  run : (String, String, String, Int, Int, Int) -> String,
+  run : (String, String, String, Int32, Int32, Int32) -> String,
 ) -> Unit =
   #| (run) => {
   #|   const toInt = (value, fallback) => {
@@ -154,7 +155,7 @@ extern "js" fn ui_compare_install_adjacent_api(
   #| }
 
 ///|
-fn ui_compare_positive(value : Int, fallback : Int) -> Int {
+fn ui_compare_positive(value : Int32, fallback : Int32) -> Int32 {
   guard value > 0 else { fallback }
   value
 }
@@ -327,7 +328,7 @@ fn UiCompareWorkspaceOperation::mode_action(
 }
 
 ///|
-fn ui_compare_row_leaf_hot_index(n : Int) -> Int {
+fn ui_compare_row_leaf_hot_index(n : Int32) -> Int32 {
   guard n > 0 else { 0 }
   n / 2
 }
@@ -337,8 +338,8 @@ fn ui_compare_result_json(
   system : String,
   suite : String,
   operation : String,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
   samples : Array[Double],
 ) -> String {
   let sample_json = samples.map(sample => "\{sample * 1000.0}").join(",")
@@ -348,14 +349,14 @@ fn ui_compare_result_json(
 }
 
 ///|
-fn ui_compare_make_items(n : Int) -> Array[(String, String)] {
+fn ui_compare_make_items(n : Int32) -> Array[(String, String)] {
   [
     for i in 0..<n => ("item-\{i}", "Item \{i}")
   ]
 }
 
 ///|
-fn ui_compare_make_item_ids(n : Int) -> Array[String] {
+fn ui_compare_make_item_ids(n : Int32) -> Array[String] {
   [
     for i in 0..<n => "item-\{i}"
   ]

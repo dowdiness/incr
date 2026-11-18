@@ -218,7 +218,7 @@ fn surface_bind(
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target: input, binding: @nodeflow.BindingTarget::Bound(output) },
+        { target: input, binding: @nodeflow.BindingTarget::Bound(output), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )

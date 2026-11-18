@@ -10,6 +10,8 @@ pub fn DownstreamFresh::DownstreamFresh(ok : Bool) -> DownstreamFresh {
 
 ///|
 pub extend DownstreamFresh with @probe.CurrentFreshness::{current}
+
+///|
 pub impl @probe.CurrentFreshness for DownstreamFresh with fn current(self) {
   self.ok
 }
@@ -26,22 +28,28 @@ pub fn DownstreamLegacy::DownstreamLegacy(ok : Bool) -> DownstreamLegacy {
 
 ///|
 pub extend DownstreamLegacy with @probe.CompatReadable::{readable}
+
+///|
 pub impl @probe.CompatReadable for DownstreamLegacy with fn readable(self) {
   self.ok
 }
 
 ///|
 pub extend DownstreamFresh with @probe.CompatReadable::{readable}
+
+///|
 pub impl @probe.CompatReadable for DownstreamFresh with fn readable(self) {
   self.current()
 }
 
 ///|
-pub fn probe_public_aliases() -> Int {
+pub fn probe_public_aliases() -> Int32 {
   let from_constructor = @probe.ProbeCell::ProbeCell(1)
   let from_target = @probe.ProbeCell::ProbeCell(2)
-  let from_type_alias : @probe.RenamedCell[Int] = @probe.ProbeCell::ProbeCell(3)
-  let from_renamed_alias : @probe.RenamedCell[Int] = @probe.ProbeCell::ProbeCell(
+  let from_type_alias : @probe.RenamedCell[Int32] = @probe.ProbeCell::ProbeCell(
+    3,
+  )
+  let from_renamed_alias : @probe.RenamedCell[Int32] = @probe.ProbeCell::ProbeCell(
     4,
   )
   from_constructor.value() +
@@ -63,7 +71,7 @@ pub fn probe_blanket_trait_compatibility() -> Bool {
 }
 
 ///|
-pub fn probe_same_receiver_overload() -> Int {
+pub fn probe_same_receiver_overload() -> Int32 {
   let rt = @probe.ReadRuntime()
   rt.read(@probe.ReadMemo(10)) + rt.read_reactive(@probe.ReadReactive(20))
 }

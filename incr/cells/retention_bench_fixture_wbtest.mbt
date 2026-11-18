@@ -1,5 +1,5 @@
 ///|
-fn build_primed_pull_retention_fixture(n : Int) -> (Runtime, Input[Int]) {
+fn build_primed_pull_retention_fixture(n : Int32) -> (Runtime, Input[Int32]) {
   let rt = Runtime()
   let root = Input(rt, 0, label="root")
   for i in 0..<n {
@@ -11,7 +11,10 @@ fn build_primed_pull_retention_fixture(n : Int) -> (Runtime, Input[Int]) {
 }
 
 ///|
-fn build_retained_chain_fixture(n : Int, depth : Int) -> (Runtime, Input[Int]) {
+fn build_retained_chain_fixture(
+  n : Int32,
+  depth : Int32,
+) -> (Runtime, Input[Int32]) {
   let rt = Runtime()
   let root = Input(rt, 0, label="root")
   for chain in 0..<n {
@@ -51,11 +54,11 @@ test "retention fixture: chain depth changes total nodes, not root fanout" {
 
 ///|
 fn build_disposed_pull_control_fixture(
-  n : Int,
-) -> (Runtime, Input[Int], EagerDerived[Int]) {
+  n : Int32,
+) -> (Runtime, Input[Int32], EagerDerived[Int32]) {
   let rt = Runtime()
   let root = Input(rt, 0, label="root")
-  let stale : Array[Derived[Int]] = []
+  let stale : Array[Derived[Int32]] = []
   for i in 0..<n {
     let offset = i
     let derived = Derived(rt, () => root.get() + offset)
@@ -86,8 +89,8 @@ test "retention fixture: disposed pull slots are free while cell ids remain allo
 
 ///|
 fn build_gc_pull_control_fixture(
-  n : Int,
-) -> (Runtime, Input[Int], EagerDerived[Int], Watch[Int]) {
+  n : Int32,
+) -> (Runtime, Input[Int32], EagerDerived[Int32], Watch[Int32]) {
   let rt = Runtime()
   let root = Input(rt, 0, label="root")
   for i in 0..<n {

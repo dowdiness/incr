@@ -1,28 +1,31 @@
 ///|
 priv struct Circle {
-  id : Int
-  x : Int
-  y : Int
-  radius : Int
+  id : Int32
+  x : Int32
+  y : Int32
+  radius : Int32
 }
 
 ///|
 priv struct Model {
   circles : Array[Circle]
-  selected : Int?
-  next_id : Int
+  selected : Int32?
+  next_id : Int32
   undo : Array[Array[Circle]]
   redo : Array[Array[Circle]]
 }
 
 ///|
+#derive(Eq)
 enum Msg {
-  Add(Int, Int)
-  Select(Int)
+  Add(Int32, Int32)
+  Select(Int32)
   SetRadius(String)
   Undo
   Redo
-} derive(Eq)
+}
+
+///|
 pub extend Msg with Eq::{not_equal, equal}
 
 ///|
@@ -58,11 +61,11 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view,
     label="7guis.circle.view",
   )
-  { program, _state: state }
+  { program, _state: state, }
 }
 
 ///|
-fn parse_int_or_none(value : String) -> Int? {
+fn parse_int_or_none(value : String) -> Int32? {
   let trimmed = value.trim()
   try @string.parse_int(trimmed) catch {
     _ => None
@@ -90,14 +93,14 @@ fn update_model(msg : Msg, model : Model) -> Model {
     Add(x, y) => {
       let id = model.next_id
       {
-        circles: [..model.circles, { id, x, y, radius: 24 }],
+        circles: [..model.circles, { id, x, y, radius: 24, }],
         selected: Some(id),
         next_id: id + 1,
         undo: push_history(model),
         redo: [],
       }
     }
-    Select(id) => { ..model, selected: Some(id) }
+    Select(id) => { ..model, selected: Some(id), }
     SetRadius(value) =>
       model.selected
       .bind(id => parse_int_or_none(value).map(radius => (id, radius)))
@@ -105,12 +108,12 @@ fn update_model(msg : Msg, model : Model) -> Model {
         let bounded = pair.1.clamp(min=8, max=80)
         let circles = model.circles.map(circle => {
           if circle.id == pair.0 {
-            { ..circle, radius: bounded }
+            { ..circle, radius: bounded, }
           } else {
             circle
           }
         })
-        { ..model, circles, undo: push_history(model), redo: [] }
+        { ..model, circles, undo: push_history(model), redo: [], }
       })
     Undo =>
       model.undo
@@ -209,7 +212,7 @@ fn circle_view(model : Model, circle : Circle) -> @tea.Html[Msg] {
 }
 
 ///|
-fn selected_radius(model : Model) -> Int {
+fn selected_radius(model : Model) -> Int32 {
   model.selected
   .bind(id => model.circles.search_by(circle => circle.id == id))
   .map(index => model.circles[index].radius)
@@ -227,7 +230,7 @@ fn disabled_button_attrs() -> Array[@tea.Attribute] {
 }
 
 ///|
-extern "js" fn round_client_coordinate(value : Double) -> Int =
+extern "js" fn round_client_coordinate(value : Double) -> Int32 =
   #| (value) => Math.round(Number(value) || 0)
 
 ///|

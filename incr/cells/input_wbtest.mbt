@@ -101,8 +101,8 @@ test "panic input: force_set inside push-reactive compute aborts" {
 test "panic input: set inside fixpoint rule body aborts in push-free graph" {
   let rt = Runtime()
   let sig = Input(rt, 0, label="sig")
-  let input_rel : Relation[Int] = Relation(rt)
-  let output_rel : Relation[Int] = Relation(rt)
+  let input_rel : Relation[Int32] = Relation(rt)
+  let output_rel : Relation[Int32] = Relation(rt)
   let _ = rt.new_rule([input_rel.id()], [output_rel.id()], () => sig.set(1))
   rt.fixpoint()
 }
@@ -123,7 +123,7 @@ test "input: force_set in on_change callback is allowed" {
   let rt = Runtime()
   let a = Input(rt, 0, label="a")
   let b = Input(rt, 0, label="b")
-  a.on_change(fn(v : Int) { b.force_set(v * 2) })
+  a.on_change(fn(v : Int32) { b.force_set(v * 2) })
   a.set(10)
   inspect(b.get(), content="20")
 }

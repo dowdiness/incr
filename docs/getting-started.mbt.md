@@ -127,7 +127,7 @@ Use `Runtime::set_on_change` to run a callback whenever the runtime commits a ch
 test "getting started: committed change callback" {
   let rt = @incr.Runtime()
   let quantity = rt.input(10, label="quantity")
-  let changes : Ref[Int] = { val: 0 }
+  let changes : Ref[Int32] = { val: 0, }
 
   rt.set_on_change(() => changes.val = changes.val + 1)
 

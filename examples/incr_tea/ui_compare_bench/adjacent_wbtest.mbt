@@ -4,7 +4,7 @@
 /// wasm-gc benchable for target-agnostic gate benchmarks.
 
 ///|
-fn ui_compare_make_items(n : Int) -> Array[(String, String)] {
+fn ui_compare_make_items(n : Int32) -> Array[(String, String)] {
   [
     for i in 0..<n => ("item-\{i}", "Item \{i}")
   ]
@@ -18,7 +18,7 @@ fn ui_compare_rabbita_emit(_msg : String) -> @rabbita.Cmd {
 ///|
 fn ui_compare_rabbita_counter_view(
   emit : @rabbita.Emit[String],
-  count : Int,
+  count : Int32,
 ) -> @rabbita.Html {
   @rabbita_html.div(class="counter", [
     @rabbita_html.h2("Count: \{count}"),
@@ -27,7 +27,7 @@ fn ui_compare_rabbita_counter_view(
 }
 
 ///|
-fn ui_compare_luna_counter_view(count : Int) -> @luna.Node[Unit, String] {
+fn ui_compare_luna_counter_view(count : Int32) -> @luna.Node[Unit, String] {
   @luna.h("div", [("class", @luna.attr_static("counter"))], [
     @luna.h("h2", [], [@luna.text("Count: \{count}")]),
     @luna.h(

@@ -13,9 +13,12 @@
 /// field.set(5)
 /// inspect(field.get(), content="5")
 /// ```
+#derive(Debug(ignore=[Input]))
 pub(all) struct InputField[T] {
   priv input : Input[T]
-} derive(Debug(ignore=[Input]))
+}
+
+///|
 pub extend InputField with Debug::{to_repr}
 
 ///|
@@ -44,10 +47,10 @@ pub extend InputField with Debug::{to_repr}
 pub fn[T] InputField::InputField(
   rt : Runtime,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> InputField[T] {
-  { input: Input(rt, initial, durability~, label?) }
+  { input: Input(rt, initial, durability~, label?), }
 }
 
 ///|

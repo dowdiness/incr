@@ -3,7 +3,7 @@ test "scope collect: 100 live keyed entries" (b : @bench.T) {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let source = scope.input(1)
-  let by_key = scope.derived_map((key : Int) => source.get() + key)
+  let by_key = scope.derived_map((key : Int32) => source.get() + key)
   let terminal = scope.derived(() => {
     let mut sum = 0
     for key in 0..<100 {
@@ -23,7 +23,7 @@ test "scope collect: 100 live keyed entries" (b : @bench.T) {
 test "scope collect: refill and retire 100 stale keyed entries" (b : @bench.T) {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let by_key = scope.derived_map((key : Int) => key + 1)
+  let by_key = scope.derived_map((key : Int32) => key + 1)
   b.bench(() => {
     for key in 0..<100 {
       b.keep(by_key.read_or_abort(key))
@@ -38,8 +38,8 @@ test "scope collect: shared runtime with two 50-entry scopes" (b : @bench.T) {
   let rt = @incr.Runtime()
   let scope_a = @incr.Scope::new(rt)
   let scope_b = @incr.Scope::new(rt)
-  let map_a = scope_a.derived_map((key : Int) => key + 1)
-  let map_b = scope_b.derived_map((key : Int) => key + 2)
+  let map_a = scope_a.derived_map((key : Int32) => key + 1)
+  let map_b = scope_b.derived_map((key : Int32) => key + 2)
   let terminal_a = scope_a.derived(() => {
     let mut sum = 0
     for key in 0..<50 {
@@ -68,7 +68,7 @@ test "scope collect: shared runtime with two 50-entry scopes" (b : @bench.T) {
 /// recreation instead of the live cache-hit path.
 test "derived map: gc plus stale key self-heal" (b : @bench.T) {
   let rt = @incr.Runtime()
-  let by_key = @incr.DerivedMap(rt, (key : Int) => key + 1)
+  let by_key = @incr.DerivedMap(rt, (key : Int32) => key + 1)
   ignore(by_key.read_or_abort(1))
   b.bench(() => {
     rt.gc()

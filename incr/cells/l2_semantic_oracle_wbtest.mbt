@@ -30,23 +30,23 @@
 /// Reproducible — a given seed always produces the same sequence.
 /// No global state, no import of an external RNG.
 struct LCG {
-  mut state : Int
+  mut state : Int32
 }
 
 ///|
-fn LCG::new(seed : Int) -> LCG {
-  { state: seed }
+fn LCG::new(seed : Int32) -> LCG {
+  { state: seed, }
 }
 
 ///|
-fn LCG::next(self : LCG) -> Int {
+fn LCG::next(self : LCG) -> Int32 {
   self.state = self.state * 1103515245 + 12345
   self.state & 0x7fffffff
 }
 
 ///|
 /// Returns a value in `[0, max)`.
-fn LCG::next_range(self : LCG, max : Int) -> Int {
+fn LCG::next_range(self : LCG, max : Int32) -> Int32 {
   self.next() % max
 }
 
@@ -54,17 +54,17 @@ fn LCG::next_range(self : LCG, max : Int) -> Int {
 /// A test fixture bundles the real Runtime graph and a pure reference function
 /// that maps input values to derived values (full recompute from scratch).
 type Fixture = (
-  Array[Input[Int]],
-  Array[Derived[Int]],
-  (Array[Int]) -> Array[Int],
+  Array[Input[Int32]],
+  Array[Derived[Int32]],
+  (Array[Int32]) -> Array[Int32],
 )
 
 ///|
 /// A test fixture with ReachableDerived cells.
 type FixtureReach = (
-  Array[Input[Int]],
-  Array[ReachableDerived[Int]],
-  (Array[Int]) -> Array[Int],
+  Array[Input[Int32]],
+  Array[ReachableDerived[Int32]],
+  (Array[Int32]) -> Array[Int32],
 )
 
 ///|
@@ -92,11 +92,11 @@ fn[T : Eq] read_reach_for_test(d : ReachableDerived[T]) -> T {
 /// Run a value-correctness property test for ReachableDerived.
 /// See `check_value_correctness`.
 fn check_value_correctness_reach(
-  inputs : Array[Input[Int]],
-  deriveds : Array[ReachableDerived[Int]],
-  ref_fn : (Array[Int]) -> Array[Int],
-  num_steps : Int,
-  seed : Int,
+  inputs : Array[Input[Int32]],
+  deriveds : Array[ReachableDerived[Int32]],
+  ref_fn : (Array[Int32]) -> Array[Int32],
+  num_steps : Int32,
+  seed : Int32,
 ) -> Unit {
   check_value_correctness_core(
     inputs,
@@ -104,7 +104,7 @@ fn check_value_correctness_reach(
     ref_fn,
     num_steps,
     seed,
-    fn(d : Int) -> Int { read_reach_for_test(deriveds[d]) },
+    fn(d : Int32) -> Int32 { read_reach_for_test(deriveds[d]) },
   )
 }
 
@@ -120,18 +120,18 @@ fn check_value_correctness_reach(
 /// The `deriveds` array is replaced by `num_deriveds` + a read callback
 /// so the same core works for `Derived`, `ReachableDerived`, etc.
 fn check_value_correctness_core(
-  inputs : Array[Input[Int]],
-  num_deriveds : Int,
-  ref_fn : (Array[Int]) -> Array[Int],
-  num_steps : Int,
-  seed : Int,
-  read_fn : (Int) -> Int,
+  inputs : Array[Input[Int32]],
+  num_deriveds : Int32,
+  ref_fn : (Array[Int32]) -> Array[Int32],
+  num_steps : Int32,
+  seed : Int32,
+  read_fn : (Int32) -> Int32,
 ) -> Unit {
   let rng = LCG::new(seed)
   let num_inputs = inputs.length()
 
   // Capture initial reference state from the real model
-  let ref_vals : Array[Int] = []
+  let ref_vals : Array[Int32] = []
   for i in 0..<num_inputs {
     ref_vals.push(inputs[i].peek())
   }
@@ -179,11 +179,11 @@ fn check_value_correctness_core(
 /// the reference model.  The reference model (`ref_fn`) is a pure
 /// function: `input_values → derived_values` — full recompute from
 fn check_value_correctness(
-  inputs : Array[Input[Int]],
-  deriveds : Array[Derived[Int]],
-  ref_fn : (Array[Int]) -> Array[Int],
-  num_steps : Int,
-  seed : Int,
+  inputs : Array[Input[Int32]],
+  deriveds : Array[Derived[Int32]],
+  ref_fn : (Array[Int32]) -> Array[Int32],
+  num_steps : Int32,
+  seed : Int32,
 ) -> Unit {
   check_value_correctness_core(
     inputs,
@@ -191,7 +191,7 @@ fn check_value_correctness(
     ref_fn,
     num_steps,
     seed,
-    fn(d : Int) -> Int { read_derived_for_test(deriveds[d]) },
+    fn(d : Int32) -> Int32 { read_derived_for_test(deriveds[d]) },
   )
 }
 
@@ -210,7 +210,7 @@ fn make_chain_fixture(rt : Runtime) -> Fixture {
   let d3 = Derived(rt, fn() { d2.get_or_abort() - 3 })
   let inputs = [input]
   let deriveds = [d1, d2, d3]
-  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+  let ref_fn = fn(vals : Array[Int32]) -> Array[Int32] {
     let v1 = vals[0] + 1
     let v2 = v1 * 2
     let v3 = v2 - 3
@@ -232,7 +232,7 @@ fn make_diamond_fixture(rt : Runtime) -> Fixture {
 
   let inputs = [input]
   let deriveds = [dA, dB, dC]
-  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+  let ref_fn = fn(vals : Array[Int32]) -> Array[Int32] {
     let vA = vals[0] + 1
     let vB = vals[0] * 2
     let vC = vA + vB
@@ -258,7 +258,7 @@ fn make_two_chains_fixture(rt : Runtime) -> Fixture {
 
   let inputs = [input1, input2]
   let deriveds = [d1A, d1B, d2A, d2B]
-  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+  let ref_fn = fn(vals : Array[Int32]) -> Array[Int32] {
     let v1A = vals[0] + 1
     let v1B = v1A * 2
     let v2A = vals[1] + 10
@@ -286,7 +286,7 @@ fn make_conditional_fixture(rt : Runtime) -> Fixture {
 
   let inputs = [flag, input_a, input_b]
   let deriveds = [picker]
-  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+  let ref_fn = fn(vals : Array[Int32]) -> Array[Int32] {
     let picked = if vals[0] != 0 { vals[1] } else { vals[2] }
     [picked]
   }
@@ -305,7 +305,7 @@ fn make_reach_fixture(rt : Runtime) -> FixtureReach {
 
   let inputs = [input]
   let deriveds = [rd1, rd2]
-  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+  let ref_fn = fn(vals : Array[Int32]) -> Array[Int32] {
     let v1 = vals[0] * 2
     let v2 = v1 + 10
     [v1, v2]
@@ -585,7 +585,7 @@ fn deps_oracle_holds(rt : Runtime) -> Bool {
       PushReactive(_) | PushEffect(_) => {
         // Slot index IS the cell's id; construct CellId directly to avoid
         // @kernel.cell_id_for's abort-on-Disposed path.
-        let id = CellId::{ runtime_id: rt.core.runtime_id, id: slot }
+        let id = CellId::{ runtime_id: rt.core.runtime_id, id: slot, }
         if rt.is_cell_disposed(id) {
           continue
         }
@@ -629,11 +629,11 @@ fn deps_oracle_holds(rt : Runtime) -> Bool {
 /// Run a value-correctness property test with an Effect wired to the last
 /// derived, then verify the dependency-graph oracle.
 fn check_with_oracle(
-  inputs : Array[Input[Int]],
-  deriveds : Array[Derived[Int]],
-  ref_fn : (Array[Int]) -> Array[Int],
-  num_steps : Int,
-  seed : Int,
+  inputs : Array[Input[Int32]],
+  deriveds : Array[Derived[Int32]],
+  ref_fn : (Array[Int32]) -> Array[Int32],
+  num_steps : Int32,
+  seed : Int32,
   rt : Runtime,
 ) -> Unit {
   // Wire an Effect to the last derived so the oracle has a push cell to
@@ -713,7 +713,7 @@ suberror L2BatchError {
 /// A single action in the generated batch tree.
 enum BatchAction {
   /// Set input[idx] to val (outside or inside a batch).
-  SetAction(Int, Int)
+  SetAction(Int32, Int32)
   /// Execute children inside a batch, optionally raising at the end.
   BatchAction(Array[BatchAction], Bool)
 }
@@ -724,7 +724,7 @@ enum BatchAction {
 /// * `SetAction` directly updates the value at the given index.
 /// * `BatchAction(_, true)` discards all children (raise = rollback).
 /// * `BatchAction(children, false)` recurses into children (commit).
-fn apply_actions(state : Array[Int], actions : Array[BatchAction]) -> Unit {
+fn apply_actions(state : Array[Int32], actions : Array[BatchAction]) -> Unit {
   for action in actions {
     match action {
       SetAction(idx, val) => state[idx] = val
@@ -741,7 +741,7 @@ fn apply_actions(state : Array[Int], actions : Array[BatchAction]) -> Unit {
 /// value — it only touches the Runtime, never the model.
 fn exec_runtime_actions(
   rt : Runtime,
-  inputs : Array[Input[Int]],
+  inputs : Array[Input[Int32]],
   actions : Array[BatchAction],
 ) -> Unit {
   for action in actions {
@@ -764,9 +764,9 @@ fn exec_runtime_actions(
 /// Generate a single random `BatchAction`.
 fn generate_one_action(
   rng : LCG,
-  remaining_depth : Int,
-  num_inputs : Int,
-  max_children : Int,
+  remaining_depth : Int32,
+  num_inputs : Int32,
+  max_children : Int32,
 ) -> BatchAction {
   // ~33% chance to generate a BatchAction when depth allows; otherwise SetAction.
   if remaining_depth > 0 && rng.next_range(3) == 0 {
@@ -788,9 +788,9 @@ fn generate_one_action(
 /// Generate a random tree of batch actions.
 fn generate_batch_actions(
   rng : LCG,
-  max_depth : Int,
-  num_inputs : Int,
-  max_children : Int,
+  max_depth : Int32,
+  num_inputs : Int32,
+  max_children : Int32,
 ) -> Array[BatchAction] {
   let count = rng.next_range(6) + 1 // 1–6 top-level actions
   let actions : Array[BatchAction] = []
@@ -804,7 +804,7 @@ fn generate_batch_actions(
 /// Assert that the batch engine's internal state is clean after a top-level
 /// batch completion. Catches internal-state corruption that `peek()` cannot
 /// witness (stale `pending_value`, `commit_pending`, or leaked frames).
-fn check_batch_invariants(rt : Runtime, seed : Int) -> Unit {
+fn check_batch_invariants(rt : Runtime, seed : Int32) -> Unit {
   if rt.core.batch.pending.length() != 0 {
     abort(
       "batch state machine seed " +
@@ -842,14 +842,14 @@ fn check_batch_invariants(rt : Runtime, seed : Int) -> Unit {
 /// (commit or rollback), asserts that committed values match the model.
 fn run_nested_batch_seed(
   rt : Runtime,
-  inputs : Array[Input[Int]],
-  seed : Int,
+  inputs : Array[Input[Int32]],
+  seed : Int32,
 ) -> Unit {
   let rng = LCG::new(seed)
   let actions = generate_batch_actions(rng, 3, inputs.length(), 4)
 
   // Capture initial committed values as model baseline
-  let expected : Array[Int] = []
+  let expected : Array[Int32] = []
   for i in 0..<inputs.length() {
     expected.push(inputs[i].peek())
   }

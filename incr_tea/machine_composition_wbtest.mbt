@@ -1,7 +1,7 @@
 ///|
 fn machine_test_add(
   model : MachineParentModel,
-  id : Int,
+  id : Int32,
   text : String,
 ) -> MachineTransitionResult {
   machine_transition(model, MachineAdd(id, text))
@@ -13,7 +13,7 @@ fn machine_test_token(command : MachineValidateText) -> MachineValidationToken {
 }
 
 ///|
-fn machine_test_child(model : MachineParentModel, id : Int) -> MachineChild {
+fn machine_test_child(model : MachineParentModel, id : Int32) -> MachineChild {
   match machine_child(model, id) {
     Some(child) => child
     None => abort("missing test child")
@@ -66,12 +66,12 @@ test "machine core: validation result classification is exact" {
   let current_token = machine_test_token(edited.commands[0])
   let missing = machine_transition(
     edited.model,
-    MachineComplete({ ..current_token, child_id: 99 }, MachineValidationValid),
+    MachineComplete({ ..current_token, child_id: 99, }, MachineValidationValid),
   )
   let retired = machine_transition(
     edited.model,
     MachineComplete(
-      { ..current_token, incarnation: current_token.incarnation + 1 },
+      { ..current_token, incarnation: current_token.incarnation + 1, },
       MachineValidationValid,
     ),
   )
@@ -82,7 +82,7 @@ test "machine core: validation result classification is exact" {
   let future = machine_transition(
     edited.model,
     MachineComplete(
-      { ..current_token, request_seq: current_token.request_seq + 1 },
+      { ..current_token, request_seq: current_token.request_seq + 1, },
       MachineValidationValid,
     ),
   )
@@ -237,7 +237,7 @@ test "machine core: identical complete event streams replay deterministically" {
     MachineSelect(1),
     MachineEdit(1, "ONE"),
     MachineComplete(
-      { ..token, request_seq: token.request_seq + 1 },
+      { ..token, request_seq: token.request_seq + 1, },
       MachineValidationValid,
     ),
   ]
@@ -247,7 +247,7 @@ test "machine core: identical complete event streams replay deterministically" {
 }
 
 ///|
-fn machine_test_completion_permutations() -> Array[Array[Int]] {
+fn machine_test_completion_permutations() -> Array[Array[Int32]] {
   [
     [0, 1, 2, 3],
     [0, 1, 3, 2],
@@ -293,7 +293,7 @@ test "machine core: generated legal completion permutations converge" {
     MachineComplete(token_two_new, MachineValidationValid),
   ]
   let permutations = machine_test_completion_permutations()
-  let generated : Array[Int] = @quickcheck.samples(128)
+  let generated : Array[Int32] = @quickcheck.samples(128)
   let mut baseline : MachineParentModel? = None
   let seen = Array::make(24, false)
   for choice in generated {
@@ -366,11 +366,11 @@ test "machine Program: completion decisions flow through dispatch" {
     MachineComplete(current, MachineValidationValid),
     MachineComplete(current, MachineValidationValid),
     MachineComplete(
-      { ..current, incarnation: current.incarnation + 1 },
+      { ..current, incarnation: current.incarnation + 1, },
       MachineValidationValid,
     ),
     MachineComplete(
-      { ..current, request_seq: current.request_seq + 1 },
+      { ..current, request_seq: current.request_seq + 1, },
       MachineValidationValid,
     ),
   ]

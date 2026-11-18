@@ -13,7 +13,7 @@ test "room selection creates distinct host and join websocket modes" {
   match decision {
     RoomSelectionDecision::PresentCreated(
       StartupMode::Host(host, host_room, host_transport),
-      StartupMode::Join(joiner, join_room, join_transport)
+      StartupMode::Join(joiner, join_room, join_transport),
     ) => {
       assert_eq(host.0, "host-peer")
       assert_eq(joiner.0, "join-peer")
@@ -35,7 +35,7 @@ test "room selection reports typed creation failure" {
   assert_true(
     decision
     is RoomSelectionDecision::Reject(
-      RoomSelectionRejection::SecureRoomCreationFailed
+      RoomSelectionRejection::SecureRoomCreationFailed,
     ),
   )
 }
@@ -63,7 +63,7 @@ test "room selection invitation validation fails closed" {
     assert_true(
       decision
       is RoomSelectionDecision::Reject(
-        RoomSelectionRejection::InvalidWebSocketInvitation
+        RoomSelectionRejection::InvalidWebSocketInvitation,
       ),
     )
   }

@@ -124,9 +124,9 @@ pub fn propagate_liveness(
   push : PushState,
   datalog : DatalogState,
   start : CellId,
-  delta : Int,
+  delta : Int32,
 ) -> Unit {
-  let stack : Array[(CellId, Int)] = [(start, delta)]
+  let stack : Array[(CellId, Int32)] = [(start, delta)]
   for ;; {
     let (id, d) = match stack.pop() {
       Some(pair) => pair
@@ -215,6 +215,6 @@ pub fn add_subscriber(
 
 ///|
 /// Reconstructs a CellId from a cell_ops array index.
-pub fn cell_id_at(core : RuntimeCore, i : Int) -> CellId {
-  { runtime_id: core.runtime_id, id: i }
+pub fn cell_id_at(core : RuntimeCore, i : Int32) -> CellId {
+  { runtime_id: core.runtime_id, id: i, }
 }

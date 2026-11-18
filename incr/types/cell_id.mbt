@@ -7,13 +7,22 @@
 /// Each CellId is scoped to its originating runtime via `runtime_id`.
 /// This prevents cells from different runtimes being incorrectly queried
 /// against each other.
+#derive(Eq, Debug)
 pub(all) struct CellId {
   runtime_id : RuntimeId
-  id : Int
-} derive(Eq, Debug)
+  id : Int32
+}
+
+///|
 pub extend CellId with Eq::{not_equal, equal}
+
+///|
 pub extend CellId with Debug::{to_repr}
+
+///|
 pub extend CellId with Show::{output, to_string}
+
+///|
 pub extend CellId with Hash::{hash, hash_combine}
 
 ///|

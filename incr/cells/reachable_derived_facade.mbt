@@ -2,13 +2,16 @@
 /// Reachable lazy derived facade. Same revision-based verification as
 /// `Derived`, and additionally participates in push reachability and
 /// `Watch`/GC lifetimes for downstream eager subscribers.
+#derive(Debug(ignore=[Runtime, Fn, CellId]))
 pub(all) struct ReachableDerived[T] {
   priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
   priv compute : () -> T raise Failure
   priv mut value : T?
-} derive(Debug(ignore=[Runtime, Fn, CellId]))
+}
+
+///|
 pub extend ReachableDerived with Debug::{to_repr}
 
 ///|

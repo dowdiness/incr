@@ -9,12 +9,21 @@
 ///
 /// A cell is stale when `verified_at < current_revision`. A cell has changed
 /// (relative to an observer) when `changed_at > observer.verified_at`.
+#derive(Default, Debug, Eq, Compare)
 pub struct Revision {
-  value : Int
-} derive(Default, Debug, Eq, Compare)
+  value : Int32
+}
+
+///|
 pub extend Revision with Default::{default}
+
+///|
 pub extend Revision with Eq::{not_equal, equal}
+
+///|
 pub extend Revision with Debug::{to_repr}
+
+///|
 pub extend Revision with Compare::{compare, op_lt, op_le, op_ge, op_gt}
 
 ///|
@@ -36,7 +45,7 @@ pub fn Revision::initial() -> Revision {
 ///
 /// A new revision with value incremented by 1
 pub fn Revision::next(self : Revision) -> Revision {
-  { value: self.value + 1 }
+  { value: self.value + 1, }
 }
 
 ///|
@@ -56,15 +65,26 @@ pub fn Revision::next(self : Revision) -> Revision {
 ///
 /// Memos inherit the **minimum** durability of their dependencies. A memo
 /// depending on both Low and High durability signals has Low durability.
+#derive(Debug, Eq, Compare)
 pub(all) enum Durability {
   Low
   Medium
   High
-} derive(Debug, Eq, Compare)
+}
+
+///|
 pub extend Durability with Eq::{not_equal, equal}
+
+///|
 pub extend Durability with Debug::{to_repr}
+
+///|
 pub extend Durability with Compare::{compare, op_lt, op_le, op_ge, op_gt}
+
+///|
 pub extend Durability with Show::{output, to_string}
+
+///|
 pub impl Show for Durability with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
@@ -83,7 +103,7 @@ pub impl Show for Durability with fn output(self, logger) {
 /// - `Low` → 0
 /// - `Medium` → 1
 /// - `High` → 2
-pub fn Durability::index(self : Durability) -> Int {
+pub fn Durability::index(self : Durability) -> Int32 {
   match self {
     Low => 0
     Medium => 1
@@ -98,7 +118,7 @@ pub fn Durability::index(self : Durability) -> Int {
 /// variant requires updating both `Durability::index()` and this constant;
 /// failing to do so will silently under-size the `durability_last_changed`
 /// array in Runtime, causing incorrect fast-path revision checks.
-pub const DURABILITY_COUNT : Int = 3
+pub const DURABILITY_COUNT : Int32 = 3
 
 ///|
 /// A type that carries its own `changed_at` revision stamp.
@@ -137,14 +157,22 @@ impl BackdateEq with fn backdate_equal(self, other) -> Bool {
 /// - `Source`: Input cells (signals, relations) — no upstream deps, never collected
 /// - `Interior`: Derived cells (memos, reactives) — has deps, collectible when unobserved
 /// - `Root`: Terminal cells (effects) — keeps upstream alive, never collected
+#derive(Debug, Eq)
 pub(all) enum GcRole {
   Source
   Interior
   Root
-} derive(Debug, Eq)
+}
+
+///|
 pub extend GcRole with Eq::{not_equal, equal}
+
+///|
 pub extend GcRole with Debug::{to_repr}
+
+///|
 pub extend GcRole with Show::{output, to_string}
+
 ///|
 pub impl Show for GcRole with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))

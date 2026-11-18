@@ -90,9 +90,9 @@ test "typed spreadsheet demo parser: conditional formula text becomes Formula::i
         If(
           Gt(Ref(ref_id), Literal(Int(threshold))),
           Literal(Int(then_value)),
-          Literal(Int(else_value))
-        )
-      )
+          Literal(Int(else_value)),
+        ),
+      ),
     ) => {
       inspect(id == target, content="true")
       inspect(ref_id == source, content="true")

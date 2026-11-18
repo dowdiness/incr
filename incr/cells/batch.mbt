@@ -176,7 +176,7 @@ pub fn Runtime::record_batch_rollback(
   if frame.has_undo_for(cell_id) {
     return
   }
-  frame.undo_entries.push({ cell_id, rollback })
+  frame.undo_entries.push({ cell_id, rollback, })
   frame.undo_ids.add(cell_id)
 }
 

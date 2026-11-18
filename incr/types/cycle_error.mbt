@@ -4,7 +4,7 @@
 ///
 /// Cycles longer than this are truncated in the formatted output with "→ ...",
 /// but `CycleError::path()` still returns the full untruncated sequence.
-pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
+pub const MAX_CYCLE_DISPLAY_STEPS : Int32 = 20
 
 ///|
 /// Error type for cycle detection during memo computation.

@@ -367,8 +367,8 @@ fn view_grid_cell(
   emit : @rabbita.Emit[Msg],
   model : Model,
   cell : String,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
 ) -> @rabbita.Html {
   let snapshot = grid_snapshot_for(model, cell)
   let selected = selected_cell_is(model, cell)

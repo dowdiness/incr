@@ -6,13 +6,22 @@
 /// verify time rather than aliasing to a recycled slot.
 ///
 /// Each AccumulatorId is scoped to its originating runtime via `runtime_id`.
+#derive(Eq, Debug)
 pub(all) struct AccumulatorId {
   runtime_id : RuntimeId
-  id : Int
-} derive(Eq, Debug)
+  id : Int32
+}
+
+///|
 pub extend AccumulatorId with Eq::{not_equal, equal}
+
+///|
 pub extend AccumulatorId with Debug::{to_repr}
+
+///|
 pub extend AccumulatorId with Show::{output, to_string}
+
+///|
 pub extend AccumulatorId with Hash::{hash, hash_combine}
 
 ///|

@@ -1,34 +1,41 @@
 ///|
+#derive(ToJson)
 priv struct ScenarioJson {
   scenario : String
   trace_semantics : String
   steps : Array[StepJson]
-} derive(ToJson)
+}
+
+///|
 extend ScenarioJson with ToJson::{to_json}
 
 ///|
+#derive(ToJson)
 priv struct StepJson {
   operation : String
   outcome : String
   trace : TraceJson
   snapshots : Array[SnapshotChangeJson]
-} derive(ToJson)
+}
 
 ///|
+#derive(ToJson)
 priv struct TraceJson {
   recomputed : Array[String]
   changed : Array[String]
   unchanged : Array[String]
-} derive(ToJson)
+}
 
 ///|
+#derive(ToJson)
 priv struct SnapshotChangeJson {
   cell : String
   before : SnapshotJson
   after : SnapshotJson
-} derive(ToJson)
+}
 
 ///|
+#derive(ToJson)
 priv struct SnapshotJson {
   cell : String
   present : Bool
@@ -38,7 +45,7 @@ priv struct SnapshotJson {
   installed_dependencies : Array[String]
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
-} derive(ToJson)
+}
 
 ///|
 fn render_json(steps : Array[@demo.WorksheetStepResult]) -> String {

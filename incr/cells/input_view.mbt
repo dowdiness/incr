@@ -33,7 +33,7 @@ pub fn[T] Input::as_view(
 ) -> InputView[T] {
   ignore(start)
   ignore(end)
-  { input: self }
+  { input: self, }
 }
 
 ///|
@@ -49,7 +49,7 @@ pub fn[T] InputField::as_view(
 ) -> InputView[T] {
   ignore(start)
   ignore(end)
-  { input: self.input }
+  { input: self.input, }
 }
 
 ///|

@@ -17,7 +17,7 @@ test "get_result with handled inner errors returns sentinel value" {
   // This demonstrates the primary use case: compute functions can handle
   // cycle errors gracefully by returning sentinel values
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -38,8 +38,8 @@ test "get_result with handled inner errors returns sentinel value" {
 ///|
 test "get_result with handled errors in mutual recursion (2-way)" {
   let rt = Runtime::Runtime()
-  let d_b_ref : Ref[Derived[Int]?] = { val: None }
-  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+  let d_b_ref : Ref[Derived[Int32]?] = { val: None, }
+  let d_a : Derived[Int32] = Derived::Derived(rt, () => {
     match d_b_ref.val {
       Some(b) =>
         match b.read() {
@@ -72,9 +72,9 @@ test "get_result with handled errors in mutual recursion (2-way)" {
 ///|
 test "get_result with handled errors in mutual recursion (3-way)" {
   let rt = Runtime::Runtime()
-  let d_b_ref : Ref[Derived[Int]?] = { val: None }
-  let d_c_ref : Ref[Derived[Int]?] = { val: None }
-  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+  let d_b_ref : Ref[Derived[Int32]?] = { val: None, }
+  let d_c_ref : Ref[Derived[Int32]?] = { val: None, }
+  let d_a : Derived[Int32] = Derived::Derived(rt, () => {
     match d_b_ref.val {
       Some(b) =>
         match b.read() {
@@ -85,7 +85,7 @@ test "get_result with handled errors in mutual recursion (3-way)" {
       None => 0
     }
   })
-  let d_b : Derived[Int] = Derived::Derived(rt, () => {
+  let d_b : Derived[Int32] = Derived::Derived(rt, () => {
     match d_c_ref.val {
       Some(c) =>
         match c.read() {
@@ -144,8 +144,8 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
   // This test verifies backward compatibility - we can still access the cell ID
   // via the new cell() method which returns a CellId
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_id : Ref[Int] = { val: -1 }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_id : Ref[Int32] = { val: -1, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -172,8 +172,8 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
 ///|
 test "CycleError::cell() returns the cycle-causing cell ID" {
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_cell : Ref[CellId?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_cell : Ref[CellId?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -199,8 +199,8 @@ test "CycleError::cell() returns the cycle-causing cell ID" {
 ///|
 test "CycleError::path() returns the full dependency cycle" {
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_path : Ref[Array[CellId]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_path : Ref[Array[CellId]?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -229,8 +229,8 @@ test "CycleError::path() returns the full dependency cycle" {
 ///|
 test "CycleError::format_path() produces readable output" {
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let captured_message : Ref[String] = { val: "" }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let captured_message : Ref[String] = { val: "", }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -253,8 +253,8 @@ test "CycleError::format_path() produces readable output" {
 ///|
 test "CycleError::format_path() returns non-empty string for self-referencing memo" {
   let rt = Runtime::Runtime()
-  let captured_message : Ref[String] = { val: "" }
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let captured_message : Ref[String] = { val: "", }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -277,7 +277,7 @@ test "CycleError::format_path() returns non-empty string for self-referencing me
 ///|
 test "state is cleaned up after cycle error with handled errors" {
   let rt = Runtime::Runtime()
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) =>
@@ -302,7 +302,7 @@ test "state is cleaned up after cycle error with handled errors" {
 test "cycle error during reverification returns error through get_result" {
   let rt = Runtime::Runtime()
   let trigger = Input::Input(rt, 0)
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   // This memo only creates a cycle when trigger > 0
   let d = Derived::Derived(rt, () => {
     if trigger.get() > 0 {
@@ -336,8 +336,8 @@ test "failed get_result does not create spurious dependency edges" {
   // to falsely detect a cycle during verification.
   let rt = Runtime::Runtime()
   let external = Input::Input(rt, 100)
-  let d_ref : Ref[Derived[Int]?] = { val: None }
-  let cycle_count : Ref[Int] = { val: 0 }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
+  let cycle_count : Ref[Int32] = { val: 0, }
   let d = Derived::Derived(rt, () => {
     // Include external dependency so we can trigger recomputation
     let base = external.get()
@@ -381,7 +381,7 @@ test "failed get_result does not create spurious dependency edges" {
 test "panic cycle on initial get: direct self-referencing memo aborts" {
   let rt = Runtime::Runtime()
   // Create a memo that references itself — this creates a cycle
-  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int32]?] = { val: None, }
   let d = Derived::Derived(rt, () => {
     match d_ref.val {
       Some(m) => m.get_or_abort() + 1
@@ -397,8 +397,8 @@ test "panic cycle on initial get: direct self-referencing memo aborts" {
 ///|
 test "panic cycle on initial get: mutual recursion between two memos aborts" {
   let rt = Runtime::Runtime()
-  let d_b_ref : Ref[Derived[Int]?] = { val: None }
-  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+  let d_b_ref : Ref[Derived[Int32]?] = { val: None, }
+  let d_a : Derived[Int32] = Derived::Derived(rt, () => {
     match d_b_ref.val {
       Some(b) => b.get_or_abort() + 1
       None => 0

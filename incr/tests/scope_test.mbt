@@ -96,7 +96,7 @@ test "scope: dispose after push propagation completes" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.input(1)
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int32] = { val: 0, }
   let eff = scope.effect(fn() { count.val = count.val + sig.get() })
   inspect(count.val, content="1")
   // Trigger push propagation
@@ -153,7 +153,7 @@ test "scope: derived_no_backdate accepts non-Eq output" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.input(3)
-  let derived = scope.derived_no_backdate(fn() { (x : Int) => x + sig.get() })
+  let derived = scope.derived_no_backdate(fn() { (x : Int32) => x + sig.get() })
 
   inspect(derived.read_or_abort()(10), content="13")
   sig.set(4)
@@ -214,7 +214,7 @@ test "scope: watch primes upstream so gc before first read is safe" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = @incr.Input(rt, 1)
-  let runs : Ref[Int] = { val: 0 }
+  let runs : Ref[Int32] = { val: 0, }
   let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
   let d2 = @incr.Derived(rt, fn() {
     runs.val = runs.val + 1
@@ -241,7 +241,7 @@ test "scope: bare watch primes upstream before gc" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = @incr.Input(rt, 1)
-  let runs : Ref[Int] = { val: 0 }
+  let runs : Ref[Int32] = { val: 0, }
   let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
   let d2 = @incr.Derived(rt, fn() {
     runs.val = runs.val + 1
@@ -263,8 +263,8 @@ test "scope: collect retires stale maps in its live subtree" {
   let parent = @incr.Scope::new(rt)
   let child = parent.child()
   let source = parent.input(10)
-  let parent_map = parent.derived_map((key : Int) => source.get() + key)
-  let child_map = child.derived_map((key : Int) => source.get() + key)
+  let parent_map = parent.derived_map((key : Int32) => source.get() + key)
+  let child_map = child.derived_map((key : Int32) => source.get() + key)
 
   inspect(parent_map.read_or_abort(1), content="11")
   inspect(parent_map.read_or_abort(2), content="12")
@@ -295,9 +295,9 @@ test "scope: collection is isolated across scopes sharing one runtime" {
   let scope_a = @incr.Scope::new(rt)
   let scope_b = @incr.Scope::new(rt)
   let source = @incr.Input(rt, 10)
-  let map_a = scope_a.derived_map((key : Int) => source.get() + key)
+  let map_a = scope_a.derived_map((key : Int32) => source.get() + key)
   let mut computes_b = 0
-  let map_b = scope_b.derived_map((key : Int) => {
+  let map_b = scope_b.derived_map((key : Int32) => {
     computes_b = computes_b + 1
     source.get() + key
   })

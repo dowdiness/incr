@@ -31,7 +31,7 @@ fn adapter_cell_ids_text(
 fn trace_data(
   trace : @egw_adapter.AdapterTrace,
   outcome : String,
-  snapshot_count : Int,
+  snapshot_count : Int32,
 ) -> TraceData {
   let recomputed = adapter_cell_id_strings(trace.recomputed())
   let changed = adapter_cell_id_strings(trace.changed())
@@ -131,7 +131,7 @@ fn record_remote_observed_sync(
   }
   let s = state.val
   s.trace.set(Some(trace_data(trace, outcome, observed.snapshots().length())))
-  s.evidence.set(Some({ edit, outcome, cells: evidence_cells }))
+  s.evidence.set(Some({ edit, outcome, cells: evidence_cells, }))
   s.last_edit.set(edit)
   if has_diagnostics {
     s.status.set("Remote update applied with a projection diagnostic.")
@@ -180,8 +180,8 @@ fn command_edit_text(command : SheetCommand) -> String? {
 fn reset_meta(state : Ref[SheetState]) -> Unit {
   let s = state.val
   let seed_drafts : Array[CellDraft] = [
-    { cell: "A1", text: "10" },
-    { cell: "B1", text: "=A1 + 1" },
+    { cell: "A1", text: "10", },
+    { cell: "B1", text: "=A1 + 1", },
   ]
   s.cells.set(grid_cells())
   s.drafts.set(seed_drafts.copy())
@@ -238,7 +238,7 @@ fn record_observed_edit(
       ),
     )
   }
-  s.evidence.set(Some({ edit, outcome, cells: evidence_cells }))
+  s.evidence.set(Some({ edit, outcome, cells: evidence_cells, }))
   s.last_edit.set(edit)
   s.status.set("Applied \{edit}: \{outcome}.")
   s.error.set(None)

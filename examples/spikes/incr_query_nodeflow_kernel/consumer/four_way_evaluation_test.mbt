@@ -124,7 +124,7 @@ fn bind(
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target, binding: @nodeflow.BindingTarget::Bound(provider) },
+        { target, binding: @nodeflow.BindingTarget::Bound(provider), },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -141,7 +141,7 @@ fn unbind(
     graph
     .apply(
       @nodeflow.GraphEdit::BindingChangeSet(changes=[
-        { target, binding: @nodeflow.BindingTarget::Unbound },
+        { target, binding: @nodeflow.BindingTarget::Unbound, },
       ]),
       @nodeflow.ObservationDemand::empty(),
     )

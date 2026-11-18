@@ -1,5 +1,5 @@
 ///|
-const MAX_REMOTE_EVIDENCE_SNAPSHOTS : Int = 16
+const MAX_REMOTE_EVIDENCE_SNAPSHOTS : Int32 = 16
 
 ///|
 /// An immutable worksheet snapshot captured by the adapter boundary.
@@ -223,7 +223,7 @@ fn sheet_operation_target(
 ///|
 fn projection_targets(
   decisions : ReadOnlyArray[@core.ProjectionDecision],
-  limit : Int,
+  limit : Int32,
 ) -> ReadOnlyArray[@typed_spreadsheet.CellId] {
   let targets = []
   for decision in decisions {
@@ -246,7 +246,7 @@ fn remote_capture_ids(
   adapter : EgwAdapter,
   targets : ReadOnlyArray[@typed_spreadsheet.CellId],
   trace_cells : ArrayView[@typed_spreadsheet.CellId],
-  limit : Int,
+  limit : Int32,
 ) -> ReadOnlyArray[@typed_spreadsheet.CellId] {
   let capture = []
   for target in targets {
@@ -286,8 +286,8 @@ pub fn EgwAdapter::apply_command_observed(
   self : EgwAdapter,
   command : @domain.SheetCommand,
   context : @domain.SheetExecutionContext,
-  capture? : Array[@typed_spreadsheet.CellId] = [],
-  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
+  capture~ : Array[@typed_spreadsheet.CellId] = [],
+  trace_cells~ : Array[@typed_spreadsheet.CellId] = [],
 ) -> ObservedApplyResult raise @container.DocumentError {
   let target = observed_target(command)
   match command {
@@ -349,8 +349,8 @@ pub fn EgwAdapter::apply_command_observed(
 pub fn EgwAdapter::apply_sync_observed(
   self : EgwAdapter,
   message : @container.SyncMessage,
-  capture_limit? : Int = 16,
-  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
+  capture_limit~ : Int32 = 16,
+  trace_cells~ : Array[@typed_spreadsheet.CellId] = [],
 ) -> ObservedRemoteApplyResult raise @container.DocumentError {
   let capture_limit = capture_limit.clamp(
     min=0,
@@ -372,7 +372,7 @@ pub fn EgwAdapter::apply_sync_observed(
     after: after[index],
   })
   {
-    result: RemoteApplyResult::{ sync_report, adapter_result },
+    result: RemoteApplyResult::{ sync_report, adapter_result, },
     targets,
     trace: AdapterTrace::from_worksheet(worksheet_trace),
     snapshots,

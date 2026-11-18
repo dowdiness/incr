@@ -13,6 +13,7 @@
 /// count.set(5)
 /// inspect(count.get(), content="5")
 /// ```
+#derive(Debug(ignore=[Runtime, CellId]))
 pub(all) struct Input[T] {
   priv label : String?
   priv rt : Runtime
@@ -20,7 +21,9 @@ pub(all) struct Input[T] {
   priv mut value : T
   priv mut pending_value : T?
   priv durability : Durability
-} derive(Debug(ignore=[Runtime, CellId]))
+}
+
+///|
 pub extend Input with Debug::{to_repr}
 
 ///|
@@ -50,7 +53,7 @@ pub extend Input with Debug::{to_repr}
 pub fn[T] Input::Input(
   rt : Runtime,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> Input[T] {
   let (cell_id, _) = rt.install_cell(
@@ -70,7 +73,7 @@ pub fn[T] Input::Input(
       commit_pending: None,
     },
   )
-  { label, rt, cell_id, value: initial, pending_value: None, durability }
+  { label, rt, cell_id, value: initial, pending_value: None, durability, }
 }
 
 ///|
@@ -79,7 +82,7 @@ pub fn[T] Input::Input(
 pub fn[T] Input::new(
   rt : Runtime,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> Input[T] {
   Input(rt, initial, durability~, label?)

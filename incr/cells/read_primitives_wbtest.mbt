@@ -108,7 +108,7 @@ test "hybrid read primitive: read_result returns cycle error" {
 test "memo_map read primitive: read_result works outside tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
-  let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
+  let by_key = DerivedMap(rt, (key : Int32) => source.get() + key)
 
   match by_key.read_result(2) {
     Ok(value) => inspect(value, content="12")
@@ -120,7 +120,7 @@ test "memo_map read primitive: read_result works outside tracked context" {
 test "memo_map read primitive: get_strict_result records dependency in tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
-  let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
+  let by_key = DerivedMap(rt, (key : Int32) => source.get() + key)
   let view = Derived(rt, () => {
     match by_key.get_strict_result(1) {
       Ok(value) => value * 2
@@ -136,7 +136,7 @@ test "memo_map read primitive: get_strict_result records dependency in tracked c
 ///|
 test "panic memo_map read primitive: get_strict_result outside tracked context aborts" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap(rt, (key : Int32) => key * 10)
 
   ignore(by_key.get_strict_result(1))
 }
@@ -144,7 +144,7 @@ test "panic memo_map read primitive: get_strict_result outside tracked context a
 ///|
 test "memo_map read primitive: read_result returns cycle error" {
   let rt = Runtime::Runtime()
-  let by_key = DerivedMap(rt, (key : Int) => key * 10)
+  let by_key = DerivedMap(rt, (key : Int32) => key * 10)
   let entry = by_key.get_or_create_entry(1)
   let meta = rt.get_memo_data(entry.id())
   meta.in_progress = true

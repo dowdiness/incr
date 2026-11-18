@@ -16,24 +16,27 @@ pub struct Worksheet {
 }
 
 ///|
+#derive(Eq)
 priv enum CellDefinition {
   Input(CellValue)
   Formula(FormulaFacts)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct FormulaFacts {
   static_references : Array[CellId]
   installed_dependencies : Array[CellId]
   declared : CellType
   identity : FormulaIdentity
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum FormulaIdentity {
   Ast(Formula)
   Custom(String?)
-} derive(Eq)
+}
 
 ///|
 priv struct FormulaEvaluator {
@@ -96,14 +99,19 @@ pub struct WorksheetTrace {
 
 ///|
 /// Errors returned when querying a worksheet cell for its formula AST.
+#derive(Eq, Debug)
 pub enum FormulaAstQueryError {
   ForeignCellId(CellId)
   MissingCell(CellId)
   DeletedCell(CellId)
   NotFormula(CellId)
   OpaqueFormula(CellId)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend FormulaAstQueryError with Eq::{not_equal, equal}
+
+///|
 pub extend FormulaAstQueryError with Debug::{to_repr}
 
 ///|
@@ -269,7 +277,7 @@ pub fn Worksheet::set_input(
   self : Worksheet,
   id : CellId,
   value : CellValue,
-  declared? : CellType = CellType::TAny,
+  declared~ : CellType = CellType::TAny,
   label? : String,
 ) -> CellResult {
   self.set_input_with_policy(id, value, declared, force=false, label?)
@@ -281,7 +289,7 @@ pub fn Worksheet::force_set_input(
   self : Worksheet,
   id : CellId,
   value : CellValue,
-  declared? : CellType = CellType::TAny,
+  declared~ : CellType = CellType::TAny,
   label? : String,
 ) -> CellResult {
   self.set_input_with_policy(id, value, declared, force=true, label?)
@@ -461,7 +469,7 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
 /// Call this after a successful edit or after `Runtime::batch`/`batch_result`
 /// returns. Reads inside an open batch see pre-commit values, so compaction is a
 /// post-commit maintenance step rather than part of the transactional edit body.
-pub fn Worksheet::compact_deleted_cells(self : Worksheet) -> Int {
+pub fn Worksheet::compact_deleted_cells(self : Worksheet) -> Int32 {
   let present_formulas = self.formula_cells()
   present_formulas.each(id => {
     let _ = self.read_slot(id)
@@ -650,7 +658,7 @@ fn trace_from_revision_snapshots(
     }
   })
 
-  { recomputed, changed, unchanged }
+  { recomputed, changed, unchanged, }
 }
 
 ///|

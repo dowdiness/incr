@@ -47,7 +47,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with fn before_recompute(
   }
   self.active.set(cell_id, start)
   self.pending.push(
-    EnteringCompute({ cell_id, started_revision: start.started_revision }),
+    EnteringCompute({ cell_id, started_revision: start.started_revision, }),
   )
 }
 

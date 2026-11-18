@@ -62,7 +62,7 @@ test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
   let depth = 100
-  let memos : Array[Derived[Int]] = []
+  let memos : Array[Derived[Int32]] = []
   memos.push(Derived::Derived(rt, () => sig.get()))
   for i = 1; i < depth; i = i + 1 {
     let prev = memos[i - 1]
@@ -83,7 +83,7 @@ test "memo: wide fanout get (1 input, 50 memos, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
   let width = 50
-  let memos : Array[Derived[Int]] = []
+  let memos : Array[Derived[Int32]] = []
   for i = 0; i < width; i = i + 1 {
     let multiplier = i + 1
     memos.push(Derived::Derived(rt, () => sig.get() * multiplier))
@@ -128,7 +128,7 @@ test "memo: no-accumulator recompute fanout" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
   let width = 50
-  let memos : Array[Derived[Int]] = []
+  let memos : Array[Derived[Int32]] = []
   for i = 0; i < width; i = i + 1 {
     memos.push(Derived::Derived(rt, () => sig.get()))
   }
@@ -171,7 +171,7 @@ test "hybrid: get stale (input changed, recompute)" (b : @bench.T) {
 ///|
 test "batch: 10 inputs, single revision" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sigs : Array[Input[Int]] = []
+  let sigs : Array[Input[Int32]] = []
   for i = 0; i < 10; i = i + 1 {
     sigs.push(Input::Input(rt, i))
   }
@@ -227,7 +227,7 @@ test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
 test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     reactives.push(
@@ -390,7 +390,7 @@ test "watch: watch + dispose cycle" (b : @bench.T) {
 test "gc: sweep 1k all-live" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 1)
-  let watches : Array[@incr.Watch[Int]] = []
+  let watches : Array[@incr.Watch[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
     let watch = m.watch()
@@ -420,7 +420,7 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
 test "gc: sweep 1k 50pct dead" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 1)
-  let watches : Array[@incr.Watch[Int]] = []
+  let watches : Array[@incr.Watch[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
     let watch = m.watch()
@@ -454,7 +454,7 @@ test "runtime: read one-shot" (b : @bench.T) {
 /// the R1 kernel split plan.
 test "fixpoint: one iteration, empty delta (stable convergence)" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let rel : @incr.Relation[Int] = @incr.Relation::Relation(rt, label="R")
+  let rel : @incr.Relation[Int32] = @incr.Relation::Relation(rt, label="R")
   let _ = rel.insert(42)
   rt.fixpoint() // prime: converge to stable state
   b.bench(fn() { rt.fixpoint() })
@@ -468,8 +468,8 @@ test "fixpoint: one iteration, empty delta (stable convergence)" (b : @bench.T) 
 /// call. Gates Stage 3g of the R1 kernel split plan.
 test "fixpoint: one iteration, single fact delta (identity rule)" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let rel : @incr.Relation[Int] = @incr.Relation::Relation(rt, label="R")
-  let derived : @incr.Relation[Int] = @incr.Relation::Relation(rt, label="D")
+  let rel : @incr.Relation[Int32] = @incr.Relation::Relation(rt, label="R")
+  let derived : @incr.Relation[Int32] = @incr.Relation::Relation(rt, label="D")
   let _ = rt.new_rule([rel.id()], [derived.id()], () => {
     for d in rel.delta_iter() {
       derived.insert(d) |> ignore
@@ -533,7 +533,7 @@ test "diagnostic: input set with 100 disposed reactives on separate input" (
 test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 500; i = i + 1 {
     let idx = i
     reactives.push(
@@ -559,7 +559,7 @@ test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
 test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     reactives.push(
@@ -588,7 +588,7 @@ test "linklist-port: branchy-rebind 100 reactives" (b : @bench.T) {
   let sig_a = Input::Input(rt, 0)
   let sig_b = Input::Input(rt, 1)
   let flag = Input::Input(rt, true)
-  let reactives : Array[@incr.EagerDerived[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int32]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     reactives.push(

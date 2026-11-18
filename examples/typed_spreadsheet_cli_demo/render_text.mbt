@@ -2,6 +2,8 @@
 priv struct TextScenario {
   steps : Array[@demo.WorksheetStepResult]
 }
+
+///|
 extend TextScenario with Show::{to_string}
 
 ///|

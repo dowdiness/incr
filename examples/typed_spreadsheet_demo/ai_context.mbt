@@ -1,20 +1,26 @@
 ///|
 /// Serializable AI/tool context schema shared by spreadsheet renderers.
+#derive(ToJson, Debug)
 pub(all) struct AiContextSnapshot {
-  schema_version : Int
+  schema_version : Int32
   selected_cell : String
-  max_cells : Int
+  max_cells : Int32
   truncated : Bool
   region : Array[String]
   cells : Array[AiContextCell]
   latest_trace : AiContextTrace?
   latest_evidence : AiContextEvidence?
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend AiContextSnapshot with ToJson::{to_json}
+
+///|
 pub extend AiContextSnapshot with Debug::{to_repr}
 
 ///|
 /// Serializable view of one bounded cell in an AI/tool context snapshot.
+#derive(ToJson, Debug)
 pub(all) struct AiContextCell {
   id : String
   committed_text : String
@@ -28,69 +34,105 @@ pub(all) struct AiContextCell {
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
   formula : AiContextFormula?
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend AiContextCell with ToJson::{to_json}
+
+///|
 pub extend AiContextCell with Debug::{to_repr}
 
 ///|
 /// Structured value or error state for one context cell.
+#derive(ToJson, Debug, Eq)
 pub(all) struct AiContextResult {
   status : String
   value : AiContextValue?
   error : String?
   repr : String
-} derive(ToJson, Debug, Eq)
+}
+
+///|
 pub extend AiContextResult with ToJson::{to_json}
+
+///|
 pub extend AiContextResult with Debug::{to_repr}
+
+///|
 pub extend AiContextResult with Eq::{not_equal, equal}
 
 ///|
 /// Structured typed value for a successful context cell result.
+#derive(ToJson, Debug, Eq)
 pub(all) struct AiContextValue {
   type_name : String
   value : String
   repr : String
-} derive(ToJson, Debug, Eq)
+}
+
+///|
 pub extend AiContextValue with ToJson::{to_json}
+
+///|
 pub extend AiContextValue with Debug::{to_repr}
+
+///|
 pub extend AiContextValue with Eq::{not_equal, equal}
 
 ///|
 /// Formula text and AST-backed shape metadata for a formula cell.
+#derive(ToJson, Debug)
 pub(all) struct AiContextFormula {
   text : String
   ast_status : String
   shape : String?
   error : String?
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend AiContextFormula with ToJson::{to_json}
+
+///|
 pub extend AiContextFormula with Debug::{to_repr}
 
 ///|
 /// Latest bounded recompute/change trace available from a spreadsheet model.
+#derive(ToJson, Debug)
 pub(all) struct AiContextTrace {
   edit : String
   outcome : String
   recomputed : Array[String]
   changed : Array[String]
   unchanged : Array[String]
-} derive(ToJson, Debug)
+}
+
+///|
 pub extend AiContextTrace with ToJson::{to_json}
+
+///|
 pub extend AiContextTrace with Debug::{to_repr}
 
 ///|
 /// Latest bounded before/after evidence summary available from a spreadsheet model.
+#derive(ToJson, Debug, Eq)
 pub(all) struct AiContextEvidence {
   edit : String
   outcome : String
   cells : Array[AiContextEvidenceCell]
-} derive(ToJson, Debug, Eq)
+}
+
+///|
 pub extend AiContextEvidence with ToJson::{to_json}
+
+///|
 pub extend AiContextEvidence with Debug::{to_repr}
+
+///|
 pub extend AiContextEvidence with Eq::{not_equal, equal}
 
 ///|
 /// One before/after evidence summary cell.
+#derive(ToJson, Debug, Eq)
 pub(all) struct AiContextEvidenceCell {
   id : String
   classification : String
@@ -98,9 +140,15 @@ pub(all) struct AiContextEvidenceCell {
   before_kind : String
   after : AiContextResult
   after_kind : String
-} derive(ToJson, Debug, Eq)
+}
+
+///|
 pub extend AiContextEvidenceCell with ToJson::{to_json}
+
+///|
 pub extend AiContextEvidenceCell with Debug::{to_repr}
+
+///|
 pub extend AiContextEvidenceCell with Eq::{not_equal, equal}
 
 ///|
@@ -120,7 +168,7 @@ pub fn AiContextCellObservation::AiContextCellObservation(
   kind : @typed_spreadsheet.CellKind?,
   result : @typed_spreadsheet.CellResult,
 ) -> AiContextCellObservation {
-  { id, present, kind, result }
+  { id, present, kind, result, }
 }
 
 ///|
@@ -218,7 +266,7 @@ pub fn ai_context_evidence_cell_from_observations(
 pub fn worksheet_step_ai_context_history(
   edit : String,
   step : WorksheetStepResult,
-  max_items : Int,
+  max_items : Int32,
 ) -> (AiContextTrace, AiContextEvidence) {
   let recomputed = ReadOnlyArray::from_array(step.trace.recomputed)
   let changed = ReadOnlyArray::from_array(step.trace.changed)
@@ -297,10 +345,10 @@ fn ai_context_error_result(
 /// Converts a typed worksheet value to the AI context value representation.
 fn ai_context_value(value : @typed_spreadsheet.CellValue) -> AiContextValue {
   match value {
-    Int(number) => { type_name: "Int", value: "\{number}", repr: repr(value) }
-    Bool(flag) => { type_name: "Bool", value: "\{flag}", repr: repr(value) }
-    Text(text) => { type_name: "Text", value: text, repr: repr(value) }
-    Blank => { type_name: "Blank", value: "", repr: repr(value) }
+    Int(number) => { type_name: "Int", value: "\{number}", repr: repr(value), }
+    Bool(flag) => { type_name: "Bool", value: "\{flag}", repr: repr(value), }
+    Text(text) => { type_name: "Text", value: text, repr: repr(value), }
+    Blank => { type_name: "Blank", value: "", repr: repr(value), }
   }
 }
 
@@ -429,7 +477,7 @@ pub fn ai_context_history(
   changed : Array[String],
   unchanged : Array[String],
   evidence_cells : Array[AiContextEvidenceCell],
-  max_items : Int,
+  max_items : Int32,
 ) -> (AiContextTrace, AiContextEvidence) {
   (
     ai_context_trace(edit, outcome, recomputed, changed, unchanged, max_items),
@@ -444,7 +492,7 @@ fn ai_context_trace(
   recomputed : Array[String],
   changed : Array[String],
   unchanged : Array[String],
-  max_items : Int,
+  max_items : Int32,
 ) -> AiContextTrace {
   {
     edit,
@@ -460,13 +508,13 @@ fn ai_context_evidence(
   edit : String,
   outcome : String,
   cells : Array[AiContextEvidenceCell],
-  max_items : Int,
+  max_items : Int32,
 ) -> AiContextEvidence {
-  { edit, outcome, cells: bounded_ai_context_items(cells, max_items) }
+  { edit, outcome, cells: bounded_ai_context_items(cells, max_items), }
 }
 
 ///|
-fn[T] bounded_ai_context_items(items : Array[T], max_items : Int) -> Array[T] {
+fn[T] bounded_ai_context_items(items : Array[T], max_items : Int32) -> Array[T] {
   let limit = if max_items < 1 { 1 } else { max_items }
   items[:items.length().min(limit)].to_owned()
 }
@@ -476,8 +524,8 @@ fn[T] bounded_ai_context_items(items : Array[T], max_items : Int) -> Array[T] {
 pub fn bounded_ai_context_region(
   selected_cell : String,
   source : Array[String],
-  max_cells : Int,
-) -> (Int, Array[String], Bool) {
+  max_cells : Int32,
+) -> (Int32, Array[String], Bool) {
   let limit = if max_cells < 1 { 1 } else { max_cells }
   let bounded = []
   let mut truncated = false

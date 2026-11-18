@@ -81,7 +81,7 @@ test "InputField batch revert detection" {
 /// Test fixture: a tracked struct with three fields
 struct TestTracked {
   name : @incr.InputField[String]
-  value : @incr.InputField[Int]
+  value : @incr.InputField[Int32]
   flag : @incr.InputField[Bool]
 }
 
@@ -232,8 +232,8 @@ test "InputField clear_on_change stops callback" {
 ///|
 /// Helper struct for add_input_fields tests (2-field variant)
 struct TwoFieldTracked {
-  a : @incr.InputField[Int]
-  b : @incr.InputField[Int]
+  a : @incr.InputField[Int32]
+  b : @incr.InputField[Int32]
 }
 
 ///|

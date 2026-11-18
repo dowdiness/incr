@@ -6,28 +6,30 @@ pub struct GraphDocument {
 
 ///|
 priv struct DocumentWire {
-  version : Int
-  graph : Int
-  next_node : Int
+  version : Int32
+  graph : Int32
+  next_node : Int32
   nodes : Array[DocumentNode]
 }
 
 ///|
 priv struct DocumentNode {
-  id : Int
+  id : Int32
   descriptor : @application.NodeDescriptor
-  bindings : Array[(Int, BindingTarget)]
+  bindings : Array[(Int32, BindingTarget)]
 }
 
 ///|
 /// Errors raised by JSON parsing or strict wire-shape decoding.
+#derive(Eq, Debug)
 pub enum GraphDocumentDecodeError {
   MalformedJson
   WrongShape
-} derive(Eq, Debug)
+}
 
 ///|
 /// Expected semantic rejection while restoring a document.
+#derive(Eq, Debug)
 pub enum GraphRestorationRejection {
   UnsupportedVersion
   InvalidGraphIdentity
@@ -39,10 +41,11 @@ pub enum GraphRestorationRejection {
   MissingEndpoint
   WrongDirection
   WrongType
-} derive(Eq, Debug)
+}
 
 ///|
 /// Structural failure while constructing or publishing a restored graph.
+#derive(Debug)
 pub suberror GraphRestorationError {
   RegionClosed
   RegionMutationDuringEvaluation
@@ -52,7 +55,7 @@ pub suberror GraphRestorationError {
   ReadExpiredContext
   ReadReentrantRoot
   ReadDuringTransaction
-} derive(Debug)
+}
 
 ///|
 /// The atomic result of restoring a document.
@@ -74,7 +77,7 @@ pub fn GraphRestoration::snapshot(self : GraphRestoration) -> SurfaceSnapshot {
 }
 
 ///|
-fn json_int(value : Json) -> Int? {
+fn json_int(value : Json) -> Int32? {
   match value {
     Json::Number(value, ..) if value == value.to_int().to_double() =>
       Some(value.to_int())
@@ -88,7 +91,7 @@ fn field(object : Map[String, Json], name : String) -> Json? {
 }
 
 ///|
-fn read_port(value : Json) -> (Int, Int)? {
+fn read_port(value : Json) -> (Int32, Int32)? {
   match value {
     Json::Array(xs) if xs.length() == 2 => {
       let node = json_int(xs[0])
@@ -111,7 +114,7 @@ fn descriptor_json(descriptor : @application.NodeDescriptor) -> Json {
 }
 
 ///|
-fn binding_json(binding : (Int, BindingTarget)) -> Json {
+fn binding_json(binding : (Int32, BindingTarget)) -> Json {
   let (port, target) = binding
   let provider : Json = match target {
     BindingTarget::Unbound => @json.to_json(())
@@ -138,13 +141,13 @@ pub fn Nodeflow::document(self : Nodeflow) -> GraphDocument {
       let right = b.0.port
       left.compare(right)
     })
-    let compact : Array[(Int, BindingTarget)] = []
+    let compact : Array[(Int32, BindingTarget)] = []
     for entry in bindings {
       let reference = entry.0
       let target = entry.1
       compact.push((reference.port, target))
     }
-    nodes.push({ id, descriptor: node.descriptor, bindings: compact })
+    nodes.push({ id, descriptor: node.descriptor, bindings: compact, })
   }
   nodes.sort_by((a, b) => a.id.compare(b.id))
   {
@@ -242,7 +245,7 @@ pub fn GraphDocument::decode_json(
             if id is None || descriptor is None || bindings is None {
               return Err(WrongShape)
             }
-            let decoded : Array[(Int, BindingTarget)] = []
+            let decoded : Array[(Int32, BindingTarget)] = []
             for item in bindings.unwrap() {
               match item {
                 Json::Object(binding) => {

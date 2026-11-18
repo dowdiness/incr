@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 #cfg(target="js")
 enum ControlledLifecyclePhase {
   ControlledTrueInitial
@@ -7,8 +8,12 @@ enum ControlledLifecyclePhase {
   Omitted
   OmittedAfterBrowserMutation
   ControlledTrueAfterOmitted
-} derive(Eq, Debug)
+}
+
+///|
 pub extend ControlledLifecyclePhase with Eq::{not_equal, equal}
+
+///|
 pub extend ControlledLifecyclePhase with Debug::{to_repr}
 
 ///|
@@ -87,21 +92,26 @@ fn controlled_lifecycle_transitions() -> Array[ControlledLifecyclePhase] {
 }
 
 ///|
+#derive(Eq, Debug)
 #cfg(target="js")
 enum RendererMsg {
   Increment
-  SetUnrelated(Int)
+  SetUnrelated(Int32)
   SetControlledPhase(ControlledLifecyclePhase)
   TogglePanel
   MutatePanelDetail
   ParentOnly
   ChildOnly
   KeyCaptured(String, String, Bool, Bool)
-  PointerCaptured(Int, String, Int, Bool)
+  PointerCaptured(Int32, String, Int32, Bool)
   SpreadsheetEvent(String)
   KeyActionCaptured(String)
-} derive(Eq, Debug)
+}
+
+///|
 pub extend RendererMsg with Eq::{not_equal, equal}
+
+///|
 pub extend RendererMsg with Debug::{to_repr}
 
 ///|
@@ -115,7 +125,7 @@ fn renderer_test_button(msg : RendererMsg, label : String) -> Html[RendererMsg] 
 fn[Msg] install_view_recompute_counter(
   runtime : @incr.Runtime,
   program : Program[Msg, Html[Msg]],
-) -> Ref[Int] {
+) -> Ref[Int32] {
   let view_id = program.view_id()
   let recomputes = Ref(0)
   let _listener_id = try! runtime.add_derived_event_listener(event => {
@@ -541,12 +551,12 @@ extern "js" fn test_run_next_raf() -> Unit =
 
 ///|
 #cfg(target="js")
-extern "js" fn test_pending_raf_count() -> Int =
+extern "js" fn test_pending_raf_count() -> Int32 =
   #| () => globalThis.__incrTeaRafs.length
 
 ///|
 #cfg(target="js")
-extern "js" fn test_dom_child_count(element : DomElement) -> Int =
+extern "js" fn test_dom_child_count(element : DomElement) -> Int32 =
   #| (element) => element.children.length
 
 ///|
@@ -615,7 +625,7 @@ extern "js" fn test_dom_bool(element : DomElement, name : String) -> Bool =
 extern "js" fn test_dom_property_writes(
   element : DomElement,
   name : String,
-) -> Int =
+) -> Int32 =
   #| (element, name) => element.__propertyWrites?.get(String(name)) ?? 0
 
 ///|
@@ -727,10 +737,10 @@ extern "js" fn test_trigger_event_report(
 #cfg(target="js")
 extern "js" fn test_trigger_pointer_down(
   element : DomElement,
-  pointer_id : Int,
+  pointer_id : Int32,
   pointer_type : String,
-  button : Int,
-  buttons : Int,
+  button : Int32,
+  buttons : Int32,
 ) -> Unit =
   #| (element, pointerId, pointerType, button, buttons) => {
   #|   element.__trigger("pointerdown", {
@@ -2279,79 +2289,76 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
     test_restore_dom()
   }
   errdefer cleanup()
-    ignore(renderer.mount(host, program))
+  ignore(renderer.mount(host, program))
 
-    let checkbox = test_dom_get_by_id("lifecycle-checkbox")
-    let disabled_control = test_dom_get_by_id("lifecycle-disabled")
-    let selected_option = test_dom_get_by_id("lifecycle-selected")
-    test_dom_focus(checkbox)
-    let controls : Array[(DomElement, String, String)] = [
-      (checkbox, "checked", "lifecycle-checkbox"),
-      (disabled_control, "disabled", "lifecycle-disabled"),
-      (selected_option, "selected", "lifecycle-selected"),
+  let checkbox = test_dom_get_by_id("lifecycle-checkbox")
+  let disabled_control = test_dom_get_by_id("lifecycle-disabled")
+  let selected_option = test_dom_get_by_id("lifecycle-selected")
+  test_dom_focus(checkbox)
+  let controls : Array[(DomElement, String, String)] = [
+    (checkbox, "checked", "lifecycle-checkbox"),
+    (disabled_control, "disabled", "lifecycle-disabled"),
+    (selected_option, "selected", "lifecycle-selected"),
+  ]
+
+  let assert_state = (phase_value : ControlledLifecyclePhase) => {
+    let expected_property = phase_value.expected_property()
+    let expected_attribute = phase_value.expected_attribute()
+    let label = phase_value.label()
+    for control in controls {
+      let element = control.0
+      let property_name = control.1
+      let id = control.2
+      guard test_dom_bool(element, property_name) == expected_property else {
+        fail("\{label}: \{property_name} property state mismatch")
+      }
+      guard test_dom_has_attribute(element, property_name) == expected_attribute else {
+        fail("\{label}: \{property_name} attribute state mismatch")
+      }
+      guard test_dom_attribute(element, "data-phase") == label else {
+        fail("\{label}: \{property_name} string attribute state mismatch")
+      }
+      guard test_dom_same_node(element, test_dom_get_by_id(id)) else {
+        fail("\{label}: \{property_name} node identity changed")
+      }
+    }
+    guard test_focused_id() == "lifecycle-checkbox" else {
+      fail("\{label}: focused node changed")
+    }
+  }
+
+  assert_state(ControlledTrueInitial)
+  for phase_value in controlled_lifecycle_transitions() {
+    let writes_before = [
+      for control in controls => test_dom_property_writes(control.0, control.1)
     ]
-
-    let assert_state = (phase_value : ControlledLifecyclePhase) => {
-      let expected_property = phase_value.expected_property()
-      let expected_attribute = phase_value.expected_attribute()
-      let label = phase_value.label()
+    inspect(program.dispatch(SetControlledPhase(phase_value)), content="true")
+    test_run_next_raf()
+    assert_state(phase_value)
+    if phase_value.setter_should_run() {
+      for index, control in controls {
+        guard test_dom_property_writes(control.0, control.1) >
+          writes_before[index] else {
+          fail(
+            "\{phase_value.label()}: \{control.1} property setter did not run",
+          )
+        }
+      }
+    } else {
+      for index, control in controls {
+        guard test_dom_property_writes(control.0, control.1) ==
+          writes_before[index] else {
+          fail(
+            "\{phase_value.label()}: \{control.1} uncontrolled property was written",
+          )
+        }
+      }
+    }
+    if phase_value is Omitted {
       for control in controls {
-        let element = control.0
-        let property_name = control.1
-        let id = control.2
-        guard test_dom_bool(element, property_name) == expected_property else {
-          fail("\{label}: \{property_name} property state mismatch")
-        }
-        guard test_dom_has_attribute(element, property_name) ==
-          expected_attribute else {
-          fail("\{label}: \{property_name} attribute state mismatch")
-        }
-        guard test_dom_attribute(element, "data-phase") == label else {
-          fail("\{label}: \{property_name} string attribute state mismatch")
-        }
-        guard test_dom_same_node(element, test_dom_get_by_id(id)) else {
-          fail("\{label}: \{property_name} node identity changed")
-        }
-      }
-      guard test_focused_id() == "lifecycle-checkbox" else {
-        fail("\{label}: focused node changed")
+        test_dom_set_bool(control.0, control.1, true)
       }
     }
-
-    assert_state(ControlledTrueInitial)
-    for phase_value in controlled_lifecycle_transitions() {
-      let writes_before = [
-        for control in controls => {
-          test_dom_property_writes(control.0, control.1)
-        }
-      ]
-      inspect(program.dispatch(SetControlledPhase(phase_value)), content="true")
-      test_run_next_raf()
-      assert_state(phase_value)
-      if phase_value.setter_should_run() {
-        for index, control in controls {
-          guard test_dom_property_writes(control.0, control.1) >
-            writes_before[index] else {
-            fail(
-              "\{phase_value.label()}: \{control.1} property setter did not run",
-            )
-          }
-        }
-      } else {
-        for index, control in controls {
-          guard test_dom_property_writes(control.0, control.1) ==
-            writes_before[index] else {
-            fail(
-              "\{phase_value.label()}: \{control.1} uncontrolled property was written",
-            )
-          }
-        }
-      }
-      if phase_value is Omitted {
-        for control in controls {
-          test_dom_set_bool(control.0, control.1, true)
-        }
-      }
-    }
+  }
   cleanup()
 }

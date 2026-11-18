@@ -104,7 +104,9 @@ fn[T] Runtime::static_memo_force_recompute(
   self.dispatch_before_recompute_hooks(cell_id)
   self.enter_static_recompute()
   let new_value = {
-    errdefer { cell.in_progress = false }
+    errdefer {
+      cell.in_progress = false
+    }
     compute_fn() catch {
       Failure::Failure(_) as e => {
         self.leave_static_recompute()

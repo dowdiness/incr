@@ -6,20 +6,20 @@ pub struct Nodeflow {
 }
 
 ///|
-let next_graph_ordinal : Ref[Int] = Ref(1)
+let next_graph_ordinal : Ref[Int32] = Ref(1)
 
 ///|
-const NODEFLOW_MAX_ACTIVE_QUERIES : UInt = 256U
+const NODEFLOW_MAX_ACTIVE_QUERIES : UInt32 = 256U
 
 ///|
-fn next_graph_id() -> Int {
+fn next_graph_id() -> Int32 {
   let result = next_graph_ordinal.val
   next_graph_ordinal.val = result + 1
   result
 }
 
 ///|
-fn reserve_graph_id(id : Int) -> Unit {
+fn reserve_graph_id(id : Int32) -> Unit {
   if next_graph_ordinal.val <= id {
     next_graph_ordinal.val = id + 1
   }
@@ -33,7 +33,7 @@ pub fn Nodeflow::empty() -> Nodeflow {
   )
   let graph = next_graph_id()
   {
-    state: { graph, next_node: 0, nodes: Map([]) },
+    state: { graph, next_node: 0, nodes: Map([]), },
     runtime: {
       store,
       nodes: Map([]),
@@ -247,9 +247,9 @@ fn Nodeflow::snapshot_core(
   for node_entry in node_entries {
     let node_id = node_entry.0
     let node_state = node_entry.1
-    let reference : NodeReference = { graph: self.state.graph, node: node_id }
+    let reference : NodeReference = { graph: self.state.graph, node: node_id, }
     let schema = descriptor_schema(node_state.descriptor)
-    node_views.push({ node: reference, kind: schema.kind })
+    node_views.push({ node: reference, kind: schema.kind, })
     for ordinal, port in schema.ports {
       let port_ref : PortReference = {
         graph: self.state.graph,
@@ -265,7 +265,7 @@ fn Nodeflow::snapshot_core(
       if port.direction is PortDirection::Input {
         match node_state.bindings.get(port_ref) {
           Some(BindingTarget::Bound(output)) =>
-            connections.push({ input: port_ref, output })
+            connections.push({ input: port_ref, output, })
           _ => ()
         }
       }
@@ -279,7 +279,7 @@ fn Nodeflow::snapshot_core(
     }
     for action in 0..<schema.actions {
       action_views.push({
-        action: { graph: self.state.graph, node: node_id, action },
+        action: { graph: self.state.graph, node: node_id, action, },
       })
     }
   }

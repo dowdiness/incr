@@ -12,7 +12,7 @@ fn prepare_sheet_dispatch(
     | BeginInlineEdit(_)
     | BeginSelectedInlineEdit =>
       plan_sheet_command(sheet_planning_context(state), msg)
-    _ => { command: None, ui_effect: None }
+    _ => { command: None, ui_effect: None, }
   }
   let immediate = match msg {
     SelectCell(cell) => select_cell(state, cell)
@@ -66,7 +66,7 @@ struct KeyResolution {
 
 ///|
 fn key_resolution(message : Msg) -> KeyResolution {
-  { message, prevent_default: true, stop_propagation: true }
+  { message, prevent_default: true, stop_propagation: true, }
 }
 
 ///|

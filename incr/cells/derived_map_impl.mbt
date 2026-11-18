@@ -90,7 +90,9 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::read_result(
 }
 
 ///|
-fn[K : Hash + Eq, V] DerivedMap::sweep_entries(self : DerivedMap[K, V]) -> Int {
+fn[K : Hash + Eq, V] DerivedMap::sweep_entries(
+  self : DerivedMap[K, V],
+) -> Int32 {
   let to_remove : Array[K] = []
   for key, entry in self.entries {
     if entry.is_disposed() {

@@ -17,7 +17,7 @@ test "integration: push in memo, peek returns values in push order" {
 ///|
 test "integration: multiple memos push to same accumulator, keyed independently" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m1 = @incr.Derived::Derived(rt, () => {
     acc.push(100)
     1
@@ -36,7 +36,7 @@ test "integration: multiple memos push to same accumulator, keyed independently"
 test "integration: stopped pushing invalidates reader" {
   let rt = @incr.Runtime::Runtime()
   let flag = @incr.Input::Input(rt, true)
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let producer = @incr.Derived::Derived(rt, () => {
     if flag.get() {
       acc.push(1)
@@ -54,7 +54,7 @@ test "integration: stopped pushing invalidates reader" {
 ///|
 test "integration: accumulated returns Ok on success" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m = @incr.Derived::Derived(rt, () => {
     acc.push(5)
     1
@@ -69,7 +69,7 @@ test "integration: accumulated returns Ok on success" {
 ///|
 test "integration: push outside tracked context raises Failure" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let caught = try {
     acc.push(1)
     false
@@ -82,7 +82,7 @@ test "integration: push outside tracked context raises Failure" {
 ///|
 test "integration: zero pushes → empty" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m = @incr.Derived::Derived(rt, () => 0)
   let _ = read_derived_for_test(m)
   debug_inspect(m.accumulated_peek(acc), content="[]")
@@ -91,7 +91,7 @@ test "integration: zero pushes → empty" {
 ///|
 test "integration: peek on disposed accumulator returns []" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m = @incr.Derived::Derived(rt, () => {
     acc.push(1)
     0
@@ -104,7 +104,7 @@ test "integration: peek on disposed accumulator returns []" {
 ///|
 test "integration: accumulated on disposed accumulator raises Failure" {
   let rt = @incr.Runtime::Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m = @incr.Derived::Derived(rt, () => {
     acc.push(1)
     0
@@ -124,7 +124,7 @@ test "integration: accumulated on disposed accumulator raises Failure" {
 test "integration: same push-set → backdate (consumer does not recompute)" {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 0)
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let mut compute_count = 0
   let producer = @incr.Derived::Derived(rt, () => {
     acc.push(42) // same push on every recompute
@@ -146,7 +146,7 @@ test "integration: same push-set → backdate (consumer does not recompute)" {
 test "integration: different push-set → invalidate (consumer recomputes)" {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 0)
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let mut compute_count = 0
   let producer = @incr.Derived::Derived(rt, () => {
     acc.push(sig.get())
@@ -167,7 +167,7 @@ test "integration: different push-set → invalidate (consumer recomputes)" {
 test "integration: scope disposal disposes accumulator" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let acc : @incr.Accumulator[Int] = scope.accumulator(label="x")
+  let acc : @incr.Accumulator[Int32] = scope.accumulator(label="x")
   inspect(acc.is_disposed(), content="false")
   scope.dispose()
   inspect(acc.is_disposed(), content="true")
@@ -177,7 +177,7 @@ test "integration: scope disposal disposes accumulator" {
 test "integration: diamond — reader reads same accumulator twice, consistent" {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 10)
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let producer = @incr.Derived::Derived(rt, () => {
     acc.push(sig.get())
     0
@@ -203,8 +203,8 @@ impl @incr.RuntimeContext for AccDb with fn runtime(self) {
 
 ///|
 test "integration: create_accumulator via RuntimeContext helper" {
-  let db : AccDb = { rt: @incr.Runtime::Runtime() }
-  let acc : @incr.Accumulator[Int] = @incr.create_accumulator(db, label="d")
+  let db : AccDb = { rt: @incr.Runtime::Runtime(), }
+  let acc : @incr.Accumulator[Int32] = @incr.create_accumulator(db, label="d")
   debug_inspect(
     acc.label(),
     content=(

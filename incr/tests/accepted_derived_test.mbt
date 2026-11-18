@@ -9,7 +9,7 @@
 /// Domain parse with hand-reasoned outcomes. `"v1"`/`"v1b"` both → `Ok(1)` (same
 /// accepted value from different sources → candidate backdates); `"v2"` → `Ok(2)`;
 /// `"e1a"`/`"e1b"` both → `Err("e1")`; `"e2"` → a distinct `Err("e2")`.
-fn ad_parse(s : String) -> Result[Int, String] {
+fn ad_parse(s : String) -> Result[Int32, String] {
   match s {
     "v1" => Ok(1)
     "v1b" => Ok(1)
@@ -372,7 +372,7 @@ test "public: Scope::accepted_derived disposes with its parent scope" {
 /// revision, not the value). Deliberately does NOT derive `Eq`.
 priv struct AdDoc {
   revision : @incr.Revision
-  payload : Int
+  payload : Int32
 }
 
 ///|
@@ -385,7 +385,7 @@ impl @incr.BackdateEq for AdDoc
 
 ///|
 /// `Revision` at `steps` advances from the initial revision.
-fn ad_rev(steps : Int) -> @incr.Revision {
+fn ad_rev(steps : Int32) -> @incr.Revision {
   let mut r = @incr.Revision::initial()
   for _ in 0..<steps {
     r = r.next()
@@ -398,9 +398,9 @@ fn ad_rev(steps : Int) -> @incr.Revision {
 /// a new revision (2); `"e1a"`/`"e1b"` → equal `Err("e1")`; `"e2"` → distinct.
 fn ad_bd_parse(s : String) -> Result[AdDoc, String] {
   match s {
-    "r1a" => Ok(AdDoc::{ revision: ad_rev(1), payload: 10 })
-    "r1b" => Ok(AdDoc::{ revision: ad_rev(1), payload: 99 })
-    "r2" => Ok(AdDoc::{ revision: ad_rev(2), payload: 20 })
+    "r1a" => Ok(AdDoc::{ revision: ad_rev(1), payload: 10, })
+    "r1b" => Ok(AdDoc::{ revision: ad_rev(1), payload: 99, })
+    "r2" => Ok(AdDoc::{ revision: ad_rev(2), payload: 20, })
     "e1a" => Err("e1")
     "e1b" => Err("e1")
     "e2" => Err("e2")
@@ -410,7 +410,7 @@ fn ad_bd_parse(s : String) -> Result[AdDoc, String] {
 
 ///|
 /// The retained accepted payload, or `-1` when nothing is accepted.
-fn ad_accepted_payload(ad : @incr.AcceptedDerived[AdDoc, String]) -> Int {
+fn ad_accepted_payload(ad : @incr.AcceptedDerived[AdDoc, String]) -> Int32 {
   match ad.accepted_or_abort() {
     Some(d) => d.payload
     None => -1

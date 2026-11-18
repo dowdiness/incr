@@ -1,5 +1,5 @@
 ///|
-fn prop_revision_next_strictly_increases(steps : Int) -> Bool {
+fn prop_revision_next_strictly_increases(steps : Int32) -> Bool {
   let mut r = Revision::initial()
   for _ in 0..<steps {
     let next = r.next()
@@ -15,7 +15,7 @@ fn prop_revision_next_strictly_increases(steps : Int) -> Bool {
 }
 
 ///|
-fn prop_revision_value_tracks_steps(steps : Int) -> Bool {
+fn prop_revision_value_tracks_steps(steps : Int32) -> Bool {
   let mut r = Revision::initial()
   for _ in 0..<steps {
     r = r.next()

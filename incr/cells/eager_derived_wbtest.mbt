@@ -35,7 +35,7 @@ test "free list: reactive slot reused after dispose" {
 test "free list: effect slot reused after dispose" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let log : Array[Int] = []
+  let log : Array[Int32] = []
   let e = Effect::Effect(rt, () => log.push(s.get()))
   let e_idx = match rt.core.cell_index[e.cell_id.id] {
     PushEffect(i) => i
@@ -43,7 +43,7 @@ test "free list: effect slot reused after dispose" {
   }
   e.dispose()
   inspect(rt.push.free_effects.length(), content="1")
-  let log2 : Array[Int] = []
+  let log2 : Array[Int32] = []
   let e2 = Effect::Effect(rt, () => log2.push(s.get() * 2))
   let e2_idx = match rt.core.cell_index[e2.cell_id.id] {
     PushEffect(i) => i
@@ -122,7 +122,7 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let mut count = 0
-  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
+  let r2_ref : Ref[EagerDerived[Int32]?] = { val: None, }
   // r0 (level 1): reads s; when s > 0, disposes r2
   let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = s.get()
@@ -263,7 +263,7 @@ test "reactive: get() returns cached value" {
 test "effect: runs on creation, then re-runs on each dependency change" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let log : Array[Int] = []
+  let log : Array[Int32] = []
   let _e = Effect::Effect(rt, () => log.push(s.get()))
   debug_inspect(log, content="[0]")
   s.set(1)
@@ -429,7 +429,7 @@ test "dispose: 100 reactives on one input leave subscribers empty and node_count
 test "dispose: effect removed from source subscriber set" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let log : Array[Int] = []
+  let log : Array[Int32] = []
   let e = Effect::Effect(rt, () => log.push(s.get()))
   debug_inspect(log, content="[0]")
   e.dispose()

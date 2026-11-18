@@ -15,10 +15,23 @@ pub(all) struct PullInputData {
 pub impl HasCellMeta for PullInputData with fn meta(self) {
   self.meta
 }
+
+///|
 pub extend PullInputData with HasCellMeta::{meta}
+
+///|
 pub extend PullInputData with CellOps::{
-  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
-  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+  cell_id,
+  changed_at,
+  set_changed_at,
+  subscribers,
+  label,
+  durability,
+  level,
+  dep_changed_since,
+  push_reachable_count,
+  gc_role,
+  gc_dependencies,
 }
 
 ///|
@@ -50,4 +63,6 @@ pub impl Committable for PullInputData with fn cell_id(self) -> CellId {
 pub impl Committable for PullInputData with fn durability(self) -> Durability {
   self.meta.durability
 }
+
+///|
 pub extend PullInputData with Committable::{do_commit}

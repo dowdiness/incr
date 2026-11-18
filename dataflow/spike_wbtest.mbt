@@ -4,31 +4,31 @@
 ///
 /// Helpers preserve signed source intent so fixtures do not accidentally model
 /// absolute multiplicity at the untrusted boundary.
-fn test_update(from : Int, to : Int, diff : Int) -> SourceUpdate {
-  { edge: { from, to }, diff }
+fn test_update(from : Int32, to : Int32, diff : Int32) -> SourceUpdate {
+  { edge: { from, to, }, diff, }
 }
 
 ///|
 /// Direct construction deliberately bypasses source consolidation when a test
 /// needs to isolate the next refinement boundary.
 fn test_consolidated_update(
-  from : Int,
-  to : Int,
-  diff : Int,
+  from : Int32,
+  to : Int32,
+  diff : Int32,
 ) -> ConsolidatedUpdate {
-  { edge: { from, to }, diff }
+  { edge: { from, to, }, diff, }
 }
 
 ///|
 /// Worker tests construct trusted next-state directly; zero maps to absence so
 /// fixtures cannot introduce the invalid `Present(0)` state.
 fn test_validated_update(
-  from : Int,
-  to : Int,
-  next : Int,
+  from : Int32,
+  to : Int32,
+  next : Int32,
 ) -> ValidatedEdgeUpdate {
   {
-    edge: { from, to },
+    edge: { from, to, },
     next: if next == 0 {
       Absent
     } else {
@@ -61,7 +61,7 @@ fn test_unwrap_publication(
 /// order rather than reproducing a shorter, accidentally privileged path.
 fn test_stage_batches(
   engine : Engine,
-  epoch : Int,
+  epoch : Int32,
   batches : Array[Array[SourceUpdate]],
 ) -> Result[Publication, ProtocolError] {
   match engine.begin_epoch(epoch) {
@@ -97,7 +97,7 @@ fn test_flatten_batches(
 fn test_assert_matches_oracle(
   engine : Engine,
   oracle : Oracle,
-  epoch : Int,
+  epoch : Int32,
   batches : Array[Array[SourceUpdate]],
 ) -> Publication raise Failure {
   let expected = oracle.apply(epoch, test_flatten_batches(batches))
@@ -109,10 +109,10 @@ fn test_assert_matches_oracle(
 ///|
 /// Expected facts are sorted because assertion order must not encode a
 /// scheduler or hash-table traversal.
-fn test_reaches(pairs : Array[(Int, Int)]) -> Array[Reach] {
+fn test_reaches(pairs : Array[(Int32, Int32)]) -> Array[Reach] {
   let result = pairs.map(pair => {
     let (origin, target) = pair
-    Reach::{ origin, target }
+    Reach::{ origin, target, }
   })
   result.sort()
   result
@@ -199,7 +199,7 @@ test "invalid epoch is rejected atomically and a later epoch completes" {
   let recovered = test_assert_matches_oracle(engine, oracle, 2, [
     [test_update(3, 4, 1)],
   ])
-  guard recovered.reachable.contains(Reach::{ origin: 3, target: 4 }) else {
+  guard recovered.reachable.contains(Reach::{ origin: 3, target: 4, }) else {
     fail("later valid epoch did not complete")
   }
 }
@@ -237,7 +237,7 @@ test "staging converts caller arrays to immutable epoch values" {
   guard engine.close_input(0) == Ok(()) else { fail("close failed") }
   let publication = test_unwrap_publication(engine.run_closed())
   guard publication.source ==
-    [WeightedEdge::{ edge: { from: 1, to: 2 }, weight: 1 }] else {
+    [WeightedEdge::{ edge: { from: 1, to: 2, }, weight: 1, }] else {
     fail("caller mutation changed immutable staged input")
   }
 }
@@ -289,7 +289,7 @@ test "epoch lifecycle reducer preserves prior immutable phases" {
     committed.decision == Some(PublicationCommittedDecision(Epoch(0))) else {
     fail("publication did not advance the epoch")
   }
-  let source_error = InvalidSourceMultiplicity({ from: 1, to: 2 }, -1)
+  let source_error = InvalidSourceMultiplicity({ from: 1, to: 2, }, -1)
   let rejected = match
     reduce_epoch(closed.phase, RejectSourceEpoch(Epoch(0), source_error)) {
     Err(_) => fail("pure reducer rejected source rejection")
@@ -311,53 +311,80 @@ test "completion parser requires explicit global facts" {
     mailbox_pending: 0,
     expected_workers: 2,
     workers: test_vector([
-      WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-      WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: Some(epoch) },
+      WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch), },
+      WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: Some(epoch), },
     ]),
   }
-  guard parse_completion(CompletionFacts::{ ..complete, transport_pending: 1 })
+  guard parse_completion(CompletionFacts::{ ..complete, transport_pending: 1, })
     is Err(IncompleteEpoch(0)) &&
-    parse_completion(CompletionFacts::{ ..complete, mailbox_pending: 1 })
+    parse_completion(CompletionFacts::{ ..complete, mailbox_pending: 1, })
     is Err(IncompleteEpoch(0)) &&
     parse_completion(CompletionFacts::{
       ..complete,
       workers: test_vector([
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-        WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: None },
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
+        WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: None, },
       ]),
     })
     is Err(IncompleteEpoch(0)) &&
-    parse_completion(CompletionFacts::{ ..complete, workers: @vector.new() })
+    parse_completion(CompletionFacts::{ ..complete, workers: @vector.new(), })
     is Err(IncompleteEpoch(0)) &&
     parse_completion(CompletionFacts::{
       ..complete,
       workers: test_vector([
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-      ]),
-    })
-    is Err(IncompleteEpoch(0)) &&
-    parse_completion(CompletionFacts::{
-      ..complete,
-      workers: test_vector([
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-      ]),
-    })
-    is Err(IncompleteEpoch(0)) &&
-    parse_completion(CompletionFacts::{
-      ..complete,
-      workers: test_vector([
-        WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: Some(epoch) },
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
       ]),
     })
     is Err(IncompleteEpoch(0)) &&
     parse_completion(CompletionFacts::{
       ..complete,
       workers: test_vector([
-        WorkerCompletionFact::{ worker: WorkerId(0), closed_epoch: Some(epoch) },
-        WorkerCompletionFact::{ worker: WorkerId(1), closed_epoch: Some(epoch) },
-        WorkerCompletionFact::{ worker: WorkerId(2), closed_epoch: Some(epoch) },
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
+      ]),
+    })
+    is Err(IncompleteEpoch(0)) &&
+    parse_completion(CompletionFacts::{
+      ..complete,
+      workers: test_vector([
+        WorkerCompletionFact::{
+          worker: WorkerId(1),
+          closed_epoch: Some(epoch),
+        },
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
+      ]),
+    })
+    is Err(IncompleteEpoch(0)) &&
+    parse_completion(CompletionFacts::{
+      ..complete,
+      workers: test_vector([
+        WorkerCompletionFact::{
+          worker: WorkerId(0),
+          closed_epoch: Some(epoch),
+        },
+        WorkerCompletionFact::{
+          worker: WorkerId(1),
+          closed_epoch: Some(epoch),
+        },
+        WorkerCompletionFact::{
+          worker: WorkerId(2),
+          closed_epoch: Some(epoch),
+        },
       ]),
     })
     is Err(IncompleteEpoch(0)) &&
@@ -374,16 +401,16 @@ test "completion parser requires explicit global facts" {
     Ok(evidence) => evidence
   }
   let source = @hashmap.HashMap::from_iter(
-    [({ from: 1, to: 2 }, PositiveMultiplicity(1))].iter(),
+    [({ from: 1, to: 2, }, PositiveMultiplicity(1))].iter(),
   )
   let previous : @hashset.HashSet[Reach] = @hashset.HashSet([])
   let next = @hashset.HashSet::from_iter(
-    [Reach::{ origin: 1, target: 2 }].iter(),
+    [Reach::{ origin: 1, target: 2, }].iter(),
   )
   let completed = complete_epoch(evidence, source, previous, next)
   guard completed.publication.source ==
-    [WeightedEdge::{ edge: { from: 1, to: 2 }, weight: 1 }] &&
-    completed.publication.reachable == [Reach::{ origin: 1, target: 2 }] else {
+    [WeightedEdge::{ edge: { from: 1, to: 2, }, weight: 1, }] &&
+    completed.publication.reachable == [Reach::{ origin: 1, target: 2, }] else {
     fail("completion evidence did not build the expected publication")
   }
 }
@@ -391,7 +418,7 @@ test "completion parser requires explicit global facts" {
 ///|
 test "immutable routed payload does not alias caller update buffers" {
   let engine = Engine(2)
-  engine.phase = Draining({ epoch: Epoch(0) })
+  engine.phase = Draining({ epoch: Epoch(0), })
   let updates = [test_validated_update(1, 2, 1)]
   let raw : RawEnvelope = {
     epoch: Epoch(0),
@@ -427,8 +454,8 @@ test "raw envelope parser rejects unprepared stale and misrouted input" {
     engine.workers[1].edge_by_from.is_empty() else {
     fail("unprepared envelope reached worker state")
   }
-  engine.phase = Draining({ epoch: Epoch(0) })
-  let stale = RawEnvelope::{ ..valid, epoch: Epoch(1) }
+  engine.phase = Draining({ epoch: Epoch(0), })
+  let stale = RawEnvelope::{ ..valid, epoch: Epoch(1), }
   guard engine.route_envelope(stale) == Err(EpochMismatch(0, 1)) else {
     fail("stale envelope entered the prepared epoch")
   }
@@ -436,7 +463,7 @@ test "raw envelope parser rejects unprepared stale and misrouted input" {
     epoch: Epoch(0),
     sender: WorkerId(0),
     receiver: WorkerId(0),
-    event: Feedback({ origin: 0, target: 1 }),
+    event: Feedback({ origin: 0, target: 1, }),
   }
   guard engine.route_envelope(misrouted) ==
     Err(InvalidRouteOwner(FeedbackRoute, 1, 0)) else {
@@ -457,7 +484,7 @@ test "raw envelope parser rejects unprepared stale and misrouted input" {
 ///|
 test "raw envelope parser returns structured identity and payload errors" {
   let engine = Engine(1)
-  engine.phase = Draining({ epoch: Epoch(0) })
+  engine.phase = Draining({ epoch: Epoch(0), })
   let invalid_worker : RawEnvelope = {
     epoch: Epoch(0),
     sender: WorkerId(-1),
@@ -482,12 +509,12 @@ test "raw envelope parser returns structured identity and payload errors" {
     receiver: WorkerId(0),
     event: ApplyEdges(
       test_vector([
-        { edge: { from: 0, to: 1 }, next: Present(PositiveMultiplicity(0)) },
+        { edge: { from: 0, to: 1, }, next: Present(PositiveMultiplicity(0)), },
       ]),
     ),
   }
   guard engine.route_envelope(non_positive) ==
-    Err(InvalidEdgeMultiplicity({ from: 0, to: 1 }, 0)) else {
+    Err(InvalidEdgeMultiplicity({ from: 0, to: 1, }, 0)) else {
     fail("non-positive edge multiplicity was accepted")
   }
   let forged_apply : RawEnvelope = {
@@ -504,7 +531,7 @@ test "raw envelope parser returns structured identity and payload errors" {
     epoch: Epoch(0),
     sender: WorkerId(-1),
     receiver: WorkerId(0),
-    event: Feedback({ origin: 0, target: 0 }),
+    event: Feedback({ origin: 0, target: 0, }),
   }
   guard engine.route_envelope(forged_feedback) ==
     Err(InvalidRouteSender(FeedbackRoute, -1)) &&
@@ -519,7 +546,7 @@ test "raw envelope parser returns structured identity and payload errors" {
     receiver: WorkerId(0),
     event: CloseEpoch,
   }
-  let forged_close = RawEnvelope::{ ..valid_close, sender: WorkerId(0) }
+  let forged_close = RawEnvelope::{ ..valid_close, sender: WorkerId(0), }
   guard engine.route_envelopes([valid_close, forged_close])
     is Err(InvalidRouteSender(CloseEpochRoute, 0)) &&
     engine.transport.is_empty() else {
@@ -545,12 +572,12 @@ test "arranged join and recursive threshold suppress duplicate feedback" {
     fail("worker reducer mutated its input state")
   }
   let (seeded, seed) = worker_reduce(arranged, epoch, SeedOrigin(0))
-  let first_reach = Reach::{ origin: 0, target: 1 }
+  let first_reach = Reach::{ origin: 0, target: 1, }
   guard seed == [FeedbackDraft(first_reach)] else {
     fail("seed did not join with the keyed edge arrangement")
   }
   let (first_state, first) = worker_reduce(seeded, epoch, Feedback(first_reach))
-  guard first == [FeedbackDraft({ origin: 0, target: 2 })] else {
+  guard first == [FeedbackDraft({ origin: 0, target: 2, })] else {
     fail("feedback join did not produce the next candidate")
   }
   let (_, duplicate) = worker_reduce(first_state, epoch, Feedback(first_reach))
@@ -704,7 +731,7 @@ test "cycles have finite set output" {
 ///|
 /// Centralized seeded construction keeps worker cardinality and delivery order
 /// as independent test dimensions.
-fn test_engine_with_seed(worker_count : Int, seed : Int?) -> Engine {
+fn test_engine_with_seed(worker_count : Int32, seed : Int32?) -> Engine {
   match seed {
     None => Engine(worker_count)
     Some(value) => Engine(worker_count, scheduler_seed=value)

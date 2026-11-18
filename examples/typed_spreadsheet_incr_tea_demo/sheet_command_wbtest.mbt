@@ -7,9 +7,9 @@ fn test_sheet_planning_context() -> SheetPlanningContext {
     selected_cell: selected,
     editing_cell: Some(@typed_spreadsheet.CellId::of(sheet_id, "C1")),
     drafts: ReadOnlyArray::from_array([
-      { cell: "A1", text: "10" },
-      { cell: "B1", text: "=A1 + 1" },
-      { cell: "C1", text: "7" },
+      { cell: "A1", text: "10", },
+      { cell: "B1", text: "=A1 + 1", },
+      { cell: "C1", text: "7", },
     ]),
     generation: DocumentGeneration::initial(),
   }
@@ -59,12 +59,12 @@ test "sheet planner covers messages and owns submitted payloads" {
     _ => abort("expected reset")
   }
   match plan_sheet_command(context, BeginInlineEdit("C1")) {
-    { command: None, ui_effect: Some(FocusInlineEditor(address)) } =>
+    { command: None, ui_effect: Some(FocusInlineEditor(address)), } =>
       assert_true(address == "C1")
     _ => abort("expected inline focus")
   }
   match plan_sheet_command(context, BeginSelectedInlineEdit) {
-    { command: None, ui_effect: Some(FocusInlineEditor(address)) } =>
+    { command: None, ui_effect: Some(FocusInlineEditor(address)), } =>
       assert_true(address == "B1")
     _ => abort("expected selected focus")
   }
@@ -84,14 +84,14 @@ test "sheet planner covers messages and owns submitted payloads" {
 ///|
 test "owned planning context does not follow later draft mutation" {
   let source : Array[CellDraft] = [
-    { cell: "A1", text: "10" },
-    { cell: "B1", text: "=A1 + 1" },
+    { cell: "A1", text: "10", },
+    { cell: "B1", text: "=A1 + 1", },
   ]
   let context = {
     ..test_sheet_planning_context(),
     drafts: ReadOnlyArray::from_array(source),
   }
-  source[1] = { cell: "B1", text: "changed" }
+  source[1] = { cell: "B1", text: "changed", }
   match plan_sheet_command(context, ApplySelected).command {
     Some(ApplyFromSelection(_, text, _)) => assert_true(text == "=A1 + 1")
     _ => abort("expected apply")

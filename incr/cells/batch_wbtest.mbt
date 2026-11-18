@@ -104,7 +104,7 @@ test "batch: same-value set is still no-op in batch" {
 test "batch: force_set commits a changed value once" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
   rt.batch(() => sig.force_set(1))
   inspect(sig.get(), content="1")
@@ -116,7 +116,7 @@ test "batch: force_set commits a changed value once" {
 test "batch: force_set commits an equal value once" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 42)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
   rt.batch(() => sig.force_set(42))
   inspect(sig.get(), content="42")
@@ -128,7 +128,7 @@ test "batch: force_set commits an equal value once" {
 test "batch: force_set rolls back without revision or callback" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let callback_values : Array[Int] = []
+  let callback_values : Array[Int32] = []
   sig.on_change(value => callback_values.push(value))
   let result = rt.batch_result(fn() raise {
     sig.force_set(1)

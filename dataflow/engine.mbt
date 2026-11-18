@@ -3,7 +3,7 @@
 /// shell so `core.mbt` remains deterministic. Virtual workers model ownership
 /// and delivery order, not parallel execution.
 priv struct Engine {
-  worker_count : Int
+  worker_count : Int32
   workers : Array[WorkerState]
   mailboxes : Array[Array[RoutedEnvelope]]
   transport : Array[RoutedEnvelope]
@@ -13,14 +13,14 @@ priv struct Engine {
   random : @splitmix.RandomState?
   trace : Array[TraceEvent]
   mut last_publication : Publication?
-  mut published_count : Int
+  mut published_count : Int32
 }
 
 ///|
 /// A positive worker count is required by ownership modulo and exact completion
 /// coverage. Seeded scheduling explores alternate orders reproducibly; no seed
 /// keeps a simple FIFO baseline.
-fn Engine::Engine(worker_count : Int, scheduler_seed? : Int) -> Engine {
+fn Engine::Engine(worker_count : Int32, scheduler_seed? : Int32) -> Engine {
   guard worker_count > 0 else { abort("worker_count must be positive") }
   {
     worker_count,
@@ -84,7 +84,7 @@ fn Engine::run_epoch_event(
 /// sequencing merely because this shell method is private.
 fn Engine::begin_epoch(
   self : Engine,
-  epoch_value : Int,
+  epoch_value : Int32,
 ) -> Result[Unit, ProtocolError] {
   self.run_epoch_event(BeginEpoch(epoch_value))
 }
@@ -94,7 +94,7 @@ fn Engine::begin_epoch(
 /// prevents later caller mutation while sharing staged state across phases.
 fn Engine::stage_batch(
   self : Engine,
-  epoch_value : Int,
+  epoch_value : Int32,
   updates : Array[SourceUpdate],
 ) -> Result[Unit, ProtocolError] {
   self.run_epoch_event(StageEpoch(epoch_value, @vector.Vector(updates)))
@@ -105,7 +105,7 @@ fn Engine::stage_batch(
 /// and contradictory open/closed state.
 fn Engine::close_input(
   self : Engine,
-  epoch_value : Int,
+  epoch_value : Int32,
 ) -> Result[Unit, ProtocolError] {
   self.run_epoch_event(CloseInput(epoch_value))
 }
@@ -181,7 +181,7 @@ fn Engine::queue_drafts(
 ///|
 /// Seeded choice exposes order sensitivity while preserving replay. Index zero
 /// without a seed provides a deterministic baseline rather than ambient random.
-fn Engine::pick_index(self : Engine, length : Int) -> Int {
+fn Engine::pick_index(self : Engine, length : Int32) -> Int32 {
   match self.random {
     None => 0
     Some(random) => random.next_positive_int() % length
@@ -202,8 +202,8 @@ fn Engine::route_one(self : Engine) -> Unit {
 ///|
 /// Scheduling selects only ready mailboxes; treating empty workers as choices
 /// would consume randomness without exercising a delivery interleaving.
-fn Engine::ready_workers(self : Engine) -> Array[Int] {
-  let ready : Array[Int] = []
+fn Engine::ready_workers(self : Engine) -> Array[Int32] {
+  let ready : Array[Int32] = []
   for i, mailbox in self.mailboxes {
     if !mailbox.is_empty() {
       ready.push(i)
@@ -313,7 +313,7 @@ fn Engine::queue_edge_updates(
 fn Engine::queue_origin_reset(
   self : Engine,
   epoch : Epoch,
-  origins : @vector.Vector[Int],
+  origins : @vector.Vector[Int32],
 ) -> Result[Unit, ProtocolError] {
   let raws = Array::makei(self.worker_count, worker_index => RawEnvelope::{
     epoch,
@@ -330,7 +330,7 @@ fn Engine::queue_origin_reset(
 fn Engine::queue_seeds(
   self : Engine,
   epoch : Epoch,
-  origins : @vector.Vector[Int],
+  origins : @vector.Vector[Int32],
 ) -> Result[Unit, ProtocolError] {
   let raws : Array[RawEnvelope] = []
   for origin in origins {
@@ -423,7 +423,7 @@ fn Engine::apply_source_epoch(
 fn Engine::recompute_affected_origins(
   self : Engine,
   epoch : Epoch,
-  changed_from : @vector.Vector[Int],
+  changed_from : @vector.Vector[Int32],
   previous : @hashset.HashSet[Reach],
 ) -> Result[Unit, ProtocolError] {
   let origins = affected_origins(changed_from, previous)
@@ -572,7 +572,7 @@ fn Engine::last_publication_snapshot(self : Engine) -> Publication? {
 ///|
 /// A count is retained instead of publication history because tests need
 /// duplicate-publication detection without unbounded snapshots.
-fn Engine::publication_count(self : Engine) -> Int {
+fn Engine::publication_count(self : Engine) -> Int32 {
   self.published_count
 }
 

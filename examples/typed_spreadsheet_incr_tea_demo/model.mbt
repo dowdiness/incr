@@ -1,12 +1,14 @@
 ///|
+#derive(Eq, Debug)
 struct CellDraft {
   cell : String
   text : String
-} derive(Eq, Debug)
+}
 
 ///|
 
 ///|
+#derive(Eq)
 struct TraceData {
   outcome : String
   recomputed : Array[String]
@@ -15,8 +17,8 @@ struct TraceData {
   recomputed_str : String
   changed_str : String
   unchanged_str : String
-  snapshot_count : Int
-} derive(Eq)
+  snapshot_count : Int32
+}
 
 ///|
 struct SheetState {
@@ -44,8 +46,8 @@ fn SheetState::new(
   let scope = @incr.Scope::new(runtime)
   let cells = scope.input_field(grid_cells(), label="typed-sheet.cells")
   let seed_drafts : Array[CellDraft] = [
-    { cell: "A1", text: "10" },
-    { cell: "B1", text: "=A1 + 1" },
+    { cell: "A1", text: "10", },
+    { cell: "B1", text: "=A1 + 1", },
   ]
   let drafts = scope.input_field(seed_drafts.copy(), label="typed-sheet.drafts")
   let committed = scope.input_field(
@@ -126,43 +128,42 @@ fn SheetState::new(
     @egw_adapter.Seed::Seed("B1", @core.CellRegister::Source("=A1 + 1")),
   ]
   errdefer scope.dispose()
-  let started =
-    match mode {
-      SheetStartMode::Standalone =>
-        @egw_adapter.EgwAdapter::bootstrap(
-          runtime,
-          "typed-sheet-replica-0",
-          @core.CollaborativeSheetId::CollaborativeSheetId(
-            "typed-sheet-document-0",
-          ),
-          @typed_spreadsheet.SheetId(1),
-          seeds,
-          bindings,
-          reset_factory,
-        )
-      SheetStartMode::Host(room, replica) =>
-        @egw_adapter.EgwAdapter::bootstrap(
-          runtime,
-          replica.0,
-          @core.CollaborativeSheetId::CollaborativeSheetId(room),
-          @typed_spreadsheet.SheetId(1),
-          seeds,
-          bindings,
-          reset_factory,
-        )
-      SheetStartMode::Join(payload, document) =>
-        @egw_adapter.EgwAdapter::attach(
-          runtime,
-          payload.identity,
-          payload.sheet_id,
-          payload.generation,
-          document,
-          payload.node,
-          seeds,
-          bindings,
-          reset_factory,
-        )
-    }
+  let started = match mode {
+    SheetStartMode::Standalone =>
+      @egw_adapter.EgwAdapter::bootstrap(
+        runtime,
+        "typed-sheet-replica-0",
+        @core.CollaborativeSheetId::CollaborativeSheetId(
+          "typed-sheet-document-0",
+        ),
+        @typed_spreadsheet.SheetId(1),
+        seeds,
+        bindings,
+        reset_factory,
+      )
+    SheetStartMode::Host(room, replica) =>
+      @egw_adapter.EgwAdapter::bootstrap(
+        runtime,
+        replica.0,
+        @core.CollaborativeSheetId::CollaborativeSheetId(room),
+        @typed_spreadsheet.SheetId(1),
+        seeds,
+        bindings,
+        reset_factory,
+      )
+    SheetStartMode::Join(payload, document) =>
+      @egw_adapter.EgwAdapter::attach(
+        runtime,
+        payload.identity,
+        payload.sheet_id,
+        payload.generation,
+        document,
+        payload.node,
+        seeds,
+        bindings,
+        reset_factory,
+      )
+  }
   let adapter = match started {
     @egw_adapter.AdapterStartResult::Ready(adapter, _) => adapter
     @egw_adapter.AdapterStartResult::Failed(error) => {
@@ -191,6 +192,7 @@ fn SheetState::new(
 }
 
 ///|
+#derive(Eq)
 enum Msg {
   SelectCell(String)
   UpdateDraft(String, String)
@@ -202,8 +204,8 @@ enum Msg {
   BeginInlineEdit(String)
   BeginSelectedInlineEdit
   ApplyInlineEdit(String)
-  MoveSelection(Int, Int)
-} derive(Eq)
+  MoveSelection(Int32, Int32)
+}
 
 // ── Pure handler helpers (no InputField dependency) ────────────────
 
@@ -225,7 +227,7 @@ fn state_visible_cell_ids(
 }
 
 ///|
-fn evidence_capture_limit() -> Int {
+fn evidence_capture_limit() -> Int32 {
   16
 }
 
@@ -287,7 +289,7 @@ fn update_draft(
           draft
         }
       })
-    None => [..drafts, { cell, text }]
+    None => [..drafts, { cell, text, }]
   }
 }
 
@@ -352,8 +354,8 @@ fn update_draft_for_cell(
 ///|
 fn move_selection(
   state : Ref[SheetState],
-  delta_col : Int,
-  delta_row : Int,
+  delta_col : Int32,
+  delta_row : Int32,
 ) -> @tea.Cmd[Msg] {
   let s = state.val
   if s.editing_cell.peek() is Some(_) {

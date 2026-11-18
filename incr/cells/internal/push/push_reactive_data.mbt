@@ -10,7 +10,7 @@ pub(all) struct PushReactiveData {
   /// Cells this reactive reads (updated on recompute via begin/end_tracking).
   mut sources : Array[CellId]
   /// Topological depth (max source level + 1). Recalculated when sources change.
-  mut level : Int
+  mut level : Int32
   /// Set true by push propagation when an upstream cell changes.
   mut dirty : Bool
 }
@@ -19,10 +19,23 @@ pub(all) struct PushReactiveData {
 pub impl HasCellMeta for PushReactiveData with fn meta(self) {
   self.meta
 }
+
+///|
 pub extend PushReactiveData with HasCellMeta::{meta}
+
+///|
 pub extend PushReactiveData with CellOps::{
-  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
-  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+  cell_id,
+  changed_at,
+  set_changed_at,
+  subscribers,
+  label,
+  durability,
+  level,
+  dep_changed_since,
+  push_reachable_count,
+  gc_role,
+  gc_dependencies,
 }
 
 ///|
@@ -39,7 +52,7 @@ pub impl CellOps for PushReactiveData with fn durability(self) -> Durability {
 }
 
 ///|
-pub impl CellOps for PushReactiveData with fn level(self) -> Int {
+pub impl CellOps for PushReactiveData with fn level(self) -> Int32 {
   self.level
 }
 

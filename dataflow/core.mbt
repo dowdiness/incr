@@ -48,7 +48,7 @@ fn canonical_source(
     .iter()
     .map(pair => {
       let (edge, PositiveMultiplicity(weight)) = pair
-      WeightedEdge::{ edge, weight }
+      WeightedEdge::{ edge, weight, }
     })
     .to_array()
   result.sort()
@@ -69,7 +69,7 @@ fn canonical_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
 fn consolidate_updates(
   updates : @vector.Vector[SourceUpdate],
 ) -> Array[ConsolidatedUpdate] {
-  let sums : @hashmap.HashMap[Edge, Int] = @hashmap.HashMap([])
+  let sums : @hashmap.HashMap[Edge, Int32] = @hashmap.HashMap([])
   updates.each(update => {
     sums.update_or_default(update.edge, update.diff, old => old + update.diff)
   })
@@ -80,7 +80,7 @@ fn consolidate_updates(
       if diff == 0 {
         None
       } else {
-        Some(ConsolidatedUpdate::{ edge, diff })
+        Some(ConsolidatedUpdate::{ edge, diff, })
       }
     })
     .to_array()
@@ -99,7 +99,7 @@ fn prepare_epoch(
   let consolidated = consolidate_updates(staged)
   let next_source = source.copy()
   let mut edge_updates : @vector.Vector[ValidatedEdgeUpdate] = @vector.new()
-  let changed_from : @hashset.HashSet[Int] = @hashset.HashSet([])
+  let changed_from : @hashset.HashSet[Int32] = @hashset.HashSet([])
   for update in consolidated {
     let old_weight = match next_source.get(update.edge) {
       None => 0
@@ -120,17 +120,17 @@ fn prepare_epoch(
       next_source[update.edge] = positive
       Present(positive)
     }
-    edge_updates = edge_updates.push({ edge: update.edge, next })
+    edge_updates = edge_updates.push({ edge: update.edge, next, })
   }
   let changed = changed_from.to_array()
   changed.sort()
-  Ok({ next_source, edge_updates, changed_from: @vector.Vector(changed) })
+  Ok({ next_source, edge_updates, changed_from: @vector.Vector(changed), })
 }
 
 ///|
 /// Normalized modulo keeps ownership total for generated negative keys rather
 /// than making the scheduler's partition function partial.
-fn owner_for_key(key : Int, worker_count : Int) -> WorkerId {
+fn owner_for_key(key : Int32, worker_count : Int32) -> WorkerId {
   let remainder = key % worker_count
   WorkerId(if remainder < 0 { remainder + worker_count } else { remainder })
 }
@@ -169,7 +169,7 @@ fn reduce_epoch(
           }
           let epoch = Epoch(epoch_value)
           Ok({
-            phase: Open({ epoch, staged: @vector.new() }),
+            phase: Open({ epoch, staged: @vector.new(), }),
             decision: Some(EpochOpenedDecision(epoch)),
           })
         }
@@ -212,7 +212,7 @@ fn reduce_epoch(
             return Err(EpochMismatch(active.epoch.0, epoch_value))
           }
           Ok({
-            phase: Closed({ epoch: active.epoch, staged: active.staged }),
+            phase: Closed({ epoch: active.epoch, staged: active.staged, }),
             decision: Some(InputClosedDecision(active.epoch)),
           })
         }
@@ -295,20 +295,20 @@ fn reduce_epoch(
           }
         _ => Err(EpochNotPrepared(epoch.0))
       }
-    StopEngine => Ok({ phase: Stopped, decision: None })
+    StopEngine => Ok({ phase: Stopped, decision: None, })
   }
 }
 
 ///|
 /// Routing receives a narrow capability rather than full phase state, limiting
 /// what admission logic can depend on.
-fn routing_context(phase : EpochPhase, worker_count : Int) -> RoutingContext {
+fn routing_context(phase : EpochPhase, worker_count : Int32) -> RoutingContext {
   let gate = match phase {
     Stopped => RoutingStopped
     Draining(active) => RoutingPrepared(active.epoch)
     _ => RoutingNotPrepared
   }
-  { gate, worker_count }
+  { gate, worker_count, }
 }
 
 ///|
@@ -439,7 +439,7 @@ fn parse_completion(
     !workers_closed {
     return Err(IncompleteEpoch(facts.epoch.0))
   }
-  Ok({ epoch: facts.epoch })
+  Ok({ epoch: facts.epoch, })
 }
 
 ///|
@@ -458,7 +458,7 @@ fn complete_epoch(
     reachable: canonical_reachable(next_reachable),
     delta: output_delta(previous, next_reachable),
   }
-  { epoch, next_reachable, publication }
+  { epoch, next_reachable, publication, }
 }
 
 ///|
@@ -478,8 +478,8 @@ fn WorkerState::WorkerState(id : WorkerId) -> WorkerState {
 /// the cost paid to keep reducer inputs observationally immutable.
 fn WorkerState::copy(self : WorkerState) -> WorkerState {
   let edge_by_from : @hashmap.HashMap[
-    Int,
-    @hashmap.HashMap[Int, PositiveMultiplicity],
+    Int32,
+    @hashmap.HashMap[Int32, PositiveMultiplicity],
   ] = @hashmap.HashMap([])
   self.edge_by_from.each((from, by_target) => {
     edge_by_from[from] = by_target.copy()
@@ -527,7 +527,7 @@ fn WorkerState::apply_edges(
 /// provenance. Unaffected origins remain to bound rebuild work.
 fn WorkerState::reset_origins(
   self : WorkerState,
-  origins : @vector.Vector[Int],
+  origins : @vector.Vector[Int32],
 ) -> Unit {
   let affected = @hashset.HashSet::from_iter(origins.iter())
   self.reachable.retain(reach => !affected.contains(reach.origin))
@@ -536,7 +536,7 @@ fn WorkerState::reset_origins(
 ///|
 /// Targets are sorted before feedback so hash-map iteration cannot alter the
 /// seeded scheduler's replay sequence.
-fn WorkerState::joined_targets(self : WorkerState, via : Int) -> Array[Int] {
+fn WorkerState::joined_targets(self : WorkerState, via : Int32) -> Array[Int32] {
   match self.edge_by_from.get(via) {
     None => []
     Some(by_target) => {
@@ -552,12 +552,12 @@ fn WorkerState::joined_targets(self : WorkerState, via : Int) -> Array[Int] {
 /// ownership and protocol checks as coordinator work.
 fn candidate_drafts(
   state : WorkerState,
-  origin : Int,
-  via : Int,
+  origin : Int32,
+  via : Int32,
 ) -> Array[EnvelopeDraft] {
   state
   .joined_targets(via)
-  .map(target => FeedbackDraft(Reach::{ origin, target }))
+  .map(target => FeedbackDraft(Reach::{ origin, target, }))
 }
 
 ///|
@@ -599,9 +599,9 @@ fn worker_reduce(
 /// provenance: any origin previously reaching a changed source is rebuilt,
 /// while positive-to-positive source changes are ignored under set semantics.
 fn affected_origins(
-  changed_from : @vector.Vector[Int],
+  changed_from : @vector.Vector[Int32],
   previous : @hashset.HashSet[Reach],
-) -> @vector.Vector[Int] {
+) -> @vector.Vector[Int32] {
   let changed = @hashset.HashSet::from_iter(changed_from.iter())
   let affected = @hashset.HashSet::from_iter(changed_from.iter())
   previous.each(reach => {
@@ -627,7 +627,7 @@ fn output_delta(
       if next.contains(reach) {
         None
       } else {
-        Some(ReachUpdate::{ reach, diff: -1 })
+        Some(ReachUpdate::{ reach, diff: -1, })
       }
     })
   let added = next
@@ -636,7 +636,7 @@ fn output_delta(
       if previous.contains(reach) {
         None
       } else {
-        Some(ReachUpdate::{ reach, diff: 1 })
+        Some(ReachUpdate::{ reach, diff: 1, })
       }
     })
   let result = removed.concat(added).to_array()

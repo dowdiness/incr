@@ -78,37 +78,37 @@ priv struct RabbitaListHarness {
 ///|
 fn RabbitaListHarness::RabbitaListHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> RabbitaListHarness {
   let baseline = ui_compare_make_items(n)
-  let initial : RabbitaListModel = { baseline, items: baseline }
+  let initial : RabbitaListModel = { baseline, items: baseline, }
   let cell = @rabbita.simple_cell(
     model=initial,
     update=(msg, model) => {
       match msg {
         RabbitaListPrepend =>
-          { ..model, items: [("item-new", "Prepended"), ..model.baseline] }
+          { ..model, items: [("item-new", "Prepended"), ..model.baseline], }
         RabbitaListRemoveFirst =>
           match model.baseline {
-            [_, .. rest] => { ..model, items: rest.to_owned() }
-            [] => { ..model, items: [] }
+            [_, .. rest] => { ..model, items: rest.to_owned(), }
+            [] => { ..model, items: [], }
           }
-        RabbitaListReverse => { ..model, items: model.baseline.rev() }
-        RabbitaListReset => { ..model, items: model.baseline }
+        RabbitaListReverse => { ..model, items: model.baseline.rev(), }
+        RabbitaListReset => { ..model, items: model.baseline, }
       }
     },
     view=ui_compare_rabbita_list_view,
   )
   let app = @rabbita.new(cell)
   app.mount(ui_compare_host_id(host))
-  { host, app }
+  { host, app, }
 }
 
 ///|
 fn RabbitaListHarness::measure_operation(
   self : RabbitaListHarness,
   operation : UiCompareKeyedListOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.name()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -131,8 +131,8 @@ fn RabbitaListHarness::dispose(self : RabbitaListHarness) -> Unit {
 ///|
 fn ui_compare_rabbita_measure_keyed_list(
   operation : UiCompareKeyedListOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = RabbitaListHarness(host, n)
@@ -146,7 +146,7 @@ fn ui_compare_rabbita_measure_keyed_list(
 }
 
 ///|
-fn ui_compare_luna_list_node(n : Int) -> @luna_dom.DomNode {
+fn ui_compare_luna_list_node(n : Int32) -> @luna_dom.DomNode {
   let baseline = ui_compare_make_item_ids(n)
   let items = @luna.signal(baseline)
   @luna_dom.div(class="list-bench", [
@@ -200,19 +200,19 @@ priv struct LunaListHarness {
 ///|
 fn LunaListHarness::LunaListHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> LunaListHarness {
   let (_, dispose) = @luna.create_root_with_dispose(fn() {
     @luna_dom.render_to(host, ui_compare_luna_list_node(n))
   })
-  { host, dispose }
+  { host, dispose, }
 }
 
 ///|
 fn LunaListHarness::measure_operation(
   self : LunaListHarness,
   operation : UiCompareKeyedListOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.name()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -235,8 +235,8 @@ fn LunaListHarness::dispose(self : LunaListHarness) -> Unit {
 ///|
 fn ui_compare_luna_measure_keyed_list(
   operation : UiCompareKeyedListOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = LunaListHarness(host, n)
@@ -253,9 +253,9 @@ fn ui_compare_luna_measure_keyed_list(
 fn ui_compare_adjacent_run_keyed_list(
   system : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_keyed_list_operation(operation)
   let size = ui_compare_positive(n, 64)

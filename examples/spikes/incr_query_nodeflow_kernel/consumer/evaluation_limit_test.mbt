@@ -70,7 +70,7 @@ test "Nodeflow projects its Store evaluation limit as expected unavailability" {
   assert_true(
     restoration.snapshot().action_observation(action)
     is @nodeflow.ActionObservation::Present(
-      @nodeflow.ActionAvailability::Unavailable(_)
+      @nodeflow.ActionAvailability::Unavailable(_),
     ),
   )
   let restored = restoration.nodeflow()

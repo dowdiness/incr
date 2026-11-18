@@ -8,20 +8,22 @@ pub type QueryId = Int32
 
 ///|
 /// Fixed cutoff choices used by the independent K1.4 workloads.
+#derive(Eq, Debug)
 pub(all) enum CutoffKind {
   AlwaysChangedEquivalent
   EqEquivalent
   EqChanged
   DynamicEquivalent
-} derive(Eq, Debug)
+}
 
 ///|
 /// A compact cutoff workload: each step publishes the trigger Source before
 /// the evaluator reads the fixed Query key.
+#derive(Debug)
 pub struct CutoffScript {
   priv kind : CutoffKind
   priv steps : Array[Int32]
-} derive(Debug)
+}
 
 ///|
 pub fn CutoffScript::CutoffScript(
@@ -43,6 +45,7 @@ pub fn CutoffScript::steps(self : CutoffScript) -> Array[Int32] {
 
 ///|
 /// Graph shape exercised by a differential script.
+#derive(Eq, Debug)
 pub(all) enum Scenario {
   Source
   UnitQuery
@@ -64,18 +67,20 @@ pub(all) enum Scenario {
   CycleRecovery
   OldTraceCycle
   SequentialDuplicateRead
-} derive(Eq, Debug)
+}
 
 ///|
 /// A logical source and its value at graph construction time.
+#derive(Eq, Debug)
 pub(all) struct SourceInit {
   id : SourceId
   value : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 /// A runtime operation over a graph whose Source membership is already fixed.
 /// IDs are explicit so scenarios do not rely on evaluator-local allocation.
+#derive(Eq, Debug)
 pub(all) enum Operation {
   Set(SourceId, Int32)
   Read(SourceId)
@@ -83,7 +88,7 @@ pub(all) enum Operation {
   ReadQuery(QueryId, Int32)
   DomainFailure(Int32)
   StructuralFailure(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 fn required_initial_ids(scenario : Scenario) -> Array[SourceId] {
@@ -223,11 +228,12 @@ fn validate_script(
 
 ///|
 /// A two-phase script shared by Fresh and incremental adapters.
+#derive(Debug)
 pub struct Script {
   priv scenario : Scenario
   priv initial_sources : Array[SourceInit]
   priv operations : Array[Operation]
-} derive(Debug)
+}
 
 ///|
 /// Creates a Source-oriented script after validating immutable membership.
@@ -287,18 +293,20 @@ pub fn Script::operations(self : Script) -> Array[Operation] {
 
 ///|
 /// A normalized observation used by differential tests.
+#derive(Eq, Debug)
 pub(all) enum Observation {
   Value(Int32)
   Marker(Int32)
   Missing(SourceId)
   Error(ScenarioError)
   Counter(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Domain and structural failures are normalized separately from values.
+#derive(Eq, Debug)
 pub(all) enum ScenarioError {
   DomainFailure(Int32)
   StructuralFailure(Int32)
   Cycle
-} derive(Eq, Debug)
+}

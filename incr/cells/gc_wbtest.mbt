@@ -88,7 +88,7 @@ test "dispose_cell: clears gc_root_counts with multiple watches" {
 ///|
 test "dispose preflight: pinned relation preserves root and watch state" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rel.insert(1) |> ignore
   rt.fixpoint()
   let watched = Derived(rt, fn() { rel.contains(1) })

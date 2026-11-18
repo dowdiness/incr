@@ -29,6 +29,8 @@ pub struct Scope {
   priv maintenance_hooks : Array[() -> Unit]
   priv mut disposed : Bool
 }
+
+///|
 pub extend Scope with Debug::{to_repr}
 
 ///|
@@ -162,7 +164,7 @@ pub fn Scope::collect(self : Scope) -> Unit {
 pub fn[T] Scope::input(
   self : Scope,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> Input[T] {
   guard !self.disposed else { abort("Scope::input called on a disposed scope") }
@@ -176,7 +178,7 @@ pub fn[T] Scope::input(
 pub fn[T] Scope::input_field(
   self : Scope,
   initial : T,
-  durability? : Durability = Low,
+  durability~ : Durability = Low,
   label? : String,
 ) -> InputField[T] {
   guard !self.disposed else {

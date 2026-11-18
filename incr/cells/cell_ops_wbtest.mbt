@@ -213,7 +213,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
 ///|
 test "cell_lifecycle: dispose_cell dispatches via lifecycle array for relation" {
   let rt = Runtime::Runtime()
-  let rel : Relation[Int] = Relation::Relation(rt)
+  let rel : Relation[Int32] = Relation::Relation(rt)
   rel.insert(42) |> ignore
   // Verify lifecycle array is populated
   inspect(rt.cell_lifecycle.length(), content="1")

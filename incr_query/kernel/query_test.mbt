@@ -1,7 +1,8 @@
 ///|
+#derive(Eq, Hash)
 struct EqKey {
   value : Int32
-} derive(Eq, Hash)
+}
 
 ///|
 fn EqKey::EqKey(value : Int32) -> EqKey {

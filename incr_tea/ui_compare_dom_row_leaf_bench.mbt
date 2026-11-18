@@ -77,7 +77,7 @@ fn[Msg] ui_compare_row_leaf_list(
 #cfg(target="js")
 fn ui_compare_incr_row_leaf_program(
   runtime : @incr.Runtime,
-  n : Int,
+  n : Int32,
 ) -> Program[UiCompareRowLeafOperation, Html[UiCompareRowLeafOperation]] {
   let scope = @incr.Scope::new(runtime)
   let baseline = dom_bench_make_items(n)
@@ -219,7 +219,7 @@ fn ui_compare_hot_row_label(items : Array[(String, String)]) -> String {
 #cfg(target="js")
 fn ui_compare_direct_row_leaf_program(
   runtime : @incr.Runtime,
-  n : Int,
+  n : Int32,
 ) -> UiCompareDirectRowLeafProgram {
   let scope = @incr.Scope::new(runtime)
   let baseline = dom_bench_make_items(n)
@@ -322,20 +322,20 @@ fn ui_compare_direct_row_leaf_program(
       }
     },
   )
-  { program, direct_resolvers }
+  { program, direct_resolvers, }
 }
 
 ///|
 #cfg(target="js")
 fn UiCompareIncrRowLeafHarness::UiCompareIncrRowLeafHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
 ) -> UiCompareIncrRowLeafHarness {
   let runtime = @incr.Runtime()
   let program = ui_compare_incr_row_leaf_program(runtime, n)
   let root = DomBenchRoot(program, host, KeyedDomPatch)
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -343,7 +343,7 @@ fn UiCompareIncrRowLeafHarness::UiCompareIncrRowLeafHarness(
 fn UiCompareIncrRowLeafHarness::measure_operation(
   self : UiCompareIncrRowLeafHarness,
   operation : UiCompareRowLeafOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -370,7 +370,7 @@ fn UiCompareIncrRowLeafHarness::dispose(
 #cfg(target="js")
 fn UiCompareDirectRowLeafHarness::UiCompareDirectRowLeafHarness(
   host : DomElement,
-  n : Int,
+  n : Int32,
 ) -> UiCompareDirectRowLeafHarness {
   let runtime = @incr.Runtime()
   let direct_program = ui_compare_direct_row_leaf_program(runtime, n)
@@ -380,7 +380,7 @@ fn UiCompareDirectRowLeafHarness::UiCompareDirectRowLeafHarness(
     direct_program.direct_resolvers,
   )
   root.flush()
-  { host, root }
+  { host, root, }
 }
 
 ///|
@@ -388,7 +388,7 @@ fn UiCompareDirectRowLeafHarness::UiCompareDirectRowLeafHarness(
 fn UiCompareDirectRowLeafHarness::measure_operation(
   self : UiCompareDirectRowLeafHarness,
   operation : UiCompareRowLeafOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -415,9 +415,9 @@ fn UiCompareDirectRowLeafHarness::dispose(
 #cfg(target="js")
 fn ui_compare_incr_run_row_leaf(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_row_leaf_operation(operation)
   let size = dom_bench_positive(n, 64)
@@ -447,9 +447,9 @@ fn ui_compare_incr_run_row_leaf(
 #cfg(target="js")
 fn ui_compare_incr_run_row_leaf_direct(
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_row_leaf_operation(operation)
   let size = dom_bench_positive(n, 64)

@@ -9,7 +9,7 @@
 ///|
 /// Increments the observer reference count for a cell.
 /// Returns the previous count (0 means this is the first observer).
-pub fn add_gc_root(core : RuntimeCore, id : CellId) -> Int {
+pub fn add_gc_root(core : RuntimeCore, id : CellId) -> Int32 {
   match core.gc_root_counts.get(id) {
     Some(n) => {
       core.gc_root_counts.set(id, n + 1)
@@ -25,7 +25,7 @@ pub fn add_gc_root(core : RuntimeCore, id : CellId) -> Int {
 ///|
 /// Decrements the observer reference count for a cell.
 /// Removes the entry when count reaches 0. Returns remaining count.
-pub fn remove_gc_root(core : RuntimeCore, id : CellId) -> Int {
+pub fn remove_gc_root(core : RuntimeCore, id : CellId) -> Int32 {
   match core.gc_root_counts.get(id) {
     Some(n) if n > 1 => {
       core.gc_root_counts.set(id, n - 1)

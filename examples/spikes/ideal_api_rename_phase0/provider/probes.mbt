@@ -40,7 +40,11 @@ pub fn FreshOnly::FreshOnly(ok : Bool) -> FreshOnly {
 pub impl CurrentFreshness for FreshOnly with fn current(self) {
   self.ok
 }
+
+///|
 pub extend FreshOnly with CurrentFreshness::{current}
+
+///|
 pub extend FreshOnly with CompatReadable::{readable}
 
 ///|
@@ -57,6 +61,8 @@ pub(all) struct LegacyOnly {
 pub fn LegacyOnly::LegacyOnly(ok : Bool) -> LegacyOnly {
   { ok, }
 }
+
+///|
 pub extend LegacyOnly with CompatReadable::{readable}
 
 ///|
@@ -71,7 +77,7 @@ pub(all) struct ReadRuntime {
 
 ///|
 pub fn ReadRuntime::ReadRuntime() -> ReadRuntime {
-  { marker: () }
+  { marker: (), }
 }
 
 ///|

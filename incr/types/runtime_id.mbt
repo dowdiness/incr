@@ -9,17 +9,26 @@
 /// display it. It is **not** a stable application key across program runs, and
 /// carries no ordering or arithmetic meaning — that is why it is a nominal
 /// wrapper rather than a bare `Int`.
+#derive(Eq, Hash, Debug)
 pub(all) struct RuntimeId {
-  id : Int
-} derive(Eq, Hash, Debug)
+  id : Int32
+}
+
+///|
 pub extend RuntimeId with Eq::{not_equal, equal}
+
+///|
 pub extend RuntimeId with Debug::{to_repr}
+
+///|
 pub extend RuntimeId with Show::{output, to_string}
+
+///|
 pub extend RuntimeId with Hash::{hash, hash_combine}
 
 ///|
 /// Wraps a raw runtime-allocation number as a `RuntimeId`.
-pub fn RuntimeId::RuntimeId(id : Int) -> RuntimeId {
+pub fn RuntimeId::RuntimeId(id : Int32) -> RuntimeId {
   { id, }
 }
 

@@ -25,10 +25,10 @@ pub fn[T : Hash + Eq] Relation::Relation(
 ) -> Relation[T] {
   let idx = rt.datalog.relations.length()
   let cell_id = rt.alloc_cell_id(Relation(idx))
-  let current : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
-  let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
-  let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
-  let current_len_before_fixpoint : Ref[Int] = { val: 0 }
+  let current : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]), }
+  let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]), }
+  let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]), }
+  let current_len_before_fixpoint : Ref[Int32] = { val: 0, }
   let data : RelationData = {
     meta: {
       cell_id,
@@ -62,7 +62,7 @@ pub fn[T : Hash + Eq] Relation::Relation(
   rt.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = rt.datalog.relations[idx]
   rt.cell_lifecycle.push(lifecycle)
-  { rt, cell_id, current, delta, staged_delta }
+  { rt, cell_id, current, delta, staged_delta, }
 }
 
 ///|

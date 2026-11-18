@@ -123,9 +123,9 @@ The same pattern applies to enum variants where some fields are stable (drive be
 ```mbt nocheck
 ///|
 enum Status {
-  Loading(progress~ : Int)
-  Ready(data~ : Int)
-  Error(code~ : Int, message~ : String)
+  Loading(progress~ : Int32)
+  Ready(data~ : Int32)
+  Error(code~ : Int32, message~ : String)
 }
 
 ///|
@@ -178,8 +178,8 @@ inspect(handler.read_or_abort(), content="Error: 404")
 ```mbt nocheck
 ///|
 struct Versioned {
-  value : Int
-  generation : Int
+  value : Int32
+  generation : Int32
 }
 
 ///|
@@ -194,12 +194,12 @@ let rt = @incr.Runtime()
 let input = @incr.Input(rt, 100)
 
 ///|
-let generation : Ref[Int] = { val: 0 }
+let generation : Ref[Int32] = { val: 0, }
 
 ///|
 let versioned = @incr.Derived(rt, () => {
   generation.val = generation.val + 1
-  { value: input.get() / 10, generation: generation.val }
+  { value: input.get() / 10, generation: generation.val, }
 })
 
 ///|
@@ -303,7 +303,7 @@ test "cookbook: change notifications" {
   let rt = @incr.Runtime()
   let a = @incr.Input(rt, 0)
   let b = @incr.Input(rt, 0)
-  let notifications : Ref[Int] = { val: 0 }
+  let notifications : Ref[Int32] = { val: 0, }
 
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
@@ -410,7 +410,7 @@ struct MyDb {
 
 ///|
 fn MyDb::MyDb() -> MyDb {
-  { rt: @incr.Runtime() }
+  { rt: @incr.Runtime(), }
 }
 
 ///|
@@ -453,14 +453,14 @@ Before, any update to the `Doc` struct invalidates consumers of the whole input:
 ///|
 struct Doc {
   content : String
-  version : Int
+  version : Int32
 }
 
 ///|
 let rt = @incr.Runtime()
 
 ///|
-let doc = @incr.Input(rt, { content: "hello", version: 0 })
+let doc = @incr.Input(rt, { content: "hello", version: 0, })
 
 ///|
 let length = @incr.Derived(rt, () => doc.get().content.length())
@@ -473,7 +473,7 @@ After, consumers of `content` depend only on the `content` field, so
 ///|
 struct FieldDoc {
   content : @incr.InputField[String]
-  version : @incr.InputField[Int]
+  version : @incr.InputField[Int32]
 }
 
 ///|

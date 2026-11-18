@@ -20,8 +20,8 @@ test "Derived::read on a disposed cell returns Err(Disposed) instead of aborting
 ///|
 test "Derived::get inside a compute surfaces a self-cycle as Err(Cycle(_))" {
   let rt = @incr.Runtime()
-  let saw_cycle : Ref[Bool] = { val: false }
-  let self_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let saw_cycle : Ref[Bool] = { val: false, }
+  let self_ref : Ref[@incr.Derived[Int32]?] = { val: None, }
   let d = @incr.Derived(rt, () => {
     match self_ref.val {
       Some(s) =>
@@ -96,7 +96,7 @@ test "DerivedMap::read recreates a gc-disposed private entry" {
   let mut computes = 0
   let m = @incr.DerivedMap(
     rt,
-    (k : Int) => {
+    (k : Int32) => {
       computes = computes + 1
       src.get() + k
     },
@@ -115,7 +115,7 @@ test "DerivedMap::read recreates a gc-disposed private entry" {
 test "DerivedMap::read after scope disposal returns Err(Disposed)" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let m = scope.derived_map((k : Int) => k * 2, label="m")
+  let m = scope.derived_map((k : Int32) => k * 2, label="m")
   guard m.read(3) is Ok(6) else { fail("expected Ok(6)") }
   scope.dispose()
   guard m.read(3) is Err(e) else {
@@ -127,7 +127,7 @@ test "DerivedMap::read after scope disposal returns Err(Disposed)" {
 ///|
 test "Memo::accumulated on disposed target returns Err(Disposed)" {
   let rt = @incr.Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
+  let acc : @incr.Accumulator[Int32] = @incr.Accumulator(rt)
   let m = @incr.Derived(rt, () => {
     acc.push(1)
     0

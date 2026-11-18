@@ -9,7 +9,7 @@ priv enum RabbitaPanelMsg {
 ///|
 priv struct RabbitaPanelModel {
   open : Bool
-  detail : Int
+  detail : Int32
 }
 
 ///|
@@ -79,22 +79,22 @@ priv struct RabbitaPanelHarness {
 fn RabbitaPanelHarness::RabbitaPanelHarness(
   host : @js_dom.Element,
 ) -> RabbitaPanelHarness {
-  let initial : RabbitaPanelModel = { open: false, detail: 0 }
+  let initial : RabbitaPanelModel = { open: false, detail: 0, }
   let cell = @rabbita.simple_cell(
     model=initial,
     update=(msg, model) => {
       match msg {
-        RabbitaPanelHiddenUpdate => { ..model, detail: model.detail + 1 }
-        RabbitaPanelOpen => { ..model, open: true }
-        RabbitaPanelVisibleUpdate => { ..model, detail: model.detail + 1 }
-        RabbitaPanelClose => { ..model, open: false }
+        RabbitaPanelHiddenUpdate => { ..model, detail: model.detail + 1, }
+        RabbitaPanelOpen => { ..model, open: true, }
+        RabbitaPanelVisibleUpdate => { ..model, detail: model.detail + 1, }
+        RabbitaPanelClose => { ..model, open: false, }
       }
     },
     view=ui_compare_rabbita_panel_view,
   )
   let app = @rabbita.new(cell)
   app.mount(ui_compare_host_id(host))
-  { host, app }
+  { host, app, }
 }
 
 ///|
@@ -126,7 +126,7 @@ fn RabbitaPanelHarness::reset_after(
 fn RabbitaPanelHarness::measure_operation(
   self : RabbitaPanelHarness,
   operation : UiComparePanelOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -150,7 +150,7 @@ fn RabbitaPanelHarness::dispose(self : RabbitaPanelHarness) -> Unit {
 ///|
 fn ui_compare_rabbita_measure_panel(
   operation : UiComparePanelOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = RabbitaPanelHarness(host)
@@ -221,7 +221,7 @@ fn LunaPanelHarness::LunaPanelHarness(
   let (_, dispose) = @luna.create_root_with_dispose(fn() {
     @luna_dom.render_to(host, ui_compare_luna_panel_node())
   })
-  { host, dispose }
+  { host, dispose, }
 }
 
 ///|
@@ -253,7 +253,7 @@ fn LunaPanelHarness::reset_after(
 fn LunaPanelHarness::measure_operation(
   self : LunaPanelHarness,
   operation : UiComparePanelOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -277,7 +277,7 @@ fn LunaPanelHarness::dispose(self : LunaPanelHarness) -> Unit {
 ///|
 fn ui_compare_luna_measure_panel(
   operation : UiComparePanelOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = LunaPanelHarness(host)
@@ -294,8 +294,8 @@ fn ui_compare_luna_measure_panel(
 fn ui_compare_adjacent_run_panel(
   system : String,
   operation : String,
-  iterations : Int,
-  sample_count : Int,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_panel_operation(operation)
   let iteration_count = ui_compare_positive(iterations, 200)

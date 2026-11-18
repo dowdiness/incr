@@ -97,7 +97,7 @@ extern "js" fn admitted_room_fetch(
 
 ///|
 /// Construct a plain text response.
-extern "js" fn response_text(body : String, status : Int) -> Response =
+extern "js" fn response_text(body : String, status : Int32) -> Response =
   #| (body, status) => new Response(body, { status })
 
 ///|
@@ -135,7 +135,7 @@ extern "js" fn response_websocket(socket : WebSocket) -> Response =
 
 ///|
 /// Count active room sockets using the Hibernation API.
-extern "js" fn websocket_count(state : DurableObjectState) -> Int =
+extern "js" fn websocket_count(state : DurableObjectState) -> Int32 =
   #| state => state.getWebSockets().length
 
 ///|
@@ -144,7 +144,7 @@ extern "js" fn broadcast_text(
   state : DurableObjectState,
   sender : WebSocket,
   message : String,
-  max_bytes : Int,
+  max_bytes : Int32,
 ) -> Bool =
   #| (state, sender, message, maxBytes) => {
   #|   if (new TextEncoder().encode(message).byteLength > maxBytes) return false;
@@ -163,8 +163,8 @@ extern "js" fn initialize_rate_state(socket : WebSocket) -> Unit =
 /// Consume one message from a bounded per-connection rate window.
 extern "js" fn allow_rate_message(
   socket : WebSocket,
-  window_ms : Int,
-  max_messages : Int,
+  window_ms : Int32,
+  max_messages : Int32,
 ) -> Bool =
   #| (socket, windowMs, maxMessages) => {
   #|   const now = Date.now();
@@ -185,7 +185,7 @@ extern "js" fn allow_rate_message(
 /// Close a WebSocket with a protocol/size/rate error.
 extern "js" fn close_websocket(
   socket : WebSocket,
-  code : Int,
+  code : Int32,
   reason : String,
 ) -> Unit =
   #| (socket, code, reason) => socket.close(code, reason)

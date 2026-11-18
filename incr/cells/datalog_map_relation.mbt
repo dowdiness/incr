@@ -34,13 +34,15 @@ pub fn[K : Hash + Eq, V] MapRelation::MapRelation(
 ) -> MapRelation[K, V] {
   let idx = rt.datalog.functional_relations.length()
   let cell_id = rt.alloc_cell_id(FunctionalRelation(idx))
-  let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
-  let delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
-  let staged_delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
+  let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]), }
+  let delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]), }
+  let staged_delta : Ref[@hashmap.HashMap[K, V]] = {
+    val: @hashmap.HashMap([]),
+  }
   let original_values : Ref[@hashmap.HashMap[K, V?]] = {
     val: @hashmap.HashMap([]),
   }
-  let changed_keys : Ref[@hashset.HashSet[K]] = { val: @hashset.HashSet([]) }
+  let changed_keys : Ref[@hashset.HashSet[K]] = { val: @hashset.HashSet([]), }
   let data : FunctionalRelationData = {
     meta: {
       cell_id,

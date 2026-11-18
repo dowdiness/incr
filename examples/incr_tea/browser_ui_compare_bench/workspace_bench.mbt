@@ -10,7 +10,7 @@ priv enum RabbitaWorkspaceMsg {
 priv struct RabbitaWorkspaceModel {
   items : Array[(String, String)]
   mode : UiCompareWorkspaceMode
-  revision : Int
+  revision : Int32
 }
 
 ///|
@@ -18,7 +18,7 @@ fn ui_compare_rabbita_workspace_line(
   id : String,
   label : String,
   hot : Bool,
-  revision : Int,
+  revision : Int32,
 ) -> @rabbita.Html {
   let text_label = if hot {
     "let selected_\{revision} = \{label}"
@@ -38,7 +38,7 @@ fn ui_compare_rabbita_workspace_line(
 ///|
 fn ui_compare_rabbita_workspace_editor(
   items : Array[(String, String)],
-  revision : Int,
+  revision : Int32,
 ) -> @rabbita.Html {
   let hot_index = ui_compare_row_leaf_hot_index(items.length())
   let children : Map[String, @rabbita.Html] = Map(
@@ -59,7 +59,7 @@ fn ui_compare_rabbita_workspace_editor(
 ///|
 fn ui_compare_rabbita_workspace_sidebar(
   items : Array[(String, String)],
-  revision : Int,
+  revision : Int32,
 ) -> @rabbita.Html {
   let children = items.mapi((idx, pair) => {
     let (_, label) = pair
@@ -75,7 +75,7 @@ fn ui_compare_rabbita_workspace_sidebar(
 }
 
 ///|
-fn ui_compare_rabbita_workspace_inspector(revision : Int) -> @rabbita.Html {
+fn ui_compare_rabbita_workspace_inspector(revision : Int32) -> @rabbita.Html {
   let reference_count = revision % 17
   @rabbita_html.aside(class="workspace-inspector", [
     @rabbita_html.h3("Inspector"),
@@ -211,7 +211,7 @@ priv struct RabbitaWorkspaceHarness {
 ///|
 fn RabbitaWorkspaceHarness::RabbitaWorkspaceHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> RabbitaWorkspaceHarness {
   let initial : RabbitaWorkspaceModel = {
     items: ui_compare_make_items(n),
@@ -223,19 +223,19 @@ fn RabbitaWorkspaceHarness::RabbitaWorkspaceHarness(
     update=(msg, model) => {
       match msg {
         RabbitaWorkspaceSetCollapsed =>
-          { ..model, mode: UiCompareWorkspaceCollapsed }
+          { ..model, mode: UiCompareWorkspaceCollapsed, }
         RabbitaWorkspaceSetHiddenMounted =>
-          { ..model, mode: UiCompareWorkspaceHiddenMounted }
+          { ..model, mode: UiCompareWorkspaceHiddenMounted, }
         RabbitaWorkspaceSetVisible =>
-          { ..model, mode: UiCompareWorkspaceVisible }
-        RabbitaWorkspaceEdit => { ..model, revision: model.revision + 1 }
+          { ..model, mode: UiCompareWorkspaceVisible, }
+        RabbitaWorkspaceEdit => { ..model, revision: model.revision + 1, }
       }
     },
     view=ui_compare_rabbita_workspace_view,
   )
   let app = @rabbita.new(cell)
   app.mount(ui_compare_host_id(host))
-  { host, app }
+  { host, app, }
 }
 
 ///|
@@ -250,7 +250,7 @@ fn RabbitaWorkspaceHarness::reset_before(
 fn RabbitaWorkspaceHarness::measure_operation(
   self : RabbitaWorkspaceHarness,
   operation : UiCompareWorkspaceOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -273,8 +273,8 @@ fn RabbitaWorkspaceHarness::dispose(self : RabbitaWorkspaceHarness) -> Unit {
 ///|
 fn ui_compare_rabbita_measure_workspace(
   operation : UiCompareWorkspaceOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = RabbitaWorkspaceHarness(host, n)
@@ -292,7 +292,7 @@ fn ui_compare_luna_workspace_line(
   id : String,
   label : String,
   hot : Bool,
-  revision : @signals.Signal[Int],
+  revision : @signals.Signal[Int32],
 ) -> @luna_dom.DomNode {
   let children = if hot {
     [
@@ -322,7 +322,7 @@ fn ui_compare_luna_workspace_line(
 ///|
 fn ui_compare_luna_workspace_editor(
   ids : Array[String],
-  revision : @signals.Signal[Int],
+  revision : @signals.Signal[Int32],
 ) -> @luna_dom.DomNode {
   let hot_index = ui_compare_row_leaf_hot_index(ids.length())
   @luna_dom.section(class="workspace-editor", [
@@ -343,7 +343,7 @@ fn ui_compare_luna_workspace_editor(
 ///|
 fn ui_compare_luna_workspace_sidebar(
   ids : Array[String],
-  revision : @signals.Signal[Int],
+  revision : @signals.Signal[Int32],
 ) -> @luna_dom.DomNode {
   @luna_dom.aside(class="workspace-sidebar", [
     @luna_dom.h3([@luna_dom.text("Sidebar")]),
@@ -367,7 +367,7 @@ fn ui_compare_luna_workspace_sidebar(
 
 ///|
 fn ui_compare_luna_workspace_inspector(
-  revision : @signals.Signal[Int],
+  revision : @signals.Signal[Int32],
 ) -> @luna_dom.DomNode {
   @luna_dom.aside(class="workspace-inspector", [
     @luna_dom.h3([@luna_dom.text("Inspector")]),
@@ -402,7 +402,7 @@ fn ui_compare_luna_workspace_inspector(
 ///|
 fn ui_compare_luna_workspace_content(
   ids : Array[String],
-  revision : @signals.Signal[Int],
+  revision : @signals.Signal[Int32],
   hidden : Bool,
 ) -> @luna_dom.DomNode {
   let content_class = if hidden {
@@ -431,7 +431,7 @@ fn ui_compare_luna_workspace_content(
 }
 
 ///|
-fn ui_compare_luna_workspace_node(n : Int) -> @luna_dom.DomNode {
+fn ui_compare_luna_workspace_node(n : Int32) -> @luna_dom.DomNode {
   let ids = ui_compare_make_item_ids(n)
   let mode = @luna.signal(UiCompareWorkspaceCollapsed)
   let revision = @luna.signal(0)
@@ -511,12 +511,12 @@ priv struct LunaWorkspaceHarness {
 ///|
 fn LunaWorkspaceHarness::LunaWorkspaceHarness(
   host : @js_dom.Element,
-  n : Int,
+  n : Int32,
 ) -> LunaWorkspaceHarness {
   let (_, dispose) = @luna.create_root_with_dispose(fn() {
     @luna_dom.render_to(host, ui_compare_luna_workspace_node(n))
   })
-  { host, dispose }
+  { host, dispose, }
 }
 
 ///|
@@ -531,7 +531,7 @@ fn LunaWorkspaceHarness::reset_before(
 fn LunaWorkspaceHarness::measure_operation(
   self : LunaWorkspaceHarness,
   operation : UiCompareWorkspaceOperation,
-  iterations : Int,
+  iterations : Int32,
 ) -> Double {
   let action = operation.action()
   let total = for _ in 0..<iterations; total = 0.0 {
@@ -554,8 +554,8 @@ fn LunaWorkspaceHarness::dispose(self : LunaWorkspaceHarness) -> Unit {
 ///|
 fn ui_compare_luna_measure_workspace(
   operation : UiCompareWorkspaceOperation,
-  n : Int,
-  iterations : Int,
+  n : Int32,
+  iterations : Int32,
 ) -> Double {
   let host = ui_compare_create_host()
   let harness = LunaWorkspaceHarness(host, n)
@@ -572,9 +572,9 @@ fn ui_compare_luna_measure_workspace(
 fn ui_compare_adjacent_run_workspace(
   system : String,
   operation : String,
-  n : Int,
-  iterations : Int,
-  sample_count : Int,
+  n : Int32,
+  iterations : Int32,
+  sample_count : Int32,
 ) -> String {
   let op = ui_compare_workspace_operation(operation)
   let size = ui_compare_positive(n, 256)

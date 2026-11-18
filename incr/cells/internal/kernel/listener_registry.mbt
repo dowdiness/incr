@@ -28,7 +28,7 @@ pub(all) struct ListenerRegistry[F] {
 ///|
 /// Creates an empty registry.
 pub fn[F] ListenerRegistry::new() -> ListenerRegistry[F] {
-  { entries: [], singleton: None }
+  { entries: [], singleton: None, }
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn[F] ListenerRegistry::add(
   id : ListenerId,
   callback : F,
 ) -> Unit {
-  self.entries.push({ id, callback })
+  self.entries.push({ id, callback, })
 }
 
 ///|
@@ -89,7 +89,7 @@ pub fn[F] ListenerRegistry::set_singleton(
     Some(idx) => self.entries[idx].callback = callback
     None => {
       let id = alloc_id()
-      self.entries.push({ id, callback })
+      self.entries.push({ id, callback, })
       self.singleton = Some(id)
     }
   }
