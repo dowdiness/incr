@@ -77,6 +77,8 @@ pub fn decode_register(
     None => Unset
     Some(text) => {
       let parsed = @json.parse(text) catch {
+        @json.ParseError::DuplicateKey(_, _) =>
+          return Invalid(ProjectionDiagnostic::DuplicateFields(address))
         @json.ParseError::InvalidChar(_, _)
         | @json.ParseError::InvalidEof
         | @json.ParseError::InvalidNumber(_, _)

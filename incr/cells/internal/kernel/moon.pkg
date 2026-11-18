@@ -9,3 +9,8 @@ import {
   "moonbitlang/core/hashset",
   "moonbitlang/core/priority_queue",
 }
+
+// result_error_return — cycle and read outcomes are intentionally returned as
+// ordinary data (`Result`), not raised.
+
+warnings = "-result_error_return"

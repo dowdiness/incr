@@ -19,7 +19,6 @@ fn ui_compare_rabbita_row(id : String, label : String) -> @rabbita.Html {
     @rabbita_html.input(
       class="list-note",
       placeholder="notes — survive reorder",
-      @rabbita_html.nothing,
     ),
   ])
 }

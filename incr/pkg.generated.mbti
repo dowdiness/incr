@@ -7,9 +7,9 @@ import {
 }
 
 // Values
-pub const DURABILITY_COUNT : Int = 3
+pub const DURABILITY_COUNT : Int32 = 3
 
-pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
+pub const MAX_CYCLE_DISPLAY_STEPS : Int32 = 20
 
 pub fn[T : @cells.InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
 

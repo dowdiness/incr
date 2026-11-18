@@ -10,7 +10,8 @@ import {
 // Errors
 
 // Types and methods
-type Appearance derive(Eq)
+#derive(Eq)
+type Appearance
 
 type CellDraft
 
@@ -21,12 +22,13 @@ type ExplanationFrame
 type GridCellSnapshot
 
 type Model
-pub fn Model::ai_context_json(Self, region? : Array[String], max_cells? : Int) -> String
-pub fn Model::ai_context_snapshot(Self, region? : Array[String], max_cells? : Int) -> @typed_spreadsheet_demo.AiContextSnapshot
+pub fn Model::ai_context_json(Self, region? : Array[String], max_cells? : Int32) -> String
+pub fn Model::ai_context_snapshot(Self, region? : Array[String], max_cells? : Int32) -> @typed_spreadsheet_demo.AiContextSnapshot
 
 type Msg
 
-type OverlayPanel derive(Eq)
+#derive(Eq)
+type OverlayPanel
 
 // Type aliases
 

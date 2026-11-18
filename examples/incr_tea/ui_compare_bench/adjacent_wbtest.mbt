@@ -50,7 +50,6 @@ fn ui_compare_rabbita_row(
       class="list-note",
       placeholder="notes — survive reorder",
       on_input=value => emit("\{id}:\{value}"),
-      @rabbita_html.nothing,
     ),
   ])
 }

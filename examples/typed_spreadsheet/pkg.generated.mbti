@@ -12,13 +12,14 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct CellId {
   sheet_id : SheetId
   address : String
-} derive(Eq, @debug.Debug)
+}
 pub fn CellId::CellId(SheetId, String) -> Self
 pub fn CellId::equal(Self, Self) -> Bool
-pub fn CellId::hash(Self) -> Int
+pub fn CellId::hash(Self) -> Int32
 pub fn CellId::hash_combine(Self, Hasher) -> Unit
 pub fn CellId::not_equal(Self, Self) -> Bool
 pub fn CellId::of(SheetId, String) -> Self
@@ -30,13 +31,14 @@ pub enum CellKind {
   Formula
 }
 
+#derive(Eq, @debug.Debug)
 pub enum CellResult {
   Ok(CellValue)
   ParseError(String)
   TypeError(String)
   RefError(String)
   CycleError(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn CellResult::cycle_error(String) -> Self
 pub fn CellResult::equal(Self, Self) -> Bool
 pub fn CellResult::is_ok(Self) -> Bool
@@ -60,13 +62,14 @@ pub struct CellSnapshot {
   last_dynamic_dependencies : Array[CellId]
 }
 
+#derive(Eq, @debug.Debug)
 pub enum CellType {
   TInt
   TBool
   TString
   TBlank
   TAny
-} derive(Eq, @debug.Debug)
+}
 pub fn CellType::accepts(Self, CellValue) -> Bool
 pub fn CellType::equal(Self, Self) -> Bool
 pub fn CellType::not_equal(Self, Self) -> Bool
@@ -78,21 +81,23 @@ pub fn CellType::t_string() -> Self
 pub fn CellType::to_repr(Self) -> @debug.Repr
 pub fn CellType::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub enum CellValue {
-  Int(Int)
+  Int(Int32)
   Bool(Bool)
   Text(String)
   Blank
-} derive(Eq, @debug.Debug)
+}
 pub fn CellValue::blank() -> Self
 pub fn CellValue::cell_type(Self) -> CellType
 pub fn CellValue::equal(Self, Self) -> Bool
 pub fn CellValue::from_bool(Bool) -> Self
-pub fn CellValue::from_int(Int) -> Self
+pub fn CellValue::from_int(Int32) -> Self
 pub fn CellValue::from_text(String) -> Self
 pub fn CellValue::not_equal(Self, Self) -> Bool
 pub fn CellValue::to_repr(Self) -> @debug.Repr
 
+#derive(Eq)
 pub enum Formula {
   Literal(CellValue)
   Ref(CellId)
@@ -101,7 +106,7 @@ pub enum Formula {
   Eq(Formula, Formula)
   Gt(Formula, Formula)
   If(Formula, Formula, Formula)
-} derive(Eq)
+}
 pub fn Formula::add(Self, Self) -> Self
 pub fn Formula::cell_ref(CellId) -> Self
 pub fn Formula::dependency_shape(Self) -> FormulaDependencyShape
@@ -114,32 +119,35 @@ pub fn Formula::mul(Self, Self) -> Self
 pub fn Formula::not_equal(Self, Self) -> Bool
 pub fn Formula::refs(Self) -> Array[CellId]
 
+#derive(Eq, @debug.Debug)
 pub enum FormulaAstQueryError {
   ForeignCellId(CellId)
   MissingCell(CellId)
   DeletedCell(CellId)
   NotFormula(CellId)
   OpaqueFormula(CellId)
-} derive(Eq, @debug.Debug)
+}
 pub fn FormulaAstQueryError::equal(Self, Self) -> Bool
 pub fn FormulaAstQueryError::not_equal(Self, Self) -> Bool
 pub fn FormulaAstQueryError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum FormulaDependencyShape {
   Applicative
   Selective
   Dynamic
-} derive(Eq, @debug.Debug)
+}
 pub fn FormulaDependencyShape::equal(Self, Self) -> Bool
 pub fn FormulaDependencyShape::not_equal(Self, Self) -> Bool
 pub fn FormulaDependencyShape::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct SheetId {
-  value : Int
-} derive(Eq, @debug.Debug)
-pub fn SheetId::SheetId(Int) -> Self
+  value : Int32
+}
+pub fn SheetId::SheetId(Int32) -> Self
 pub fn SheetId::equal(Self, Self) -> Bool
-pub fn SheetId::hash(Self) -> Int
+pub fn SheetId::hash(Self) -> Int32
 pub fn SheetId::hash_combine(Self, Hasher) -> Unit
 pub fn SheetId::not_equal(Self, Self) -> Bool
 pub fn SheetId::to_repr(Self) -> @debug.Repr
@@ -154,7 +162,7 @@ pub struct Worksheet {
   // private fields
 }
 pub fn Worksheet::Worksheet(@cells.Runtime, SheetId) -> Self
-pub fn Worksheet::compact_deleted_cells(Self) -> Int
+pub fn Worksheet::compact_deleted_cells(Self) -> Int32
 pub fn Worksheet::delete(Self, CellId) -> CellResult
 pub fn Worksheet::dispose(Self) -> Unit
 pub fn Worksheet::force_set_input(Self, CellId, CellValue, declared? : CellType, label? : String) -> CellResult
@@ -169,9 +177,10 @@ pub fn Worksheet::sheet_id(Self) -> SheetId
 pub fn[T] Worksheet::trace(Self, () -> T) -> (T, WorksheetTrace)
 pub fn[T] Worksheet::trace_observed_formulas(Self, Array[CellId], () -> T) -> (T, WorksheetTrace)
 
+#derive(Eq, @debug.Debug)
 pub enum WorksheetError {
   RefError(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn WorksheetError::equal(Self, Self) -> Bool
 pub fn WorksheetError::not_equal(Self, Self) -> Bool
 pub fn WorksheetError::ref_error(String) -> Self

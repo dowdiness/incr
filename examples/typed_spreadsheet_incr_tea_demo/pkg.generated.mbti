@@ -24,7 +24,8 @@ type ApplicationLifecycleError
 
 type ApplicationObservation
 
-type ApplicationRemoteError derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type ApplicationRemoteError
 
 type ApplicationSnapshot
 
@@ -32,7 +33,8 @@ type ApplicationStartError
 
 type BootstrapData
 
-type CellDraft derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type CellDraft
 
 type CollabDecision
 
@@ -42,11 +44,13 @@ type CollabMessage
 
 type CollabOwner
 
-type CollabPhase derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type CollabPhase
 
 type CollabState
 
-type CollabTransportKind derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type CollabTransportKind
 
 type DispatchOutcome
 
@@ -54,41 +58,50 @@ type HostResolutionError
 
 type KeyResolution
 
-type Msg derive(Eq)
+#derive(Eq)
+type Msg
 
-type PeerId derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type PeerId
 
 type RegionRenderStats
 
-type ReplicaId derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type ReplicaId
 
 type RoomSelectionDecision
 
 type RoomSelectionEvent
 
-type RoomSelectionRejection derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type RoomSelectionRejection
 
 type RoomSelectionState
 
 type SessionTransport
 
-type SheetPlan derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type SheetPlan
 
-type SheetPlanningContext derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type SheetPlanningContext
 
 type SheetStartMode
 
 type SheetState
 
-type StartupMode derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type StartupMode
 
-type TraceData derive(Eq)
+#derive(Eq)
+type TraceData
 
 type TypedSheetApplication
 
 type TypedSheetHosts
 
-type UiEffect derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type UiEffect
 
 // Type aliases
 

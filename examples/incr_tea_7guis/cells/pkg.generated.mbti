@@ -11,7 +11,8 @@ pub fn mount(@incr_tea.DomElement) -> Unit
 // Errors
 
 // Types and methods
-type Msg derive(Eq)
+#derive(Eq)
+type Msg
 pub fn Msg::equal(Self, Self) -> Bool
 pub fn Msg::not_equal(Self, Self) -> Bool
 

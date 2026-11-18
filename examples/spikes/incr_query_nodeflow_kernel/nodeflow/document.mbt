@@ -203,6 +203,7 @@ pub fn GraphDocument::decode_json(
     | @json.ParseError::InvalidEof
     | @json.ParseError::InvalidNumber(_, _)
     | @json.ParseError::InvalidIdentEscape(_)
+    | @json.ParseError::DuplicateKey(_, _)
     | @json.ParseError::DepthLimitExceeded => return Err(MalformedJson)
   }
   match root {
