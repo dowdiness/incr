@@ -17,19 +17,19 @@ pub(all) struct CellMeta {
   mut changed_at : @types.Revision
   mut durability : @types.Durability
   subscribers : @hashset.HashSet[@types.CellId]
-  mut push_reachable_count : Int
+  mut push_reachable_count : Int32
 }
 
 pub(all) enum CellRef {
-  PullInput(Int)
-  PullMemo(Int)
-  PushReactive(Int)
-  PushEffect(Int)
-  HybridMemo(Int)
+  PullInput(Int32)
+  PullMemo(Int32)
+  PushReactive(Int32)
+  PushEffect(Int32)
+  HybridMemo(Int32)
   Disposed
-  Relation(Int)
-  FunctionalRelation(Int)
-  Rule(Int)
+  Relation(Int32)
+  FunctionalRelation(Int32)
+  Rule(Int32)
 }
 
 // Type aliases
@@ -42,9 +42,9 @@ pub(open) trait CellOps : HasCellMeta {
   fn subscribers(Self) -> @hashset.HashSet[@types.CellId] = _
   fn label(Self) -> String? = _
   fn durability(Self) -> @types.Durability = _
-  fn level(Self) -> Int = _
+  fn level(Self) -> Int32 = _
   fn dep_changed_since(Self, @types.Revision) -> Bool? = _
-  fn push_reachable_count(Self) -> Int = _
+  fn push_reachable_count(Self) -> Int32 = _
   fn gc_role(Self) -> @types.GcRole = _
   fn gc_dependencies(Self) -> Array[@types.CellId] = _
 }
@@ -63,4 +63,3 @@ pub(open) trait SlotSnapshot {
   fn disposed(Self) -> Bool
   fn push_revised_at_for(Self, @types.CellId) -> @types.Revision
 }
-

@@ -32,7 +32,5 @@ import {
 // 7 (unused_field) — AcceptedDerived.fold (stored for future introspection through
 //   scope lifecycle); wbtest struct fields (TestGraphState, etc.)
 
-warnings = "-1-7-result_error_return-test_unqualified_package"
-// result_error_return — cycle and read outcomes are intentionally returned as
-// ordinary data (`Result`), not raised.
+warnings = "-1-7-test_unqualified_package"
 // 25 (test_unqualified_package) — same-package tests use direct names intentionally.

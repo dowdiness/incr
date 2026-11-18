@@ -27,12 +27,16 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Handle the `DuplicateKey` case of `@json.parse` in the Nodeflow spike and the
   typed-spreadsheet register codec. Default parsing still accepts duplicate
   keys, so the codec keeps its existing root duplicate-field preflight.
-- Disable the `result_error_return` migration lint in the engine packages whose
-  cycle and read outcomes are intentionally returned as `Result` data.
+- Replace the engine's internal `Result[_, CycleError] raise Failure` pull
+  verification and recompute channel with raised errors; cycles are converted
+  to `ReadError::Cycle` only at the read boundary. Remove the unused
+  `read_result`/`get_strict_result` compatibility projections (their tests now
+  cover `read_honest`/`get_strict_honest`). Public `batch_result` keeps its
+  `Result` return and allows the `result_error_return` lint on that function.
 - Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
   Chromium on the `ubuntu-latest` 26.04 image.
 - Select modern-manifest releases of transitive regexp, prettyprinter, and
-  btree dependencies for MoonBit 0.10.15 workspace resolution.
+  btree dependencies for MoonBit 0.10.21 workspace resolution.
 
 ## [v0.15.1] - 2026-08-27
 

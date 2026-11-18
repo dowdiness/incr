@@ -213,9 +213,9 @@ impl @shared.SlotSnapshot for SlotMeta with fn push_revised_at_for(
 fn Runtime::ensure_computed_untracked(
   self : Runtime,
   cell_id : CellId,
-) -> Result[Unit, CycleError] raise Failure {
+) -> Unit raise Error {
   if self.is_cell_disposed(cell_id) {
-    return Ok(())
+    return
   }
   let data = self.get_memo_data(cell_id)
   // "Never been computed" is tracked explicitly via has_been_computed
@@ -223,15 +223,9 @@ fn Runtime::ensure_computed_untracked(
   // runtime starts at initial, so a successful first compute would leave
   // verified_at == initial, indistinguishable from "never computed".
   if !data.has_been_computed {
-    match (data.compute)() {
-      Ok(_) => Ok(())
-      Err(e) => Err(e)
-    }
+    ignore((data.compute)())
   } else {
-    match self.pull_verify(cell_id) {
-      Ok(_) => Ok(())
-      Err(e) => Err(e)
-    }
+    self.pull_verify(cell_id)
   }
 }
 

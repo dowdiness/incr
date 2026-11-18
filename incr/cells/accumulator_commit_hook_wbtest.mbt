@@ -176,7 +176,10 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   let _acc : Accumulator[Int32] = Accumulator(rt)
   let m2 : Derived[Int32] = Derived(rt, () => raise Failure("inner abort"))
   let m1 = Derived(rt, () => {
-    let _ = m2.get_result_inner()
+    let _ = m2.get_result_inner() catch {
+      Failure::Failure(_) as e => raise e
+      e => abort("unexpected error: " + e.to_string())
+    }
     0
   })
   try m1.force_recompute() catch {

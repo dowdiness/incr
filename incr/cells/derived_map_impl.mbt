@@ -42,7 +42,9 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::read_honest(
   key : K,
 ) -> Result[V, ReadError] {
   let entry = self.get_or_create_entry(key)
-  let result = entry.get_result_inner() catch {
+  let result : Result[V, ReadError] = Ok(entry.get_result_inner()) catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) as e =>
+      Err(ReadError::cycle(e))
     e => {
       self.rt.drain_pending_events_direct()
       abort("DerivedMap compute raised: " + e.to_string())
@@ -51,42 +53,7 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::read_honest(
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
-  match result {
-    Ok(v) => Ok(v)
-    Err(e) => Err(ReadError::cycle(e))
-  }
-}
-
-///|
-/// Package-private strict Result read. Requires an active tracked context.
-/// Compatibility projection of `get_strict_honest` onto `CycleError`.
-fn[K : Hash + Eq, V : Eq] DerivedMap::get_strict_result(
-  self : DerivedMap[K, V],
-  key : K,
-) -> Result[V, CycleError] {
-  guard self.rt.core.tracking.stack.length() > 0 else {
-    abort(
-      "DerivedMap::get() called outside tracked context. Use DerivedMap::read(key) or DerivedMap::read_or_abort(key) to read from outside the graph.",
-    )
-  }
-  self.read_result(key)
-}
-
-///|
-/// Package-private permissive Result read. Records a dependency when tracked.
-/// Compatibility projection of `read_honest` onto `CycleError`: a cycle is
-/// `Err(CycleError)` and any lifecycle error aborts. GC-disposed private
-/// per-key entries are recreated by `read_honest` before this projection.
-fn[K : Hash + Eq, V : Eq] DerivedMap::read_result(
-  self : DerivedMap[K, V],
-  key : K,
-) -> Result[V, CycleError] {
-  match self.read_honest(key) {
-    Ok(v) => Ok(v)
-    Err(ReadError::Cycle(e)) => Err(e)
-    Err(ReadError::Disposed(_)) =>
-      abort("DerivedMap::read called on a disposed entry")
-  }
+  result
 }
 
 ///|

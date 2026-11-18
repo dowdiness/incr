@@ -143,9 +143,11 @@ test "cycle cleanup preserves previous trace: in_progress cleared on verify erro
   rt.pull.memos[b_idx].dependencies = [a.id()]
 
   tick.set(1)
-  match rt.pull_verify(a.id()) {
-    Ok(_) => abort("expected cycle during trace verification")
-    Err(_) => ()
+  try rt.pull_verify(a.id()) catch {
+    @incr_types.CycleError::CycleDetected(_, _, _) => ()
+    e => abort("expected cycle during trace verification, got " + e.to_string())
+  } noraise {
+    _ => abort("expected cycle during trace verification")
   }
 
   inspect(rt.pull.memos[a_idx].in_progress, content="false")

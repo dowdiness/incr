@@ -8,9 +8,9 @@ import {
 // Values
 pub fn probe_blanket_trait_compatibility() -> Bool
 
-pub fn probe_public_aliases() -> Int
+pub fn probe_public_aliases() -> Int32
 
-pub fn probe_same_receiver_overload() -> Int
+pub fn probe_same_receiver_overload() -> Int32
 
 // Errors
 

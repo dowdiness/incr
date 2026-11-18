@@ -31,7 +31,10 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
   // Outer memo calls ensure_computed_untracked on inner but must NOT
   // record inner as an ordinary dep.
   let outer = Derived(rt, () => {
-    let _ = rt.ensure_computed_untracked(inner.id())
+    rt.ensure_computed_untracked(inner.id()) catch {
+      Failure::Failure(_) as e => raise e
+      e => abort("unexpected error: " + e.to_string())
+    }
     42
   })
   let _ = outer.watch().read_or_abort()

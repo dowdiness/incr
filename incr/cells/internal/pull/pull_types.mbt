@@ -1,11 +1,5 @@
 ///|
-using @incr_types {
-  type CellId,
-  type CycleError,
-  type Durability,
-  type GcRole,
-  type Revision,
-}
+using @incr_types {type CellId, type Durability, type GcRole, type Revision}
 
 ///|
 using @shared {

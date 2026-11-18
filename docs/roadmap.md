@@ -29,11 +29,10 @@ active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
 preserving historical evidence pins.
 Active repository automation now uses exact MoonBit 0.10.21+06da1ed44 through
 its checksum-verified local installer, satisfying that prerequisite. MoonBit
-0.10.15 is the currently supported minimum; older compilers are not supported.
+0.10.21 is the currently supported minimum; older compilers are not supported.
 Repository-wide validation exposed the `examples/incr_tea` transitive
 `moonbitlang/async@0.19.0` as compiler-incompatible; the example module now
-resolves `async@0.21.0` directly while retaining its existing Luna, JS, and
-Rabbita pins.
+resolves `async@0.22.9` directly and uses `rabbita@0.17.0`.
 
 Actual publication, registry mutation, version release, Canopy production
 integration, Mount, Program/Port/Formula, public debug/explain, public or

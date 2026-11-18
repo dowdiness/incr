@@ -277,7 +277,7 @@ fn push_failure_cleanup_harness_for_test(
   rt : Runtime,
   cell_id : CellId,
   run_body : () -> Unit raise Failure,
-) -> Result[Unit, Error] {
+) -> Unit raise Error {
   let run = fn() raise Failure {
     rt.enter_phase(PushPropagating)
     Tracker::push_tracking(rt, cell_id)
@@ -287,11 +287,7 @@ fn push_failure_cleanup_harness_for_test(
     }
     run_body()
   }
-  try run() catch {
-    e => Err(e)
-  } noraise {
-    _ => Ok(())
-  }
+  run()
 }
 
 ///|
@@ -307,11 +303,17 @@ test "push abort: reactive failure restores phase stack and sources" {
   let data = rt.push.reactives[r_idx]
   let old_sources = data.sources.copy()
 
-  let result = push_failure_cleanup_harness_for_test(rt, r.id(), () => {
-    ignore(other.get())
-    fail("reactive boom")
-  })
-  inspect(result is Err(_), content="true")
+  let failed = try
+    push_failure_cleanup_harness_for_test(rt, r.id(), () => {
+      ignore(other.get())
+      fail("reactive boom")
+    })
+  catch {
+    _ => true
+  } noraise {
+    _ => false
+  }
+  inspect(failed, content="true")
   inspect(rt.core.phase, content="Idle")
   inspect(rt.core.tracking.stack.length(), content="0")
   inspect(@kernel.get_current_computing_runtime_id() is None, content="true")
@@ -333,11 +335,17 @@ test "push abort: effect failure restores phase stack and sources" {
   let data = rt.push.effects[effect_idx]
   let old_sources = data.sources.copy()
 
-  let result = push_failure_cleanup_harness_for_test(rt, effect.id(), () => {
-    ignore(other.get())
-    fail("effect boom")
-  })
-  inspect(result is Err(_), content="true")
+  let failed = try
+    push_failure_cleanup_harness_for_test(rt, effect.id(), () => {
+      ignore(other.get())
+      fail("effect boom")
+    })
+  catch {
+    _ => true
+  } noraise {
+    _ => false
+  }
+  inspect(failed, content="true")
   inspect(rt.core.phase, content="Idle")
   inspect(rt.core.tracking.stack.length(), content="0")
   inspect(@kernel.get_current_computing_runtime_id() is None, content="true")

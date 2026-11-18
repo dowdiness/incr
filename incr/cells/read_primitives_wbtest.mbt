@@ -1,22 +1,22 @@
 ///|
-test "memo read primitive: read_result works outside tracked context" {
+test "memo read primitive: read_honest works outside tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let derived = Derived(rt, () => source.get() * 2)
 
-  match derived.read_result() {
+  match derived.read_honest() {
     Ok(value) => inspect(value, content="20")
-    Err(_) => abort("expected memo read_result to succeed")
+    Err(_) => abort("expected memo read_honest to succeed")
   }
 }
 
 ///|
-test "memo read primitive: get_strict_result records dependency in tracked context" {
+test "memo read primitive: get_strict_honest records dependency in tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let derived = Derived(rt, () => source.get() * 2)
   let view = Derived(rt, () => {
-    match derived.get_strict_result() {
+    match derived.get_strict_honest() {
       Ok(value) => value + 1
       Err(_) => -1
     }
@@ -28,24 +28,25 @@ test "memo read primitive: get_strict_result records dependency in tracked conte
 }
 
 ///|
-test "panic memo read primitive: get_strict_result outside tracked context aborts" {
+test "panic memo read primitive: get_strict_honest outside tracked context aborts" {
   let rt = Runtime::Runtime()
   let derived = Derived(rt, () => 1)
 
-  ignore(derived.get_strict_result())
+  ignore(derived.get_strict_honest())
 }
 
 ///|
-test "memo read primitive: read_result returns cycle error" {
+test "memo read primitive: read_honest returns cycle error" {
   let rt = Runtime::Runtime()
   let derived = Derived(rt, () => 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
   Tracker::push_tracking(rt, derived.id())
 
-  let got_cycle = match derived.read_result() {
+  let got_cycle = match derived.read_honest() {
     Ok(_) => false
-    Err(err) => err.cell() == derived.id()
+    Err(ReadError::Disposed(_)) => false
+    Err(ReadError::Cycle(err)) => err.cell() == derived.id()
   }
   meta.in_progress = false
   ignore(Tracker::pop_tracking(rt))
@@ -53,24 +54,24 @@ test "memo read primitive: read_result returns cycle error" {
 }
 
 ///|
-test "hybrid read primitive: read_result works outside tracked context" {
+test "hybrid read primitive: read_honest works outside tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let hybrid = ReachableDerived(rt, () => source.get() * 2)
 
-  match hybrid.read_result() {
+  match hybrid.read_honest() {
     Ok(value) => inspect(value, content="20")
-    Err(_) => abort("expected hybrid read_result to succeed")
+    Err(_) => abort("expected hybrid read_honest to succeed")
   }
 }
 
 ///|
-test "hybrid read primitive: get_strict_result records dependency in tracked context" {
+test "hybrid read primitive: get_strict_honest records dependency in tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let hybrid = ReachableDerived(rt, () => source.get() * 2)
   let view = Derived(rt, () => {
-    match hybrid.get_strict_result() {
+    match hybrid.get_strict_honest() {
       Ok(value) => value + 1
       Err(_) => -1
     }
@@ -82,47 +83,48 @@ test "hybrid read primitive: get_strict_result records dependency in tracked con
 }
 
 ///|
-test "panic hybrid read primitive: get_strict_result outside tracked context aborts" {
+test "panic hybrid read primitive: get_strict_honest outside tracked context aborts" {
   let rt = Runtime::Runtime()
   let hybrid = ReachableDerived(rt, () => 1)
 
-  ignore(hybrid.get_strict_result())
+  ignore(hybrid.get_strict_honest())
 }
 
 ///|
-test "hybrid read primitive: read_result returns cycle error" {
+test "hybrid read primitive: read_honest returns cycle error" {
   let rt = Runtime::Runtime()
   let hybrid = ReachableDerived(rt, () => 1)
   let meta = rt.get_memo_data(hybrid.id())
   meta.in_progress = true
 
-  let got_cycle = match hybrid.read_result() {
+  let got_cycle = match hybrid.read_honest() {
     Ok(_) => false
-    Err(err) => err.cell() == hybrid.id()
+    Err(ReadError::Disposed(_)) => false
+    Err(ReadError::Cycle(err)) => err.cell() == hybrid.id()
   }
   meta.in_progress = false
   inspect(got_cycle, content="true")
 }
 
 ///|
-test "memo_map read primitive: read_result works outside tracked context" {
+test "memo_map read primitive: read_honest works outside tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let by_key = DerivedMap(rt, (key : Int32) => source.get() + key)
 
-  match by_key.read_result(2) {
+  match by_key.read_honest(2) {
     Ok(value) => inspect(value, content="12")
-    Err(_) => abort("expected memo_map read_result to succeed")
+    Err(_) => abort("expected memo_map read_honest to succeed")
   }
 }
 
 ///|
-test "memo_map read primitive: get_strict_result records dependency in tracked context" {
+test "memo_map read primitive: get_strict_honest records dependency in tracked context" {
   let rt = Runtime::Runtime()
   let source = Input::Input(rt, 10)
   let by_key = DerivedMap(rt, (key : Int32) => source.get() + key)
   let view = Derived(rt, () => {
-    match by_key.get_strict_result(1) {
+    match by_key.get_strict_honest(1) {
       Ok(value) => value * 2
       Err(_) => -1
     }
@@ -134,24 +136,25 @@ test "memo_map read primitive: get_strict_result records dependency in tracked c
 }
 
 ///|
-test "panic memo_map read primitive: get_strict_result outside tracked context aborts" {
+test "panic memo_map read primitive: get_strict_honest outside tracked context aborts" {
   let rt = Runtime::Runtime()
   let by_key = DerivedMap(rt, (key : Int32) => key * 10)
 
-  ignore(by_key.get_strict_result(1))
+  ignore(by_key.get_strict_honest(1))
 }
 
 ///|
-test "memo_map read primitive: read_result returns cycle error" {
+test "memo_map read primitive: read_honest returns cycle error" {
   let rt = Runtime::Runtime()
   let by_key = DerivedMap(rt, (key : Int32) => key * 10)
   let entry = by_key.get_or_create_entry(1)
   let meta = rt.get_memo_data(entry.id())
   meta.in_progress = true
 
-  let got_cycle = match by_key.read_result(1) {
+  let got_cycle = match by_key.read_honest(1) {
     Ok(_) => false
-    Err(err) => err.cell() == entry.id()
+    Err(ReadError::Disposed(_)) => false
+    Err(ReadError::Cycle(err)) => err.cell() == entry.id()
   }
   meta.in_progress = false
   inspect(got_cycle, content="true")

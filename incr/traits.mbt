@@ -138,6 +138,7 @@ pub fn[Ctx : RuntimeContext] batch(
 
 ///|
 /// Runs a batch and returns raised errors as `Result`.
+#warnings("-result_error_return")
 pub fn[Ctx : RuntimeContext] batch_result(
   ctx : Ctx,
   f : () -> Unit raise,

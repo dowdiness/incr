@@ -16,7 +16,7 @@ pub(all) struct PushEffectData {
   meta : @shared.CellMeta
   mut execute : () -> Unit
   mut sources : Array[@types.CellId]
-  mut level : Int
+  mut level : Int32
   mut dirty : Bool
 }
 pub fn PushEffectData::cell_id(Self) -> @types.CellId
@@ -27,9 +27,9 @@ pub fn PushEffectData::durability(Self) -> @types.Durability
 pub fn PushEffectData::gc_dependencies(Self) -> Array[@types.CellId]
 pub fn PushEffectData::gc_role(Self) -> @types.GcRole
 pub fn PushEffectData::label(Self) -> String?
-pub fn PushEffectData::level(Self) -> Int
+pub fn PushEffectData::level(Self) -> Int32
 pub fn PushEffectData::meta(Self) -> @shared.CellMeta
-pub fn PushEffectData::push_reachable_count(Self) -> Int
+pub fn PushEffectData::push_reachable_count(Self) -> Int32
 pub fn PushEffectData::set_changed_at(Self, @types.Revision) -> Unit
 pub fn PushEffectData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PushEffectData
@@ -39,7 +39,7 @@ pub(all) struct PushReactiveData {
   meta : @shared.CellMeta
   mut compute : () -> Bool
   mut sources : Array[@types.CellId]
-  mut level : Int
+  mut level : Int32
   mut dirty : Bool
 }
 pub fn PushReactiveData::cell_id(Self) -> @types.CellId
@@ -50,9 +50,9 @@ pub fn PushReactiveData::durability(Self) -> @types.Durability
 pub fn PushReactiveData::gc_dependencies(Self) -> Array[@types.CellId]
 pub fn PushReactiveData::gc_role(Self) -> @types.GcRole
 pub fn PushReactiveData::label(Self) -> String?
-pub fn PushReactiveData::level(Self) -> Int
+pub fn PushReactiveData::level(Self) -> Int32
 pub fn PushReactiveData::meta(Self) -> @shared.CellMeta
-pub fn PushReactiveData::push_reachable_count(Self) -> Int
+pub fn PushReactiveData::push_reachable_count(Self) -> Int32
 pub fn PushReactiveData::set_changed_at(Self, @types.Revision) -> Unit
 pub fn PushReactiveData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PushReactiveData
