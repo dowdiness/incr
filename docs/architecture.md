@@ -128,7 +128,7 @@ functional-relation storage.
 
 **Batching:**
 
-`batch` and `batch_result` defer all `set` operations and revision bumps to the end of the block, with rollback on raised errors. See the [Cookbook](cookbook.mbt.md) for revert detection semantics.
+`batch` defers all `set` operations and revision bumps to the end of the block, with rollback on raised errors. See the [Cookbook](cookbook.mbt.md) for revert detection semantics.
 
 ---
 

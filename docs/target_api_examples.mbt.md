@@ -81,13 +81,17 @@ test "docs target api: committed-change callback skips same-value input set" {
 }
 
 ///|
-test "docs target api: batch_result rolls back raised errors" {
+test "docs target api: batch rolls back raised errors" {
   let rt = @incr.Runtime()
   let amount = @incr.Input(rt, 100, label="amount")
-  let result = rt.batch_result(fn() raise {
-    amount.set(999)
-    raise TargetApiBatchStop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      amount.set(999)
+      raise TargetApiBatchStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(amount.get(), content="100")

@@ -457,11 +457,15 @@ test "docs cookbook: extension-owned map rollback restores insertion and replace
   let index = CookbookExternalIndex(rt)
   index.put("existing", 1)
 
-  let result = rt.batch_result(() => {
-    index.put("inserted", 2)
-    index.put("existing", 99)
-    raise CookbookExternalRollbackError::CookbookRollbackAbort
-  })
+  let result = Ok(
+    rt.batch(() => {
+      index.put("inserted", 2)
+      index.put("existing", 99)
+      raise CookbookExternalRollbackError::CookbookRollbackAbort
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(CookbookRollbackAbort), content="true")
   inspect(index.rows.contains("inserted"), content="false")

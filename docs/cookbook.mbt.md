@@ -72,7 +72,7 @@ external state unit: an existing value-slot/input ID, a whole-structure rollback
 token, or a per-entry token whose own creation is not an untracked side effect in
 a failed batch.
 
-When `Runtime::batch_result` returns `Err(_)`, the current batch frame has already
+When `Runtime::batch` raises, the current batch frame has already
 replayed these callbacks in reverse order. An outermost successful batch discards
 the rollback log; a successful nested batch merges its rollback entries into the
 parent frame so an outer failure can still restore them. This is not a general

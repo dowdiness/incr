@@ -15,8 +15,6 @@ pub fn[T : @cells.InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
 
 pub fn[Ctx : RuntimeContext] batch(Ctx, () -> Unit raise?) -> Unit raise?
 
-pub fn[Ctx : RuntimeContext] batch_result(Ctx, () -> Unit raise) -> Result[Unit, Error]
-
 pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(Ctx, label? : String) -> @cells.Accumulator[T]
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.Derived[T]

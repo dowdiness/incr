@@ -466,7 +466,7 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
 /// watch slot for addresses whose committed presence is already `false`,
 /// returning the number of slots removed.
 ///
-/// Call this after a successful edit or after `Runtime::batch`/`batch_result`
+/// Call this after a successful edit or after `Runtime::batch`
 /// returns. Reads inside an open batch see pre-commit values, so compaction is a
 /// post-commit maintenance step rather than part of the transactional edit body.
 pub fn Worksheet::compact_deleted_cells(self : Worksheet) -> Int32 {

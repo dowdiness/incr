@@ -179,10 +179,14 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
       }
     BatchResultFail(v) =>
       ignore(
-        fixture.rt.batch_result(fn() raise {
-          fixture.input_a.set(v)
-          raise BatchTestError::Stop
-        }),
+        Ok(
+          fixture.rt.batch(fn() raise {
+            fixture.input_a.set(v)
+            raise BatchTestError::Stop
+          }),
+        ) catch {
+          e => Err(e)
+        },
       )
   }
 }
@@ -506,13 +510,17 @@ test "graph invariant: batch rollback preserves graph invariants" {
 }
 
 ///|
-test "graph invariant: failed batch_result reports err and settles runtime" {
+test "graph invariant: failed batch reports err and settles runtime" {
   let fixture = build_graph_fixture()
   let before_a = fixture.input_a.get()
-  let res = fixture.rt.batch_result(fn() raise {
-    fixture.input_a.set(before_a + 77)
-    raise BatchTestError::Stop
-  })
+  let res = Ok(
+    fixture.rt.batch(fn() raise {
+      fixture.input_a.set(before_a + 77)
+      raise BatchTestError::Stop
+    }),
+  ) catch {
+    e => Err(e)
+  }
   inspect(res is Err(_), content="true")
   inspect(fixture.input_a.get(), content=before_a.to_string())
   inspect(fixture.rt.core.batch.pending.length(), content="0")

@@ -151,13 +151,17 @@ suberror GettingStartedBatchStop {
 }
 
 ///|
-test "getting started: batch_result rollback" {
+test "getting started: batch rollback" {
   let rt = @incr.Runtime()
   let amount = rt.input(100)
-  let result = rt.batch_result(fn() raise {
-    amount.set(999)
-    raise GettingStartedStop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      amount.set(999)
+      raise GettingStartedStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(amount.get(), content="100")

@@ -70,28 +70,20 @@ Limit — abort safety:
 - `abort()` is not catchable in MoonBit. If `f` calls `abort()` (directly or indirectly), the catch block inside `batch()` never runs. The runtime is left in inconsistent state: `batch_depth` is not decremented, the batch frame stack is not popped, and pending inputs retain dangling `commit_pending`/`rollback_pending` closures. The runtime should be considered unusable after an abort.
 - The most common indirect source of `abort()` inside a batch is using an aborting read on a derived value involved in a dependency cycle. Use `Derived::read()` inside batch functions to handle cycles gracefully instead of aborting.
 
+To observe a raised error as a value, wrap the call:
+`try Ok(rt.batch(f)) catch { e => Err(e) }`.
+
 Dangerous pattern: calling an aborting read such as `read_or_abort()` inside a
 batch can leave batch state corrupted if it hits a cycle. Safer pattern: call a
 `Result`-returning read such as `read()`, then raise the returned error so the
 batch rollback path can run.
-
-### `Runtime::batch_result(self, f: () -> Unit raise) -> Result[Unit, Error]`
-
-Executes a batch and returns raised errors as `Result` instead of re-raising.
-Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
-The `f` parameter is `raise` (concrete `Error`), not `raise?`: non-raising
-callers and custom suberrors both work, but downstream wrappers that forward a
-`raise?` closure to `batch_result` must declare `f: () -> Unit raise`.
-
-The checked companion covers `batch_result` returning `Err` and rolling back
-pending writes in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Runtime::record_batch_rollback(self, cell_id: CellId, rollback: () -> Unit) -> Unit`
 
 Registers an extension-owned rollback callback for the current batch frame. This
 is for mutable side structures that are not themselves ordinary `Input` /
 `InputField` cells: indexes, slot maps, metadata tables, or caches that must be
-restored if `Runtime::batch` / `Runtime::batch_result` exits through a raised
+restored if `Runtime::batch` exits through a raised
 error.
 
 If no user batch frame is active, this is a no-op. If a batch frame is active,
@@ -1142,16 +1134,6 @@ Runs a batch using `ctx.runtime()`, including rollback-on-raise semantics.
 This is the `RuntimeContext` helper form of `rt.batch(...)`.
 
 The checked companion covers the `RuntimeContext` helper form of `batch` in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-### `batch_result[Ctx : RuntimeContext](ctx: Ctx, f: () -> Unit raise) -> Result[Unit, Error]`
-
-Runs a batch using `ctx.runtime()` and returns raised errors as `Result`.
-This is the `RuntimeContext` helper form of `rt.batch_result(...)`.
-See `Runtime::batch_result` above for the `raise?` → `raise` migration note.
-
-The checked companion covers the `RuntimeContext` helper form of `batch_result`,
-including rollback on `Err`, in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ---

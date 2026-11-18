@@ -98,17 +98,20 @@ test "trait: batch via RuntimeContext rolls back on raised error" {
 }
 
 ///|
-test "trait: batch_result via RuntimeContext" {
+test "trait: batch via RuntimeContext commits and then rolls back a later failure" {
   let db = TestDb()
   let x = @incr.create_input(db, 1)
-  let ok = @incr.batch_result(db, () => x.set(2))
-  inspect(ok is Ok(_), content="true")
+  @incr.batch(db, () => x.set(2))
   inspect(x.get(), content="2")
 
-  let err = @incr.batch_result(db, () => {
-    x.set(3)
-    raise Stop
-  })
+  let err = Ok(
+    @incr.batch(db, () => {
+      x.set(3)
+      raise Stop
+    }),
+  ) catch {
+    e => Err(e)
+  }
   inspect(err is Err(Stop), content="true")
   inspect(x.get(), content="2")
 }

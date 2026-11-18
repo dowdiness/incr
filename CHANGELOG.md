@@ -31,8 +31,15 @@ All notable changes to `dowdiness/incr` are documented in this file.
   verification and recompute channel with raised errors; cycles are converted
   to `ReadError::Cycle` only at the read boundary. Remove the unused
   `read_result`/`get_strict_result` compatibility projections (their tests now
-  cover `read_honest`/`get_strict_honest`). Public `batch_result` keeps its
-  `Result` return and allows the `result_error_return` lint on that function.
+  cover `read_honest`/`get_strict_honest`).
+
+### Removed
+
+- **Breaking:** Remove `Runtime::batch_result` and the `batch_result` facade
+  helper. They only re-encoded the raised `Error` of `batch` as
+  `Result[Unit, Error]`, which the `result_error_return` lint flags and which
+  carries no more type information than `raise`. Use
+  `try Ok(rt.batch(f)) catch { e => Err(e) }`, or handle the error directly.
 - Run Playwright-based CI jobs on `ubuntu-24.04`; Playwright does not support
   Chromium on the `ubuntu-latest` 26.04 image.
 - Select modern-manifest releases of transitive regexp, prettyprinter, and

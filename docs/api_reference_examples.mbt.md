@@ -18,16 +18,20 @@ suberror ApiRefBatchResultError {
 }
 
 ///|
-test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
+test "docs api-ref: Runtime batch raised error rolls back writes" {
   let rt = @incr.Runtime()
   let input = rt.input(0, label="input")
   let notifications : Ref[Int32] = { val: 0, }
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
-  let result = rt.batch_result(fn() raise {
-    input.set(1)
-    raise ApiRefBatchStop
-  })
+  let result = Ok(
+    rt.batch(fn() raise {
+      input.set(1)
+      raise ApiRefBatchStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(input.get(), content="0")
@@ -994,7 +998,7 @@ test "docs api-ref: batch helper commits one atomic update" {
 }
 
 ///|
-test "docs api-ref: batch_result helper rolls back on Err" {
+test "docs api-ref: batch helper rolls back on raised error" {
   let app : AppCtx = { rt: @incr.Runtime(), }
   let price = @incr.Input(app.rt, 100, label="price")
   let quantity = @incr.Input(app.rt, 2, label="quantity")
@@ -1004,18 +1008,22 @@ test "docs api-ref: batch_result helper rolls back on Err" {
     label="total",
   )
 
-  let result = @incr.batch_result(app, fn() raise {
-    price.set(500)
-    quantity.set(9)
-    raise ApiRefBatchStop
-  })
+  let result = Ok(
+    @incr.batch(app, fn() raise {
+      price.set(500)
+      quantity.set(9)
+      raise ApiRefBatchStop
+    }),
+  ) catch {
+    e => Err(e)
+  }
 
   inspect(result is Err(_), content="true")
   inspect(price.get(), content="100")
   inspect(quantity.get(), content="2")
   inspect(total.read_or_abort(), content="200")
 
-  let ok = @incr.batch_result(app, () => price.set(120))
+  let ok = Ok(@incr.batch(app, () => price.set(120))) catch { e => Err(e) }
   inspect(ok is Ok(_), content="true")
   inspect(total.read_or_abort(), content="240")
 }

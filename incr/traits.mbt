@@ -137,16 +137,6 @@ pub fn[Ctx : RuntimeContext] batch(
 }
 
 ///|
-/// Runs a batch and returns raised errors as `Result`.
-#warnings("-result_error_return")
-pub fn[Ctx : RuntimeContext] batch_result(
-  ctx : Ctx,
-  f : () -> Unit raise,
-) -> Result[Unit, Error] {
-  ctx.runtime().batch_result(f)
-}
-
-///|
 /// Convenience mirror of `create_input` / `create_derived`.
 pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(
   ctx : Ctx,

@@ -749,10 +749,14 @@ fn exec_runtime_actions(
       SetAction(idx, val) => inputs[idx].set(val)
       BatchAction(children, should_raise) =>
         if should_raise {
-          let _ = rt.batch_result(fn() raise {
-            exec_runtime_actions(rt, inputs, children)
-            raise L2BatchError::L2Stop
-          })
+          let _ = Ok(
+            rt.batch(fn() raise {
+              exec_runtime_actions(rt, inputs, children)
+              raise L2BatchError::L2Stop
+            }),
+          ) catch {
+            e => Err(e)
+          }
         } else {
           rt.batch(fn() { exec_runtime_actions(rt, inputs, children) })
         }
@@ -863,12 +867,16 @@ fn run_nested_batch_seed(
       BatchAction(children, should_raise) => {
         if should_raise {
           // Runtime: raise → rollback
-          let _ = rt.batch_result(fn() raise {
-            exec_runtime_actions(rt, inputs, children)
-            raise L2BatchError::L2Stop
-          })
-          // Model: children are discarded (rollback)
+          let _ = Ok(
+            rt.batch(fn() raise {
+              exec_runtime_actions(rt, inputs, children)
+              raise L2BatchError::L2Stop
+            }),
+          ) catch {
+            e => Err(e)
+          }
         } else {
+          // Model: children are discarded (rollback)
           // Runtime: batch commits
           rt.batch(fn() { exec_runtime_actions(rt, inputs, children) })
           // Model: apply children's effects
