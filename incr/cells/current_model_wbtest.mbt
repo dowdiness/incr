@@ -144,8 +144,9 @@ test "cycle cleanup preserves previous trace: in_progress cleared on verify erro
 
   tick.set(1)
   try rt.pull_verify(a.id()) catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) => ()
-    e => abort("expected cycle during trace verification, got " + e.to_string())
+    PullError::Cycle(_) => ()
+    PullError::Defect(e) =>
+      abort("expected cycle during trace verification, got " + e.to_string())
   } noraise {
     _ => abort("expected cycle during trace verification")
   }

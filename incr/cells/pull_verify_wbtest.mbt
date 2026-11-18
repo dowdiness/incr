@@ -3,7 +3,8 @@ test "pull_verify: input always returns Ok" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   rt.pull_verify(sig.id()) catch {
-    e => abort("expected success, got " + e.to_string())
+    PullError::Cycle(e) => abort("unexpected cycle: " + e.format_path())
+    PullError::Defect(e) => abort("expected success, got " + e.to_string())
   }
 }
 

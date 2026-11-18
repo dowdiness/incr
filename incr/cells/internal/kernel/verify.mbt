@@ -89,7 +89,7 @@ fn run_pull_recompute(
   stack : Array[PullVerifyFrame],
   derived : @pull.MemoData,
   changed : Bool,
-) -> Unit raise Error {
+) -> Unit raise PullError {
   if !changed {
     return
   }
@@ -130,7 +130,7 @@ fn synthetic_accumulator_changed(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   memo : @pull.MemoData,
-) -> Bool raise Error {
+) -> Bool raise PullError {
   if memo.accumulator_reads.is_empty() {
     return false
   }
@@ -164,7 +164,7 @@ pub fn pull_verify(
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   cell_id : CellId,
-) -> Unit raise Error {
+) -> Unit raise PullError {
   validate_cell(core, cell_id, "pull_verify")
   match core.cell_index[cell_id.id] {
     PullInput(_) => () // always fresh
@@ -189,10 +189,8 @@ pub fn pull_verify(
         return
       }
       if root.in_progress {
-        raise construct_cycle_error(
-          core,
-          collect_in_progress_path(pull),
-          cell_id,
+        raise PullError::Cycle(
+          construct_cycle_error(core, collect_in_progress_path(pull), cell_id),
         )
       }
       let stack : Array[PullVerifyFrame] = []
@@ -260,7 +258,9 @@ pub fn pull_verify(
                       path.push(frame.cell_id)
                     }
                     abort_pull_rebuild(pull, stack)
-                    raise construct_cycle_error(core, path, dep_id)
+                    raise PullError::Cycle(
+                      construct_cycle_error(core, path, dep_id),
+                    )
                   }
                   enter_pull_frame(stack, dep, dep_id, dep_idx)
                 }

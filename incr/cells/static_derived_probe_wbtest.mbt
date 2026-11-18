@@ -312,10 +312,11 @@ test "static derived: accumulator use fails explicitly" {
     (a, b) => a == b,
   )
   let push_failed = try push_probe.force_recompute() catch {
-    e =>
+    PullError::Defect(e) =>
       e
       .to_string()
       .contains("Accumulator::push is unsupported inside static Derived")
+    PullError::Cycle(_) => false
   } noraise {
     _ => false
   }
@@ -338,10 +339,11 @@ test "static derived: accumulator use fails explicitly" {
     (a, b) => a == b,
   )
   let read_failed = try read_probe.force_recompute() catch {
-    e =>
+    PullError::Defect(e) =>
       e
       .to_string()
       .contains("Derived::accumulated is unsupported inside static Derived")
+    PullError::Cycle(_) => false
   } noraise {
     _ => false
   }

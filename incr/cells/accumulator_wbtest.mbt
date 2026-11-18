@@ -581,7 +581,8 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
   // read here, so its stored revision stays at R0.
   sig.set(0)
   rt.ensure_computed_untracked(producer.id()) catch {
-    e => fail("R1 unexpected error: " + e.to_string())
+    PullError::Cycle(e) => fail("R1 unexpected cycle: " + e.format_path())
+    PullError::Defect(e) => fail("R1 unexpected failure: " + e.to_string())
   }
   // R2: sig=99 → producer aborts while pushing to slot that is NOT in
   // prev_contributions (cleared during R1's empty finalize). Prior code

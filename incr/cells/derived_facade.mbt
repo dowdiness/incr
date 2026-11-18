@@ -347,8 +347,8 @@ pub fn[T, A] Derived::accumulated(
     rt.ensure_computed_untracked(self.cell_id)
     None
   } catch {
-    @incr_types.CycleError::CycleDetected(_, _, _) as e => Some(e)
-    e => {
+    PullError::Cycle(e) => Some(e)
+    PullError::Defect(e) => {
       rt.drain_pending_events_direct()
       abort("Derived::accumulated target compute raised: " + e.to_string())
     }

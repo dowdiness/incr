@@ -32,8 +32,8 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
   // record inner as an ordinary dep.
   let outer = Derived(rt, () => {
     rt.ensure_computed_untracked(inner.id()) catch {
-      Failure::Failure(_) as e => raise e
-      e => abort("unexpected error: " + e.to_string())
+      PullError::Defect(e) => raise e
+      PullError::Cycle(e) => abort("unexpected cycle: " + e.format_path())
     }
     42
   })
